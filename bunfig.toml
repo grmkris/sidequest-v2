@@ -1,0 +1,5 @@
+logLevel = "warn"
+
+[install]
+# Every dependency is pinned exactly (AGENTS.md); `bun add` writes exact versions too.
+exact = true

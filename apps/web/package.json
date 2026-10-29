@@ -1,0 +1,25 @@
+{
+  "name": "@sidequest/web",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "./src/entry.ts",
+    "**/*.css"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@effect/platform-browser": "catalog:",
+    "@foldkit/ui": "catalog:",
+    "@sidequest/i18n": "workspace:*",
+    "effect": "catalog:",
+    "foldkit": "catalog:",
+    "zyzz": "catalog:"
+  },
+  "devDependencies": {
+    "@foldkit/vite-plugin": "catalog:",
+    "vite": "catalog:"
+  }
+}

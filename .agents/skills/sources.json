@@ -1,0 +1,385 @@
+{
+  "version": 2,
+  "skills": {
+    "alchemy-domain": {
+      "repository": "alchemy-run/alchemy",
+      "commit": "3bb45b0f089597f4b0f9c908b2f5d615201d1405",
+      "path": "packages/domain/skills/alchemy-domain",
+      "license": "Apache-2.0",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "f36574c2c495b578c7ba6371356756372d7111ca7845bf54d62bd84713b51a66",
+      "localTreeSha256": "f36574c2c495b578c7ba6371356756372d7111ca7845bf54d62bd84713b51a66",
+      "unchanged": true
+    },
+    "animate": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/animate",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "cad4cbda82810bbd771af0c636015ceab28a89460f619d48332709cc370a57c4",
+      "localTreeSha256": "cad4cbda82810bbd771af0c636015ceab28a89460f619d48332709cc370a57c4",
+      "unchanged": true
+    },
+    "animation-vocabulary": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/animation-vocabulary",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "e8f2f403dff9e422b11c420d78bac0ed82c999cf7f56ef75745c9e8c548ec142",
+      "localTreeSha256": "e8f2f403dff9e422b11c420d78bac0ed82c999cf7f56ef75745c9e8c548ec142",
+      "unchanged": true
+    },
+    "apple-design": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/apple-design",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "17d56c00b870b03bfcfe83e603a47f81e01c48937105c5850be5f4a748b213e2",
+      "localTreeSha256": "17d56c00b870b03bfcfe83e603a47f81e01c48937105c5850be5f4a748b213e2",
+      "unchanged": true
+    },
+    "apple-web-app": {
+      "repository": "joe-bell/skills",
+      "commit": "6e79fd26ab3849f214b9a9ba2ac7cd6b6223e98a",
+      "path": "skills/apple-web-app",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "ada40f95b941526582f5666075771b295d25a91a62bb66c601ce738f1d8776b7",
+      "localTreeSha256": "ada40f95b941526582f5666075771b295d25a91a62bb66c601ce738f1d8776b7",
+      "unchanged": true
+    },
+    "audit-program": {
+      "repository": "foldkit/foldkit",
+      "commit": "7ee214268c602967937b80f6f20d1e831f2e8ab6",
+      "path": "skills/audit-program",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "5bf8298b74df6ddfbc16ea7383fa22d68369766201271d848b02eedc8e07f52b",
+      "localTreeSha256": "5bf8298b74df6ddfbc16ea7383fa22d68369766201271d848b02eedc8e07f52b",
+      "unchanged": true
+    },
+    "break-ui": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/break-ui",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "c1c67d8e5bf7431ea78226e4c2558908a0aea7bbfa558736063227bb37d91690",
+      "localTreeSha256": "c1c67d8e5bf7431ea78226e4c2558908a0aea7bbfa558736063227bb37d91690",
+      "unchanged": true
+    },
+    "domain-modeling": {
+      "repository": "mattpocock/skills",
+      "commit": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "path": "skills/engineering/domain-modeling",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "45bcb33893d56d32d760599a706a731e9281e595092740179755608127efdef6",
+      "localTreeSha256": "45bcb33893d56d32d760599a706a731e9281e595092740179755608127efdef6",
+      "unchanged": true
+    },
+    "durable-objects": {
+      "repository": "cloudflare/skills",
+      "commit": "0871daceb347e3c51693fbe9c77555468df7e410",
+      "path": "skills/durable-objects",
+      "license": "Apache-2.0",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "57d6553178ac88801def139889b4932af574dbb3db0f7949f3b8bf45b3d7335d",
+      "localTreeSha256": "86c2713d744846c851c14f096bba920904f7e664b404ada07908d53011c971de",
+      "unchanged": false,
+      "adaptation": "Removed trailing spaces from two blank lines in references/workers.md; the guidance is unchanged.",
+      "baseCommit": "0871daceb347e3c51693fbe9c77555468df7e410"
+    },
+    "find-animation-opportunities": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/find-animation-opportunities",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "d9225e049ebfc4dab5eac71fc2c6994eb1d340475b105808cdbc9ef3a3cec426",
+      "localTreeSha256": "d9225e049ebfc4dab5eac71fc2c6994eb1d340475b105808cdbc9ef3a3cec426",
+      "unchanged": true
+    },
+    "foldkit": {
+      "repository": "foldkit/foldkit",
+      "commit": "7ee214268c602967937b80f6f20d1e831f2e8ab6",
+      "path": "skills/foldkit",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "f2b7b5b9f90c1e85f3e97749f8b0a37a4297d46c6d379d5b5e3bff24558684a0",
+      "localTreeSha256": "f2b7b5b9f90c1e85f3e97749f8b0a37a4297d46c6d379d5b5e3bff24558684a0",
+      "unchanged": true
+    },
+    "frontend-design": {
+      "repository": "anthropics/skills",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "path": "skills/frontend-design",
+      "license": "Apache-2.0",
+      "licenses": [
+        "LICENSE.txt"
+      ],
+      "treeSha256": "7e9c2af00fd5b3144f49ce6fb1b16037b392ab9c2f049423b0b6114d99381ba2",
+      "localTreeSha256": "7e9c2af00fd5b3144f49ce6fb1b16037b392ab9c2f049423b0b6114d99381ba2",
+      "unchanged": true
+    },
+    "generate-program": {
+      "repository": "foldkit/foldkit",
+      "commit": "7ee214268c602967937b80f6f20d1e831f2e8ab6",
+      "path": "skills/generate-program",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "9233662e4999ff56f3795209c98624fdf6b9d33383d07c164cd7769afb24973b",
+      "localTreeSha256": "9233662e4999ff56f3795209c98624fdf6b9d33383d07c164cd7769afb24973b",
+      "unchanged": true
+    },
+    "good-css": {
+      "repository": "vojtaholik/good-css",
+      "commit": "92d436ba1937d1b1407c47e35abb3e199eaace2e",
+      "path": "skills/good-css",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "688a3873f613a906567ca5ae1726124e2d8dee1d338730ededfdb272a1942a00",
+      "localTreeSha256": "688a3873f613a906567ca5ae1726124e2d8dee1d338730ededfdb272a1942a00",
+      "unchanged": true
+    },
+    "grilling": {
+      "repository": "mattpocock/skills",
+      "commit": "59db609eb1e18aaf59b63284d0e52255aff0c63c",
+      "path": "skills/productivity/grilling",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "714b8c4d1544298615f0647b237e7ea13c6940c302417c51571ca77ba5161dad",
+      "localTreeSha256": "714b8c4d1544298615f0647b237e7ea13c6940c302417c51571ca77ba5161dad",
+      "unchanged": true
+    },
+    "hallmark": {
+      "repository": "nutlope/hallmark",
+      "commit": "8f6969f8922caabde9de1784959eae11ddf68073",
+      "path": "skills/hallmark",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "d31a58b43c7c30e35773e35c2636fd84ab2fa475be2a7eaed6fc35afb1a3eb0a",
+      "localTreeSha256": "d31a58b43c7c30e35773e35c2636fd84ab2fa475be2a7eaed6fc35afb1a3eb0a",
+      "unchanged": true
+    },
+    "investigate-a-failure": {
+      "repository": "joelhooks/rat-stack",
+      "commit": "82737fe6848fa3c95e6887bcb10a52bc28f0e8f0",
+      "path": "skills/investigate-a-failure",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "8887d58608af1bf5b624426a058cb5dcabf47c5c882ff773d0f38e03ae32a8f1",
+      "localTreeSha256": "8887d58608af1bf5b624426a058cb5dcabf47c5c882ff773d0f38e03ae32a8f1",
+      "unchanged": true
+    },
+    "learn-alchemy": {
+      "repository": "joelhooks/rat-stack",
+      "commit": "82737fe6848fa3c95e6887bcb10a52bc28f0e8f0",
+      "path": "skills/learn-alchemy",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "e18a5281b12de4f9f540e916eb34d10660766dcefa77100b5d4bb93c2af0169a",
+      "localTreeSha256": "e18a5281b12de4f9f540e916eb34d10660766dcefa77100b5d4bb93c2af0169a",
+      "unchanged": true
+    },
+    "make-interfaces-feel-better": {
+      "repository": "jakubkrehel/make-interfaces-feel-better",
+      "commit": "35545ea1512ad59fa463e6b1f95ca9c052981fe6",
+      "path": "skills/make-interfaces-feel-better",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "a38394c031e268bf8d7d05ff6f742baf1787395692bedf76f07cef911c472bcb",
+      "localTreeSha256": "a38394c031e268bf8d7d05ff6f742baf1787395692bedf76f07cef911c472bcb",
+      "unchanged": true
+    },
+    "mobile-native": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/mobile-native",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "e09d6a584beac50f1f52be3c80164e1935ca0694f9e93fcb6893b564c7ce1d44",
+      "localTreeSha256": "e09d6a584beac50f1f52be3c80164e1935ca0694f9e93fcb6893b564c7ce1d44",
+      "unchanged": true
+    },
+    "review-animations": {
+      "repository": "emilkowalski/skills",
+      "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",
+      "path": "skills/review-animations",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "42e71687b56e255eb085d668506e12ac0a067c19a6f19088ee45fd6b419c14a3",
+      "localTreeSha256": "42e71687b56e255eb085d668506e12ac0a067c19a6f19088ee45fd6b419c14a3",
+      "unchanged": true
+    },
+    "test-behaviour": {
+      "repository": "joelhooks/rat-stack",
+      "commit": "82737fe6848fa3c95e6887bcb10a52bc28f0e8f0",
+      "path": "skills/test-behaviour",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "01e3ac232f5dcbdb108fbb7af51507b9d28088ce46e80d5c367e1b8be50a0cf9",
+      "localTreeSha256": "01e3ac232f5dcbdb108fbb7af51507b9d28088ce46e80d5c367e1b8be50a0cf9",
+      "unchanged": true
+    },
+    "thermo-nuclear-code-quality-review": {
+      "repository": "cursor/plugins",
+      "commit": "ccb5507cec1546dc88135c1139c811e6c59115ba",
+      "path": "thermos/skills/thermo-nuclear-code-quality-review",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "b92ba8ebcf36f421a22a6af2972325d4e8b56ee397ca7de6734f84806050dbb4",
+      "localTreeSha256": "dce8793eba43c2e18caa103e747f44205d41462c0a9e5eac469dbab277dedd11",
+      "unchanged": false,
+      "adaptation": "agents/openai.yaml added so Codex also treats it as manual-only.",
+      "baseCommit": "ccb5507cec1546dc88135c1139c811e6c59115ba"
+    },
+    "thermo-nuclear-review": {
+      "repository": "cursor/plugins",
+      "commit": "0f77cd5dab1e006de02d6ad221d5620de026473a",
+      "path": "thermos/skills/thermo-nuclear-review",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "6555687f1bffa96a3cd813aa7e94707d4aec98465c1184c3d12fbfd034bfc3f0",
+      "localTreeSha256": "6555687f1bffa96a3cd813aa7e94707d4aec98465c1184c3d12fbfd034bfc3f0",
+      "unchanged": true
+    },
+    "unslop": {
+      "repository": "cursor/plugins",
+      "commit": "ccb5507cec1546dc88135c1139c811e6c59115ba",
+      "path": "pstack/skills/unslop",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "8ccc1d0bebf98bb77486238ca07d7dc7fba9b467aef3ad49477aa64cbcef89aa",
+      "localTreeSha256": "a3acfd72b95b3dce0feb5cfde79797526ece9270f46bdcfac1139f8ed74b704e",
+      "unchanged": false,
+      "adaptation": "Description scoped to prose; upstream 'Must always apply' contradicts its manual-only flag (cursor/plugins#308, #367). agents/openai.yaml added so Codex also treats it as manual-only.",
+      "baseCommit": "ccb5507cec1546dc88135c1139c811e6c59115ba"
+    },
+    "web-perf": {
+      "repository": "cloudflare/skills",
+      "commit": "49a31e0b3229ccdffe4944be9c61bc7481d1d432",
+      "path": "skills/web-perf",
+      "licenses": [
+        "LICENSE"
+      ],
+      "license": "Apache-2.0",
+      "treeSha256": "eb1a00102cb156a71c94f2d8ab37d6bca5200b4a800d18cace050ced7112d0d8",
+      "localTreeSha256": "eb1a00102cb156a71c94f2d8ab37d6bca5200b4a800d18cace050ced7112d0d8",
+      "unchanged": true
+    },
+    "workers-best-practices": {
+      "repository": "cloudflare/skills",
+      "commit": "49a31e0b3229ccdffe4944be9c61bc7481d1d432",
+      "path": "skills/workers-best-practices",
+      "license": "Apache-2.0",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "a04cd8543a03d0120aae5026d210d0eaad4773c51f93a21cacc04dae591d0f5d",
+      "localTreeSha256": "a04cd8543a03d0120aae5026d210d0eaad4773c51f93a21cacc04dae591d0f5d",
+      "unchanged": true
+    },
+    "wrangler": {
+      "repository": "cloudflare/skills",
+      "commit": "0871daceb347e3c51693fbe9c77555468df7e410",
+      "path": "skills/wrangler",
+      "license": "Apache-2.0",
+      "licenses": [
+        "LICENSE"
+      ],
+      "treeSha256": "1e707db60202e48cdd03b2456b85580b03b713d7a2bc2c459fce8d37e2ea28f2",
+      "localTreeSha256": "ce7fb8fd999337d8dcd7796284db3c8af432c9077a2df60369790c3f1ce16af3",
+      "unchanged": false,
+      "adaptation": "Made manual-only (disable-model-invocation: true). agents/openai.yaml disables implicit invocation in Codex.",
+      "baseCommit": "0871daceb347e3c51693fbe9c77555468df7e410"
+    },
+    "x18n": {
+      "repository": "x18n-dev/x18n",
+      "commit": "7652eba63e2e5e13d0bea6274b96600fb7603803",
+      "path": "skills/x18n",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE.md"
+      ],
+      "treeSha256": "9b43e47b62d910dc9af645c75cf92ade737c5b625a88db4c4ee521ee90b1c9eb",
+      "localTreeSha256": "9b43e47b62d910dc9af645c75cf92ade737c5b625a88db4c4ee521ee90b1c9eb",
+      "unchanged": true
+    },
+    "x18n-check": {
+      "repository": "x18n-dev/x18n",
+      "commit": "7652eba63e2e5e13d0bea6274b96600fb7603803",
+      "path": "skills/x18n-check",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE.md"
+      ],
+      "treeSha256": "6f189687a2b5ec4e4991afb03424443e72c673caaeb266b5b82afbfd4adcbdff",
+      "localTreeSha256": "6f189687a2b5ec4e4991afb03424443e72c673caaeb266b5b82afbfd4adcbdff",
+      "unchanged": true
+    },
+    "x18n-setup": {
+      "repository": "x18n-dev/x18n",
+      "commit": "7652eba63e2e5e13d0bea6274b96600fb7603803",
+      "path": "skills/x18n-setup",
+      "license": "MIT",
+      "licenses": [
+        "LICENSE.md"
+      ],
+      "treeSha256": "44c9b5878c04d39eff3b4eaf6ddc3a2691f385defe828b70924417bb6cced161",
+      "localTreeSha256": "44c9b5878c04d39eff3b4eaf6ddc3a2691f385defe828b70924417bb6cced161",
+      "unchanged": true
+    }
+  }
+}

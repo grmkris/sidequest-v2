@@ -1,0 +1,15 @@
+{
+  "threshold": 0,
+  "minLines": 8,
+  "minTokens": 50,
+  "format": ["typescript"],
+  "path": ["apps", "packages", "tools", "alchemy.run.ts"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "tools/oxlint/anti-slop/**",
+    "packages/i18n/src/catalogs.ts",
+    "packages/i18n/src/generated.ts"
+  ],
+  "reporters": ["console"]
+}

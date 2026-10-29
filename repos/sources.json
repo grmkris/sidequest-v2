@@ -1,0 +1,24 @@
+{
+  "foldkit": {
+    "repository": "foldkit/foldkit",
+    "ref": "foldkit@0.169.0",
+    "commit": "7ee214268c602967937b80f6f20d1e831f2e8ab6",
+    "license": "MIT",
+    "exclude": [
+      "repos",
+      "packages/create-foldkit-app/templates/base/AGENTS.md",
+      "CLAUDE.md",
+      ".claude",
+      ".claude-plugin",
+      ".agents"
+    ],
+    "rename": {
+      "AGENTS.md": "FOLDKIT_AGENTS.md"
+    },
+    "copies": {
+      "FOLDKIT.md": "packages/create-foldkit-app/templates/base/FOLDKIT.md"
+    },
+    "package": "foldkit",
+    "treeSha256": "b10773aaaab535056c8a86ba5391c2650c6710add8d8d8725f53b75bf0c613fb"
+  }
+}

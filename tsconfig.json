@@ -1,0 +1,82 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "Preserve",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "bun", "@cloudflare/workers-types"],
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "floatingEffect": "error",
+          "missingEffectServiceDependency": "error",
+          "leakingRequirements": "error",
+          "unknownInEffectCatch": "error",
+          "tryCatchInEffectGen": "error",
+          "globalErrorInEffectFailure": "error",
+          "globalErrorInEffectCatch": "error",
+          "schemaSyncInEffect": "error",
+          "outdatedApi": "error",
+          "duplicatePackage": "error",
+          "effectFnIife": "error",
+          "effectGenUsesAdapter": "error",
+          "effectInFailure": "error",
+          "effectInVoidSuccess": "error",
+          "genericEffectServices": "error",
+          "layerMergeAllWithDependencies": "error",
+          "lazyPromiseInEffectSync": "error",
+          "multipleEffectProvide": "error",
+          "obsoleteMatchImport": "error",
+          "obsoleteSchemaImport": "error",
+          "promiseInEffectSuccess": "error",
+          "scopeInLayerEffect": "error",
+          "runEffectInsideEffect": "error",
+          "extendsNativeError": "error",
+          "catchUnfailableEffect": "error",
+          "globalFetchInEffect": "error",
+          "globalDateInEffect": "error",
+          "globalConsoleInEffect": "error",
+          "globalTimersInEffect": "error",
+          "globalRandomInEffect": "error",
+          "cryptoRandomUUIDInEffect": "error",
+          "processEnvInEffect": "error",
+          "unknownRuleName": "error"
+        },
+        "allowedUnstableApis": [
+          "@effect/platform-bun",
+          "@effect/platform-node",
+          "@effect/vitest",
+          "effect/http",
+          "effect/http-api",
+          "effect/rpc",
+          "effect/Crypto"
+        ],
+        "overrides": [
+          {
+            "include": ["tools/**/*", "**/*.config.ts"],
+            "options": {
+              "diagnosticSeverity": {
+                "nodeBuiltinImport": "off",
+                "processEnv": "off",
+                "globalConsole": "off"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "include": ["apps/**/*.ts", "packages/**/*.ts", "tools/**/*.ts", "infra/**/*.ts", "*.config.ts", "alchemy.run.ts"],
+  "exclude": ["node_modules", "**/dist/**", "tools/oxlint/anti-slop/**", ".agents/**"]
+}

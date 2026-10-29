@@ -1,0 +1,18 @@
+[
+  {
+    "file": "packages/auth/src/AttemptLimiter.ts",
+    "comment": "@effect-diagnostics-next-line unstableApiUsage:off -- The pinned Effect D1 adapter defines the native Worker database binding."
+  },
+  {
+    "file": "packages/auth/src/live.ts",
+    "comment": "@effect-diagnostics-next-line unstableApiUsage:off -- The pinned Effect D1 adapter is the Worker persistence boundary."
+  },
+  {
+    "file": "apps/web/src/entry.ts",
+    "comment": "oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles."
+  },
+  {
+    "file": "apps/web/src/entry.server.ts",
+    "comment": "oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles."
+  }
+]

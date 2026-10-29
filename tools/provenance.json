@@ -1,0 +1,160 @@
+{
+  "sources": {
+    "anti-slop": "https://github.com/dmmulroy/anti-slop/tree/c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
+    "alchemy-domain": "https://github.com/alchemy-run/alchemy/tree/3bb45b0f089597f4b0f9c908b2f5d615201d1405"
+  },
+  "files": [
+    {
+      "path": "tools/oxlint/anti-slop/LICENSE",
+      "sha256": "10ed33bf340d6d63dc0633dfc917a346b369b6aa41fe20734aefc6a3fb75ba17"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/PROVENANCE.md",
+      "sha256": "095e47598c3bfcaa311667fd2ea091194dae09ede73073c4e92b34802ea24743"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/effect/index.ts",
+      "sha256": "d2e305e896ac7f4450554044cab21ff9689e91c01a304b6cb167d88ff6159f50"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/effect/rules/no-manual-effect-error-tag.ts",
+      "sha256": "a0a1a5ff161d064d2da4f7fb10a88384410090a960526f3e9489aa124a1f8d0c"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/effect/rules/no-manual-tag-comparison.ts",
+      "sha256": "c3f0f7165bbffbea1e2b35aaf7cfcf87ff5345bcd3b71aec4a0d54bc5ac27610"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/effect/shared/tagged-values.ts",
+      "sha256": "4087e3aca32338baad1bd0dfcb2beee3d5b75d7e5ac01dfae6a71770456b8641"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/index.ts",
+      "sha256": "9ec2a7c3821dabe7b4fc72a97b1e19be9c87ca985c50cc34ce5bd6e83cee318e"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/no-chained-type-assertions.ts",
+      "sha256": "2e8ccab70026ff37fd78c9224367b429b5158494130da4395d8ba6e7e779d4d1"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/no-module-mocking.ts",
+      "sha256": "4c7a614ef6ac77b09a9d6147c9afec19780187fe2a6a1a89da150d8e736f9280"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/no-reflect-apply.ts",
+      "sha256": "2359825b1cb430a0f0b08f43bd2d2879156a3acd806cee8d8686d111f4f1d1ce"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/no-reflect-get.ts",
+      "sha256": "6de3ab9e7e66e3d0636aabf6384efe91372812c958e5450e359d530013d8ceb7"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/no-widen-then-assert.ts",
+      "sha256": "9b6e4f136a5cb5fa47d96868ef018acf76e48793686c6779b478a87969b0fd0c"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/rules/require-safety-comment-for-type-assertion.ts",
+      "sha256": "e560c004b1baf3de6471db785e477090ebbd5a409ab63122aaf5faa21938b074"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/shared/reflect-method.ts",
+      "sha256": "55cbb8c69716f427108001fa56061b7c4d2913718a83fb40f2ac40bac61f41b0"
+    },
+    {
+      "path": "tools/oxlint/anti-slop/shared/scope.ts",
+      "sha256": "461f1c2ca5d55b63cb52573994e6be53b8dc9516899f39426963c786aab3aa9b"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/SKILL.md",
+      "sha256": "0e70d45940d08a31283ea8c937d8c5a27adc47be8cdebfdf16b77f49c8fe33ed"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/building-blocks.md",
+      "sha256": "b7d228692b095de138940429198b1c70fc9fe3c6b56ba09735abb56e479e380b"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/frontend.md",
+      "sha256": "193ad9fdcbad3bc33bc1eeff7b1071e010c9c8dad087196759967ba63418d667"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/hosting.md",
+      "sha256": "a38a0ebc332d806f209a715691e6cd3e25ac4c0e6b1253439d19617f6f7cb68c"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/layout.md",
+      "sha256": "2d80db62e2deac622b287c5d54695be16be96b44436221a5f34d850f801cbb44"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/modeling.md",
+      "sha256": "89eb88b88140567a5a04242b73653bc41be3d390adef6890a027176d9c5130ea"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/references/testing.md",
+      "sha256": "0b0e4dca66039fcdbe05b03488211448491f5c57408e1bd2756c5c1fd28159f3"
+    },
+    {
+      "path": ".agents/skills/durable-objects/LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "path": ".agents/skills/durable-objects/SKILL.md",
+      "sha256": "2468c1795f439f494f076eb13a2202a3c4e579e71e6e2ed98b4d1f5ce62fef1b"
+    },
+    {
+      "path": ".agents/skills/durable-objects/references/rules.md",
+      "sha256": "8ec51f1270d6014763139236c3fb9f3a21a3bed4054c99b101f392eb5cb363bf"
+    },
+    {
+      "path": ".agents/skills/durable-objects/references/testing.md",
+      "sha256": "1a99e6a2e1bd7f2fa34573b07ad036e3c2ddcf97df6a42926d737eb2d87b3168"
+    },
+    {
+      "path": ".agents/skills/durable-objects/references/workers.md",
+      "sha256": "042f8821109d3dec26560d0e21affb7d5c24db11466cd199f4f97de1743b8d4b"
+    },
+    {
+      "path": ".agents/skills/sources.json",
+      "sha256": "59c38707a05028cc5812ab5809f709634c05db97a8a77382e0c0fcd3d9cfba98"
+    },
+    {
+      "path": ".agents/skills/thermo-nuclear-code-quality-review/LICENSE",
+      "sha256": "702f5f331b56aff0e33d8c7826df5202559f894145eb70355c6477b55b5bb8a0"
+    },
+    {
+      "path": ".agents/skills/thermo-nuclear-code-quality-review/SKILL.md",
+      "sha256": "7faca08b51b643b2ddd0836f92af15574444024685dcc1e677dbbb39ae8c9e8f"
+    },
+    {
+      "path": ".agents/skills/thermo-nuclear-code-quality-review/agents/openai.yaml",
+      "sha256": "89894f7fc5716ea01263cbf6d00f103e3c5c0b15d2d3d9ad5ea4b5ad797cf312"
+    },
+    {
+      "path": ".agents/skills/unslop/LICENSE",
+      "sha256": "bc957ca6bee02792566a1a028d105e02e247c6e77cf057061674273da77b200e"
+    },
+    {
+      "path": ".agents/skills/unslop/SKILL.md",
+      "sha256": "4abc7092f538b327e9a3478d5535bc48904f4287bc27199b68091d6e74d40868"
+    },
+    {
+      "path": ".agents/skills/unslop/agents/openai.yaml",
+      "sha256": "8b8d390b1c90ed6122fb9c30cae975d4f08ff5b5178694b9363a76750aedfe1e"
+    },
+    {
+      "path": ".agents/skills/wrangler/LICENSE",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "path": ".agents/skills/wrangler/SKILL.md",
+      "sha256": "3f52e92d6ac9f79aa0f86580df93ebf180921d21ffbdb0f3c341d7198e44b429"
+    },
+    {
+      "path": ".agents/skills/wrangler/agents/openai.yaml",
+      "sha256": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
+    },
+    {
+      "path": ".agents/skills/alchemy-domain/LICENSE",
+      "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+    }
+  ]
+}

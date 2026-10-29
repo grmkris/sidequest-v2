@@ -1,0 +1,12 @@
+{
+  "name": "@sidequest/observability",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "effect": "catalog:"
+  }
+}

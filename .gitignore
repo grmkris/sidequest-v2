@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.alchemy/
+.wrangler/
+.turbo/
+.env
+.env.*
+!.env.example
+.artifacts/
+.agent_sources/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo

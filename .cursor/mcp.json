@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "url": "https://mcp.cloudflare.com/mcp"
+    },
+    "foldkit-devtools": {
+      "command": "bunx",
+      "args": [
+        "--no-install",
+        "foldkit-devtools-mcp"
+      ]
+    },
+    "mysi": {
+      "url": "https://mysi.lol/mcp"
+    }
+  }
+}

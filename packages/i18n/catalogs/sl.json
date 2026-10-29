@@ -1,0 +1,16 @@
+{
+  "foundation": {
+    "title": "Osnova Sidequest v2",
+    "body": "Osnova protokola je pripravljena na prvi produktni sklop.",
+    "count": "{count, plural, one {# čakajoči sklop} two {# čakajoča sklopa} few {# čakajoči sklopi} other {# čakajočih sklopov}}"
+  },
+  "authEmail": {
+    "subjectSignIn": "Vaša koda za prijavo v Sidequest je {code}",
+    "subjectRegistration": "Vaša koda za ustvarjanje računa Sidequest je {code}",
+    "headingSignIn": "Prijava v Sidequest",
+    "headingRegistration": "Ustvarite svoj račun Sidequest",
+    "instructions": "Za nadaljevanje vnesite to kodo v Sidequest:",
+    "expiry": "{minutes, plural, one {Koda poteče čez # minuto.} two {Koda poteče čez # minuti.} few {Koda poteče čez # minute.} other {Koda poteče čez # minut.}}",
+    "ignore": "Če te kode niste zahtevali, to e-poštno sporočilo prezrite. Kode nikoli ne delite z nikomer."
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(~/.config/secrets.env)",
+      "Read(./.env.preview.local)",
+      "Bash(*secrets.env*)",
+      "Bash(cat *.env.preview.local*)",
+      "Bash(git stash*)",
+      "Bash(git reset --hard*)",
+      "Bash(git add -A*)",
+      "Bash(git add --all*)",
+      "Bash(git add .)",
+      "Bash(git add . *)",
+      "Bash(git checkout --*)",
+      "Bash(git checkout * --*)",
+      "Bash(git restore*)",
+      "Bash(git clean*)",
+      "Bash(git commit -a*)",
+      "Bash(git commit --all*)"
+    ],
+    "ask": []
+  }
+}
