@@ -14,6 +14,6 @@ Work on `main`. Preserve concurrent edits. Stage explicit paths and commit coher
 
 ## Boundaries
 
-`apps/web` is Foldkit-only. `packages/protocol` owns shared schemas. `packages/domain` will own future durable aggregates. `packages/server` owns the Worker and transport boundaries. `packages/db` owns relational persistence. Future chain adapters must remain outside the browser graph.
+`apps/web` is Foldkit-only. `packages/protocol` owns shared schemas. `packages/domain` will own future durable aggregates. `packages/server` owns the Worker and transport boundaries. `packages/db` owns relational persistence. Future chain adapters must remain outside the browser graph. Nod will live here as its own app and packages; Nod packages never import Sidequest packages, and Sidequest's settlement code reaches Nod only through the payment adapter interface. Scope decisions are in `docs/adr/0001-v2-scope.md` and sequencing in `docs/FEATURE-PORT-PLAN.md`.
 
 The current foundation has no job, conversation, escrow, settlement or agent business behavior.
