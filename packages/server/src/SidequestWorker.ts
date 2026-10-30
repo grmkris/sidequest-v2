@@ -3,7 +3,7 @@ import * as AlchemyHttp from 'alchemy/Http'
 import { Effect, Layer, Logger } from 'effect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpRouter from 'effect/http/HttpRouter'
-import { health } from './Health.ts'
+import { health, releaseFromEnvironment } from './Health.ts'
 import { SidequestDatabase, SidequestMedia } from './Resources.ts'
 import { DomainLive } from './DomainLive.ts'
 
@@ -38,7 +38,8 @@ export default SidequestWorker.make(
   },
   Effect.gen(function* () {
     yield* declareBindings
-    const release = 'local-build'
+    const environment = yield* Cloudflare.Workers.WorkerEnvironment
+    const release = releaseFromEnvironment(environment)
     const application = yield* makeApplication(release)
     const fetch = Effect.gen(function* () {
       yield* HttpServerRequest
