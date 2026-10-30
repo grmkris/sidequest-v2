@@ -2,6 +2,8 @@
 
 This repository is a clean foundation for Sidequest's next protocol iteration. Do not port v1 business logic, contracts, wallet flows or production data until the foundation gates pass and a feature-port plan is accepted.
 
+The wallet will be Nod, ported from `~/code/hack-meridian-2026` (a Stellar wallet inside AI chats: passkeys and a spending-limit allowance; live at trynod.si), in place of v1's Privy/Monad wallet flows. The same rule applies: port it only with an accepted feature-port plan. trynod.si stays live until the port is done.
+
 ## Stack
 
 Use the pinned Styld v2 conventions: Bun, Effect, Foldkit, Zyzz, Alchemy, Cloudflare Workers, D1/Drizzle, Durable Objects, R2, x18n, tsrs, Oxlint, Oxfmt, Vitest and native Workerd/Chromium tests. Read `FOLDKIT.md` before UI work and the vendored Foldkit source for API truth.
