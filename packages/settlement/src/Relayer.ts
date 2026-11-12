@@ -67,6 +67,9 @@ const revertReason = (cause: unknown) => {
   return /revert/i.test(cause.message) ? cause.shortMessage : undefined
 }
 
+/** What the node answered instead of a result: a revert, a refusal, or a transport failure; read by its cause. */
+class NodeAnswer extends Data.TaggedError('NodeAnswer')<{ readonly cause: unknown }> {}
+
 /** JSON-RPC codes that mean the node had a problem of its own, not with the transaction: ask again later. */
 const transientCodes = new Set([-1, -32002, -32005, -32603])
 
@@ -139,10 +142,10 @@ const nonceAt = (w: Wiring, blockTag: 'latest' | 'pending') =>
 const simulate = (w: Wiring, data: string) =>
   Effect.tryPromise({
     try: () => w.rpc.estimateGas({ account: w.account.address, to: w.chain.operator, data: hexOf(data) }),
-    catch: (cause) => cause,
+    catch: (cause) => new NodeAnswer({ cause }),
   }).pipe(
     Effect.map((gas): Simulation => ({ runs: true, gas: (gas * 6n) / 5n })),
-    Effect.catch((cause) => {
+    Effect.catch(({ cause }) => {
       const reason = revertReason(cause)
       return reason === undefined
         ? Effect.fail(new ChainUnavailable({ operation: 'eth_estimateGas' }))
@@ -205,10 +208,10 @@ const sign = Effect.fnUntraced(function* (w: Wiring, intent: RelayIntent, signin
 const broadcast = (w: Wiring, transaction: RelayTransaction) =>
   Effect.tryPromise({
     try: () => w.rpc.sendRawTransaction({ serializedTransaction: hexOf(transaction.raw) }),
-    catch: (cause) => cause,
+    catch: (cause) => new NodeAnswer({ cause }),
   }).pipe(
     Effect.asVoid,
-    Effect.catch((cause): Effect.Effect<void, ChainUnavailable | SettlementStoreError> => {
+    Effect.catch(({ cause }): Effect.Effect<void, ChainUnavailable | SettlementStoreError> => {
       const refusal = refusalOf(cause)
       if (refusal === undefined) return Effect.fail(new ChainUnavailable({ operation: 'eth_sendRawTransaction' }))
       // Another relay sent the same bytes first: the node holds the transaction, which is all that was asked.

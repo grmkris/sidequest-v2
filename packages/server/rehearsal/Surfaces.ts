@@ -8,7 +8,7 @@ import {
   SignInChallenge,
   type TypedData,
 } from '@sidequest/protocol'
-import { Effect, Schedule, Schema } from 'effect'
+import { Data, Effect, Schedule, Schema } from 'effect'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { type Hex, isAddress } from 'viem'
@@ -35,7 +35,7 @@ export interface Person {
 }
 
 /** A refused request, with what the API said. */
-export class Refused extends Error {}
+export class Refused extends Data.TaggedError('Refused')<{ readonly message: string }> {}
 
 const send = async (url: string, method: string, path: string, cookie: string, body?: unknown): Promise<Reply> => {
   const headers: Record<string, string> = { origin: url, cookie }
@@ -52,7 +52,7 @@ const send = async (url: string, method: string, path: string, cookie: string, b
 /** The body of a successful reply, as `schema` reads it; otherwise the reply, refused. */
 export const bodyOf = <A>(schema: Schema.Decoder<A>, reply: Reply, what: string): A => {
   if (reply.status < 200 || reply.status > 299)
-    throw new Refused(`${what}: ${reply.status} ${JSON.stringify(reply.body)}`)
+    throw new Refused({ message: `${what}: ${reply.status} ${JSON.stringify(reply.body)}` })
   return Schema.decodeUnknownSync(schema)(reply.body)
 }
 
@@ -121,7 +121,7 @@ export const registerAgent = async (url: string, operator: Person, name: string,
   const id = bodyOf(Schema.Struct({ id: AgentId }), await operator.post('/api/agents', { name }), 'agent').id
   const expiresAt = Math.floor(Date.now() / 1000) + 86_400
   const granted = await operator.put(`/api/agents/${id}/grant`, { scopes, expiresAt })
-  if (granted.status !== 204) throw new Refused(`grant: ${granted.status} ${JSON.stringify(granted.body)}`)
+  if (granted.status !== 204) throw new Refused({ message: `grant: ${granted.status} ${JSON.stringify(granted.body)}` })
   const { token } = bodyOf(IssuedAgentToken, await operator.post(`/api/agents/${id}/tokens`, {}), 'token')
   return agentAt(url, id, token)
 }
@@ -161,7 +161,8 @@ const callTool = (url: string, token: string, name: string, args: Record<string,
     const result = yield* reading
       ? call.pipe(Effect.retry({ times: 2, schedule: Schedule.spaced('200 millis') }))
       : call
-    if (result.isError === true) return yield* Effect.die(new Refused(`${name}: ${JSON.stringify(result.content)}`))
+    if (result.isError === true)
+      return yield* Effect.die(new Refused({ message: `${name}: ${JSON.stringify(result.content)}` }))
     return result.structuredContent
   }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer))
 

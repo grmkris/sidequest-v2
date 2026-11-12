@@ -23,6 +23,8 @@ import { ada, ben, fakeArc, signed, signInWorld, site, smartWallet } from './Wor
 // Sign-in as a whole, over the model in memory, a local D1 and a fake chain: challenge, signature, nonce, account and
 // session. The time is 2026-11-12T10:00:00Z.
 const start = Date.parse('2026-11-12T10:00:00Z')
+// The model judges a grant's expiry by the wall clock, not the test clock: an hour from when the tests load, really.
+const grantExpiry = Math.floor(Date.now() / 1000) + 3600
 
 type Signer = typeof ada
 
