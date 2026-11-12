@@ -3,10 +3,373 @@
 import type { FormatXMLElementFn } from 'intl-messageformat'
 export type RichTextValue<T = string> = FormatXMLElementFn<T>
 export interface MessageArgumentsByKey<_T = string> {
-  'foundation.body': Readonly<Record<string, never>>
+  'agents.close': Readonly<Record<string, never>>
+  'agents.copied': Readonly<Record<string, never>>
+  'agents.copy': Readonly<Record<string, never>>
+  'agents.empty': Readonly<Record<string, never>>
+  'agents.endpoint': { readonly url: string | number }
+  'agents.grantSummary': { readonly scopes: string | number; readonly date: string | number }
+  'agents.issue': Readonly<Record<string, never>>
+  'agents.lede': Readonly<Record<string, never>>
+  'agents.loading': Readonly<Record<string, never>>
+  'agents.manage': Readonly<Record<string, never>>
+  'agents.name': Readonly<Record<string, never>>
+  'agents.nameError': { readonly max: string | number }
+  'agents.nameHint': Readonly<Record<string, never>>
+  'agents.noGrant': Readonly<Record<string, never>>
+  'agents.noTokens': Readonly<Record<string, never>>
+  'agents.pickScope': Readonly<Record<string, never>>
+  'agents.register': Readonly<Record<string, never>>
+  'agents.revokeAgent': Readonly<Record<string, never>>
+  'agents.revokeToken': Readonly<Record<string, never>>
+  'agents.revoked': Readonly<Record<string, never>>
+  'agents.revokedNote': Readonly<Record<string, never>>
+  'agents.saveGrant': Readonly<Record<string, never>>
+  'agents.scope.accept': Readonly<Record<string, never>>
+  'agents.scope.acceptHint': Readonly<Record<string, never>>
+  'agents.scope.deliver': Readonly<Record<string, never>>
+  'agents.scope.deliverHint': Readonly<Record<string, never>>
+  'agents.scope.discuss': Readonly<Record<string, never>>
+  'agents.scope.discussHint': Readonly<Record<string, never>>
+  'agents.scope.propose': Readonly<Record<string, never>>
+  'agents.scope.proposeHint': Readonly<Record<string, never>>
+  'agents.scopes': Readonly<Record<string, never>>
+  'agents.stored': Readonly<Record<string, never>>
+  'agents.title': Readonly<Record<string, never>>
+  'agents.tokenIssued': { readonly issued: string | number; readonly expires: string | number }
+  'agents.tokenOnce': Readonly<Record<string, never>>
+  'agents.tokenRevoked': Readonly<Record<string, never>>
+  'agents.tokens': Readonly<Record<string, never>>
+  'agents.tokensLoading': Readonly<Record<string, never>>
+  'agents.validFor': Readonly<Record<string, never>>
+  'common.account': { readonly id: string | number }
+  'common.cancel': Readonly<Record<string, never>>
+  'common.showMore': Readonly<Record<string, never>>
+  'common.tryAgain': Readonly<Record<string, never>>
+  'form.amount': { readonly example: string | number; readonly decimals: string | number }
+  'form.days': { readonly count: number }
+  'form.positive': Readonly<Record<string, never>>
+  'form.required': Readonly<Record<string, never>>
+  'form.tooLong': { readonly max: string | number }
   'foundation.release': { readonly release: string | number }
-  'foundation.title': Readonly<Record<string, never>>
+  'gate.checking': Readonly<Record<string, never>>
+  'gate.signIn': Readonly<Record<string, never>>
+  'gate.signInLink': Readonly<Record<string, never>>
+  'home.lede': Readonly<Record<string, never>>
+  'home.listings.empty': Readonly<Record<string, never>>
+  'home.listings.loading': Readonly<Record<string, never>>
+  'home.listings.noMatch': Readonly<Record<string, never>>
+  'home.listings.search': Readonly<Record<string, never>>
+  'home.listings.searchButton': Readonly<Record<string, never>>
+  'home.listings.searchPlaceholder': Readonly<Record<string, never>>
+  'home.listings.title': Readonly<Record<string, never>>
+  'home.postRequest': Readonly<Record<string, never>>
+  'home.publishListing': Readonly<Record<string, never>>
+  'home.requests.empty': Readonly<Record<string, never>>
+  'home.requests.loading': Readonly<Record<string, never>>
+  'home.requests.title': Readonly<Record<string, never>>
+  'home.requests.until': { readonly date: string | number }
+  'home.title': Readonly<Record<string, never>>
+  'inbox.empty': Readonly<Record<string, never>>
+  'inbox.kind.changeRequested': Readonly<Record<string, never>>
+  'inbox.kind.deliveryRecorded': Readonly<Record<string, never>>
+  'inbox.kind.fundingRecorded': Readonly<Record<string, never>>
+  'inbox.kind.jobSettled': Readonly<Record<string, never>>
+  'inbox.kind.messagePosted': Readonly<Record<string, never>>
+  'inbox.kind.proposalAccepted': Readonly<Record<string, never>>
+  'inbox.kind.proposalSubmitted': Readonly<Record<string, never>>
+  'inbox.lede': Readonly<Record<string, never>>
+  'inbox.loading': Readonly<Record<string, never>>
+  'inbox.refresh': Readonly<Record<string, never>>
+  'inbox.title': Readonly<Record<string, never>>
+  'job.accept': { readonly version: string | number }
+  'job.agreement': Readonly<Record<string, never>>
+  'job.agreementWith': { readonly version: string | number; readonly worker: string | number }
+  'job.askChange': Readonly<Record<string, never>>
+  'job.bidderTitle': { readonly title: string | number }
+  'job.buyer': Readonly<Record<string, never>>
+  'job.cancel': Readonly<Record<string, never>>
+  'job.cancelConfirm': Readonly<Record<string, never>>
+  'job.cancelling': Readonly<Record<string, never>>
+  'job.changeAsked': Readonly<Record<string, never>>
+  'job.changeRequested': Readonly<Record<string, never>>
+  'job.confirmAccept': {
+    readonly version: string | number
+    readonly bidder: string | number
+    readonly amount: string | number
+    readonly deadline: string | number
+  }
+  'job.confirmAcceptLabel': Readonly<Record<string, never>>
+  'job.digest': Readonly<Record<string, never>>
+  'job.earlierVersions': { readonly count: number }
+  'job.fromBidder': { readonly bidder: string | number }
+  'job.keep': Readonly<Record<string, never>>
+  'job.latestVersion': { readonly version: string | number }
+  'job.loading': Readonly<Record<string, never>>
+  'job.lost': Readonly<Record<string, never>>
+  'job.noProposals': Readonly<Record<string, never>>
+  'job.openUntil': Readonly<Record<string, never>>
+  'job.proposals': Readonly<Record<string, never>>
+  'job.propose': Readonly<Record<string, never>>
+  'job.request': Readonly<Record<string, never>>
+  'job.reviewBy': { readonly author: string | number; readonly rating: string | number }
+  'job.reviews': Readonly<Record<string, never>>
+  'job.revise': Readonly<Record<string, never>>
+  'job.signInToPropose': Readonly<Record<string, never>>
+  'job.stage': Readonly<Record<string, never>>
+  'job.state.awarded': Readonly<Record<string, never>>
+  'job.state.cancelled': Readonly<Record<string, never>>
+  'job.state.delivered': Readonly<Record<string, never>>
+  'job.state.disputed': Readonly<Record<string, never>>
+  'job.state.expired': Readonly<Record<string, never>>
+  'job.state.funded': Readonly<Record<string, never>>
+  'job.state.open': Readonly<Record<string, never>>
+  'job.state.settled': Readonly<Record<string, never>>
+  'job.state.unposted': Readonly<Record<string, never>>
+  'job.unavailable': Readonly<Record<string, never>>
+  'job.untitled': Readonly<Record<string, never>>
+  'job.version': { readonly version: string | number }
+  'job.won': Readonly<Record<string, never>>
+  'job.yourProposals': Readonly<Record<string, never>>
+  'listing.noPrice': Readonly<Record<string, never>>
+  'listing.priceFrom': { readonly price: string | number }
+  'listing.tags': Readonly<Record<string, never>>
+  'listingForm.descriptionLabel': Readonly<Record<string, never>>
+  'listingForm.priceHint': Readonly<Record<string, never>>
+  'listingForm.priceLabel': Readonly<Record<string, never>>
+  'listingForm.tagTooLong': { readonly max: string | number }
+  'listingForm.tagsHint': Readonly<Record<string, never>>
+  'listingForm.tagsLabel': Readonly<Record<string, never>>
+  'listingForm.titleHint': Readonly<Record<string, never>>
+  'listingForm.titleLabel': Readonly<Record<string, never>>
+  'listingForm.tooManyTags': Readonly<Record<string, never>>
+  'listingPage.edit': Readonly<Record<string, never>>
+  'listingPage.loading': Readonly<Record<string, never>>
+  'listingPage.noTags': Readonly<Record<string, never>>
+  'listingPage.price': Readonly<Record<string, never>>
+  'listingPage.published': Readonly<Record<string, never>>
+  'listingPage.save': Readonly<Record<string, never>>
+  'listingPage.saving': Readonly<Record<string, never>>
+  'listingPage.seller': Readonly<Record<string, never>>
+  'listingPage.state': Readonly<Record<string, never>>
+  'listingPage.unavailable': Readonly<Record<string, never>>
+  'listingPage.withdraw': Readonly<Record<string, never>>
+  'listingPage.withdrawing': Readonly<Record<string, never>>
+  'listingPage.withdrawn': Readonly<Record<string, never>>
+  'listingPage.withdrawnNote': Readonly<Record<string, never>>
+  'newListing.lede': Readonly<Record<string, never>>
+  'newListing.publish': Readonly<Record<string, never>>
+  'newListing.publishing': Readonly<Record<string, never>>
+  'newListing.title': Readonly<Record<string, never>>
+  'notFound.body': Readonly<Record<string, never>>
+  'notFound.home': Readonly<Record<string, never>>
+  'notFound.title': Readonly<Record<string, never>>
+  'problem.badCursor': Readonly<Record<string, never>>
+  'problem.conflict.agentTurnLimit': Readonly<Record<string, never>>
+  'problem.conflict.alreadyPublished': Readonly<Record<string, never>>
+  'problem.conflict.alreadyRegistered': Readonly<Record<string, never>>
+  'problem.conflict.alreadyReviewed': Readonly<Record<string, never>>
+  'problem.conflict.chainRefused': Readonly<Record<string, never>>
+  'problem.conflict.deliveryLate': Readonly<Record<string, never>>
+  'problem.conflict.digestMismatch': Readonly<Record<string, never>>
+  'problem.conflict.idempotencyConflict': Readonly<Record<string, never>>
+  'problem.conflict.listingNotPublished': Readonly<Record<string, never>>
+  'problem.conflict.nothingToSign': Readonly<Record<string, never>>
+  'problem.conflict.paymentChanged': Readonly<Record<string, never>>
+  'problem.conflict.paymentNotBegun': Readonly<Record<string, never>>
+  'problem.conflict.paymentSubmitted': Readonly<Record<string, never>>
+  'problem.conflict.staleHead': Readonly<Record<string, never>>
+  'problem.conflict.supersededVersion': Readonly<Record<string, never>>
+  'problem.conflict.wrongState': Readonly<Record<string, never>>
+  'problem.crossSite': Readonly<Record<string, never>>
+  'problem.forbidden.agentPaused': Readonly<Record<string, never>>
+  'problem.forbidden.agentRevoked': Readonly<Record<string, never>>
+  'problem.forbidden.grantExpired': Readonly<Record<string, never>>
+  'problem.forbidden.missingScope': Readonly<Record<string, never>>
+  'problem.forbidden.notPermitted': Readonly<Record<string, never>>
+  'problem.forbidden.partyRequired': Readonly<Record<string, never>>
+  'problem.forbidden.personRequired': Readonly<Record<string, never>>
+  'problem.forbidden.selfBid': Readonly<Record<string, never>>
+  'problem.notFound.listingNotPublished': Readonly<Record<string, never>>
+  'problem.notFound.noProposal': Readonly<Record<string, never>>
+  'problem.notFound.notRegistered': Readonly<Record<string, never>>
+  'problem.notFound.roomNotOpen': Readonly<Record<string, never>>
+  'problem.notFound.unknownJob': Readonly<Record<string, never>>
+  'problem.notFound.unknownListing': Readonly<Record<string, never>>
+  'problem.notFound.unknownToken': Readonly<Record<string, never>>
+  'problem.notSignedIn': Readonly<Record<string, never>>
+  'problem.signIn.badSignature': Readonly<Record<string, never>>
+  'problem.signIn.expired': Readonly<Record<string, never>>
+  'problem.signIn.issuedInFuture': Readonly<Record<string, never>>
+  'problem.signIn.malformed': Readonly<Record<string, never>>
+  'problem.signIn.notYetValid': Readonly<Record<string, never>>
+  'problem.signIn.stale': Readonly<Record<string, never>>
+  'problem.signIn.unknownNonce': Readonly<Record<string, never>>
+  'problem.signIn.wrongChain': Readonly<Record<string, never>>
+  'problem.signIn.wrongDomain': Readonly<Record<string, never>>
+  'problem.signIn.wrongUri': Readonly<Record<string, never>>
+  'problem.unavailable': Readonly<Record<string, never>>
+  'problem.unprocessable.expiryNotInFuture': Readonly<Record<string, never>>
+  'problem.unprocessable.noWallet': Readonly<Record<string, never>>
+  'problem.unprocessable.notYourWallet': Readonly<Record<string, never>>
+  'problem.unprocessable.unpayable': Readonly<Record<string, never>>
+  'problem.unreachable': Readonly<Record<string, never>>
+  'problem.wallet.failed': Readonly<Record<string, never>>
+  'problem.wallet.missing': Readonly<Record<string, never>>
+  'problem.wallet.rejected': Readonly<Record<string, never>>
+  'propose.amountHint': Readonly<Record<string, never>>
+  'propose.amountLabel': Readonly<Record<string, never>>
+  'propose.deliverablesHint': Readonly<Record<string, never>>
+  'propose.deliverablesLabel': Readonly<Record<string, never>>
+  'propose.deliverablesRequired': Readonly<Record<string, never>>
+  'propose.deliverablesTooMany': Readonly<Record<string, never>>
+  'propose.deliveryIn': Readonly<Record<string, never>>
+  'propose.submit': Readonly<Record<string, never>>
+  'propose.submitVersion': { readonly version: string | number }
+  'propose.titleLabel': Readonly<Record<string, never>>
+  'propose.windowsHint': Readonly<Record<string, never>>
+  'request.descriptionHint': Readonly<Record<string, never>>
+  'request.descriptionLabel': Readonly<Record<string, never>>
+  'request.lede': Readonly<Record<string, never>>
+  'request.openFor': Readonly<Record<string, never>>
+  'request.openForHint': Readonly<Record<string, never>>
+  'request.post': Readonly<Record<string, never>>
+  'request.posting': Readonly<Record<string, never>>
+  'request.title': Readonly<Record<string, never>>
+  'request.titleHint': Readonly<Record<string, never>>
+  'request.titleLabel': Readonly<Record<string, never>>
+  'review.comment': Readonly<Record<string, never>>
+  'review.invalid': Readonly<Record<string, never>>
+  'review.rating': Readonly<Record<string, never>>
+  'review.sent': Readonly<Record<string, never>>
+  'review.stars': { readonly count: number }
+  'review.submit': Readonly<Record<string, never>>
+  'review.title': Readonly<Record<string, never>>
+  'room.agentsHint': Readonly<Record<string, never>>
+  'room.choose': Readonly<Record<string, never>>
+  'room.empty': Readonly<Record<string, never>>
+  'room.engagement': Readonly<Record<string, never>>
+  'room.loading': Readonly<Record<string, never>>
+  'room.message': Readonly<Record<string, never>>
+  'room.messages': Readonly<Record<string, never>>
+  'room.negotiation': Readonly<Record<string, never>>
+  'room.pause': Readonly<Record<string, never>>
+  'room.paused': Readonly<Record<string, never>>
+  'room.resume': Readonly<Record<string, never>>
+  'room.resumed': Readonly<Record<string, never>>
+  'room.send': Readonly<Record<string, never>>
+  'room.title': Readonly<Record<string, never>>
+  'room.viaAgent': { readonly person: string | number; readonly agent: string | number }
+  'room.withBidder': { readonly bidder: string | number }
+  'room.you': Readonly<Record<string, never>>
+  'settlement.approve': Readonly<Record<string, never>>
+  'settlement.approveExplain': Readonly<Record<string, never>>
+  'settlement.checkAgain': Readonly<Record<string, never>>
+  'settlement.checking': Readonly<Record<string, never>>
+  'settlement.deliver': Readonly<Record<string, never>>
+  'settlement.deliverIntro': Readonly<Record<string, never>>
+  'settlement.deliveredAt': Readonly<Record<string, never>>
+  'settlement.deliveryFile': Readonly<Record<string, never>>
+  'settlement.deliveryHash': Readonly<Record<string, never>>
+  'settlement.deliveryHashError': Readonly<Record<string, never>>
+  'settlement.deliveryHashHint': Readonly<Record<string, never>>
+  'settlement.deliveryUrl': Readonly<Record<string, never>>
+  'settlement.deliveryUrlError': Readonly<Record<string, never>>
+  'settlement.deliveryUrlHint': Readonly<Record<string, never>>
+  'settlement.disputed': Readonly<Record<string, never>>
+  'settlement.disputedOn': { readonly rejected: string | number; readonly ends: string | number }
+  'settlement.fundIntro': Readonly<Record<string, never>>
+  'settlement.funded': { readonly amount: string | number }
+  'settlement.fundedPlain': Readonly<Record<string, never>>
+  'settlement.kind.approve': Readonly<Record<string, never>>
+  'settlement.kind.deliver': Readonly<Record<string, never>>
+  'settlement.kind.fund': Readonly<Record<string, never>>
+  'settlement.kind.reject': Readonly<Record<string, never>>
+  'settlement.loading': Readonly<Record<string, never>>
+  'settlement.notYet': Readonly<Record<string, never>>
+  'settlement.outcome.approved': Readonly<Record<string, never>>
+  'settlement.outcome.reclaimed': Readonly<Record<string, never>>
+  'settlement.outcome.ruled': { readonly share: string | number }
+  'settlement.outcome.silence': Readonly<Record<string, never>>
+  'settlement.outcome.undelivered': Readonly<Record<string, never>>
+  'settlement.outcome.unruled': Readonly<Record<string, never>>
+  'settlement.reason': Readonly<Record<string, never>>
+  'settlement.receipt.capture': { readonly amount: string | number }
+  'settlement.receipt.reclaim': { readonly amount: string | number }
+  'settlement.receipt.void': { readonly amount: string | number }
+  'settlement.receipts': Readonly<Record<string, never>>
+  'settlement.recordDelivery': Readonly<Record<string, never>>
+  'settlement.reject': Readonly<Record<string, never>>
+  'settlement.rejectExplain': Readonly<Record<string, never>>
+  'settlement.reviewEnds': Readonly<Record<string, never>>
+  'settlement.reviewFunding': Readonly<Record<string, never>>
+  'settlement.sent': Readonly<Record<string, never>>
+  'settlement.settled': Readonly<Record<string, never>>
+  'settlement.signApproval': Readonly<Record<string, never>>
+  'settlement.signRejection': Readonly<Record<string, never>>
+  'settlement.step.preparing': Readonly<Record<string, never>>
+  'settlement.step.recording': Readonly<Record<string, never>>
+  'settlement.step.signing': Readonly<Record<string, never>>
+  'settlement.step.submitting': Readonly<Record<string, never>>
+  'settlement.title': Readonly<Record<string, never>>
+  'settlement.transaction': Readonly<Record<string, never>>
+  'settlement.waitingDelivery': Readonly<Record<string, never>>
+  'settlement.waitingDeliveryBy': { readonly date: string | number }
+  'settlement.waitingFunding': Readonly<Record<string, never>>
+  'settlement.waitingReview': Readonly<Record<string, never>>
+  'shell.account': { readonly address: string | number }
+  'shell.agents': Readonly<Record<string, never>>
+  'shell.checking': Readonly<Record<string, never>>
+  'shell.home': Readonly<Record<string, never>>
+  'shell.inbox': Readonly<Record<string, never>>
+  'shell.nav': Readonly<Record<string, never>>
+  'shell.postRequest': Readonly<Record<string, never>>
+  'shell.signIn': Readonly<Record<string, never>>
+  'shell.signOut': Readonly<Record<string, never>>
+  'shell.signingOut': Readonly<Record<string, never>>
+  'shell.skip': Readonly<Record<string, never>>
+  'shell.testnet': Readonly<Record<string, never>>
+  'shell.title': { readonly page: string | number }
+  'signIn.already': Readonly<Record<string, never>>
+  'signIn.arc': Readonly<Record<string, never>>
+  'signIn.connect': Readonly<Record<string, never>>
+  'signIn.connecting': Readonly<Record<string, never>>
+  'signIn.lede': Readonly<Record<string, never>>
+  'signIn.network': Readonly<Record<string, never>>
+  'signIn.otherChain': { readonly chainId: string | number }
+  'signIn.otherWallet': Readonly<Record<string, never>>
+  'signIn.preparing': Readonly<Record<string, never>>
+  'signIn.signIn': Readonly<Record<string, never>>
+  'signIn.signing': Readonly<Record<string, never>>
+  'signIn.stepConnect': Readonly<Record<string, never>>
+  'signIn.stepSign': Readonly<Record<string, never>>
+  'signIn.switch': Readonly<Record<string, never>>
+  'signIn.switching': Readonly<Record<string, never>>
+  'signIn.title': Readonly<Record<string, never>>
+  'signIn.verifying': Readonly<Record<string, never>>
+  'signIn.wallet': Readonly<Record<string, never>>
+  'signIn.wrongNetwork': Readonly<Record<string, never>>
+  'slip.escrow': Readonly<Record<string, never>>
+  'slip.expiry': { readonly date: string | number }
+  'slip.fee': { readonly percent: string | number; readonly fee: string | number; readonly worker: string | number }
+  'slip.notNow': Readonly<Record<string, never>>
+  'slip.reject': { readonly window: string | number }
+  'slip.review': { readonly review: string | number }
+  'slip.sign': Readonly<Record<string, never>>
+  'slip.title': Readonly<Record<string, never>>
+  'slip.undelivered': Readonly<Record<string, never>>
+  'slip.wallet': { readonly date: string | number }
+  'slip.worker': { readonly deadline: string | number }
+  'terms.amount': Readonly<Record<string, never>>
+  'terms.arbitration': Readonly<Record<string, never>>
+  'terms.deadline': Readonly<Record<string, never>>
+  'terms.deliverables': Readonly<Record<string, never>>
+  'terms.dispute': Readonly<Record<string, never>>
+  'terms.review': Readonly<Record<string, never>>
+  'time.days': { readonly count: number }
+  'time.hours': { readonly count: number }
+  'time.minutes': { readonly count: number }
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'c4013fd409dfe97b04f4c1d9b5709308e7007c8b8766e2fec9fc0839a7c75675'
+export const catalogVersion = 'cb74dcb3e2a809332f3bd6f1e9dbf5d212927f86094b301bff1d031e9808d3ad'

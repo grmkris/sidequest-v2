@@ -44,6 +44,7 @@
       "dependencies": {
         "@effect/platform-browser": "catalog:",
         "@sidequest/i18n": "workspace:*",
+        "@sidequest/protocol": "workspace:*",
         "effect": "catalog:",
         "foldkit": "catalog:",
         "zyzz": "catalog:",

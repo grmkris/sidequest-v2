@@ -11,12 +11,15 @@ export default defineConfig({
     calls: [
       { callee: 'format', key: 1 },
       { callee: 'formatRich', key: 1 },
+      // The website's shorthand for a message that takes no values (apps/web/src/Text.ts).
+      { callee: 'say', key: 1 },
     ],
   },
   extract: {
     autoDetect: true,
     // Log events (`Sidequest.<Area> …`) are read by operators in Workers Logs, never shown to people.
-    ignore: ['Sidequest', 'English', 'Slovenščina', '/^Sidequest\\.[A-Za-z]+/'],
+    // `noopener noreferrer` is the `rel` of a link to a delivery, an attribute value rather than text.
+    ignore: ['Sidequest', 'English', 'Slovenščina', '/^Sidequest\\.[A-Za-z]+/', 'noopener noreferrer'],
     ignoreByFile: {
       // The D1 stores' and reads' text is SQL.
       'packages/server/src/Projections/**/*.ts': ['/[\\s\\S]*/'],

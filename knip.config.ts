@@ -7,7 +7,14 @@ export default {
       project: ['tools/**/*.ts', '*.ts'],
       ignoreDependencies: ['@effect/language-service'],
     },
-    'apps/web': { entry: ['src/entry.ts!', 'src/entry.server.ts!'], project: ['src/**/*.ts!'] },
+    'apps/web': {
+      entry: ['src/entry.ts!', 'src/entry.server.ts!', 'test/**/*.test.ts'],
+      project: ['src/**/*.ts!', 'test/**/*.ts'],
+      // A Foldkit page's Commands, Messages and union constructors are used by its own update and are the surface its
+      // Story and Scene tests drive (FOLDKIT.md › Testing), so an export the module itself uses is not reported as
+      // test-only; one nothing uses still is. The website only: the packages keep full unused-export detection.
+      ignoreExportsUsedInFile: true,
+    },
     ...Object.fromEntries(
       ['domain', 'observability', 'server', 'settlement'].map((name) => [
         `packages/${name}`,

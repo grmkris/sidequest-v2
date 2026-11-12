@@ -28,7 +28,8 @@ import * as HttpClient from 'effect/http/HttpClient'
 import type * as HttpClientError from 'effect/http/HttpClientError'
 import * as HttpClientRequest from 'effect/http/HttpClientRequest'
 import type * as HttpClientResponse from 'effect/http/HttpClientResponse'
-import { chromium } from 'playwright'
+import { type Browser as Chromium, type BrowserContext, chromium, type Page } from 'playwright'
+import { isHex } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
@@ -145,15 +146,18 @@ test(
   { timeout: 30000 },
 )
 
+/** A headless Chromium for one test, closed when the test's scope ends. */
+const headlessChromium = Effect.acquireRelease(
+  Effect.promise(() => chromium.launch({ headless: true })),
+  (opened) => Effect.promise(() => opened.close()),
+)
+
 test(
   'hydrates the page in headless Chromium without errors and shows the title and release',
   Effect.scoped(
     Effect.gen(function* () {
       const { url } = yield* stack
-      const browser = yield* Effect.acquireRelease(
-        Effect.promise(() => chromium.launch({ headless: true })),
-        (opened) => Effect.promise(() => opened.close()),
-      )
+      const browser = yield* headlessChromium
       const page = yield* Effect.promise(() => browser.newPage())
       const problems: Array<string> = []
       page.on('pageerror', (error) => problems.push(error.message))
@@ -170,7 +174,7 @@ test(
         }),
       )
       const text = yield* Effect.promise(() => page.locator('body').innerText())
-      expect(text).toContain('Sidequest v2 foundation')
+      expect(text).toContain('Get work done by people and their agents')
       expect(text).toContain(`Release ${release}`)
       expect(problems).toEqual([])
     }),
@@ -406,4 +410,97 @@ test(
     })
   }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
+)
+
+/** A browser context whose page has a wallet: `window.ethereum`, an EIP-1193 provider backed by a key in this process.
+ * The page's CSP forbids inline script, so the provider is installed with Playwright's init script, which the browser
+ * evaluates outside the page's CSP, and each request crosses to Node through an exposed function. */
+const walletContext = (browser: Chromium) =>
+  Effect.gen(function* () {
+    const wallet = privateKeyToAccount(generatePrivateKey())
+    const context = yield* Effect.promise(() => browser.newContext({ locale: 'en-US' }))
+    yield* Effect.promise(() =>
+      context.exposeFunction('__sidequestWallet', async (method: string, params: ReadonlyArray<unknown>) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [wallet.address]
+        if (method === 'eth_chainId') return '0x4cef52'
+        const [message] = params
+        if (method === 'personal_sign' && typeof message === 'string' && isHex(message))
+          return wallet.signMessage({ message: { raw: message } })
+        throw Object.assign(new Error(`The test wallet does not answer ${method}`), { code: 4200 })
+      }),
+    )
+    yield* Effect.promise(() =>
+      context.addInitScript({
+        content:
+          'window.ethereum = { request: ({ method, params }) => window.__sidequestWallet(method, params ?? []) }',
+      }),
+    )
+    return { wallet, context }
+  })
+
+/** A page that records every error the browser reports, CSP violations included, and is hydrated before use. */
+const openPage = (context: BrowserContext, url: string) =>
+  Effect.gen(function* () {
+    const page = yield* Effect.promise(() => context.newPage())
+    const problems: Array<string> = []
+    page.on('pageerror', (error) => problems.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') problems.push(message.text())
+    })
+    yield* Effect.promise(() => page.goto(url, { waitUntil: 'networkidle' }))
+    yield* hydrated(page)
+    return { page, problems }
+  })
+
+const hydrated = (page: Page) =>
+  Effect.promise(() =>
+    page.waitForFunction(() => window.document.querySelector('[data-foldkit-app]') === null, undefined, {
+      timeout: 10000,
+    }),
+  )
+
+/** Reload until `text` shows: the open requests come from a D1 projection, which follows the job eventually. A bounded
+ * retry on what the page shows, never a fixed sleep. */
+const reloadUntilShown = (page: Page, text: string) =>
+  Effect.tryPromise(async () => {
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.getByText(text).first().waitFor({ timeout: 1000 })
+  }).pipe(Effect.retry({ times: 20 }))
+
+test(
+  'signs in with an injected wallet, posts a request as the buyer, and shows it to another visitor on the home page',
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { url } = yield* stack
+      const browser = yield* headlessChromium
+      const buyer = yield* walletContext(browser)
+      const { page, problems } = yield* openPage(buyer.context, `${url}/sign-in`)
+      yield* Effect.promise(() => page.getByRole('button', { name: 'Connect wallet' }).click())
+      yield* Effect.promise(() => page.getByRole('button', { name: 'Sign in', exact: true }).click())
+      const short = `${buyer.wallet.address.slice(0, 6)}…${buyer.wallet.address.slice(-4)}`
+      yield* Effect.promise(() => page.getByText(`Wallet ${short}`).waitFor({ timeout: 15000 }))
+      expect(new URL(page.url()).pathname).toBe('/')
+
+      yield* Effect.promise(() =>
+        page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Post a request' }).click(),
+      )
+      const title = `A poster for the acceptance run ${generatePrivateKey().slice(2, 10)}`
+      yield* Effect.promise(() => page.getByLabel('What do you need?').fill(title))
+      yield* Effect.promise(() => page.getByLabel('Details').fill('A2, two colours, by Friday.'))
+      yield* Effect.promise(() => page.getByRole('button', { name: 'Post the request' }).click())
+      yield* Effect.promise(() => page.waitForURL(/\/jobs\/job_[0-9A-HJKMNP-TV-Z]{26}$/u, { timeout: 15000 }))
+      yield* Effect.promise(() => page.getByRole('heading', { level: 1, name: title }).waitFor({ timeout: 15000 }))
+      // The buyer's own view: their request, open, and no proposals yet.
+      yield* Effect.promise(() => page.getByText('No proposals yet.', { exact: false }).waitFor({ timeout: 15000 }))
+
+      const visitor = yield* walletContext(browser)
+      const home = yield* openPage(visitor.context, url)
+      yield* reloadUntilShown(home.page, title)
+      const link = home.page.getByRole('link', { name: title })
+      expect(yield* Effect.promise(() => link.getAttribute('href'))).toBe(new URL(page.url()).pathname)
+      expect(problems).toEqual([])
+      expect(home.problems).toEqual([])
+    }),
+  ),
+  { timeout: 120000 },
 )
