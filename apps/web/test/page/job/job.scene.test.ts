@@ -2,22 +2,33 @@ import { Option } from 'effect'
 import { AsyncData } from 'foldkit'
 import { Command, click, expect, given, inside, role, scene, text, withViewInputs } from 'foldkit/scene'
 import { modifyFields } from 'foldkit/struct'
-import { describe, test } from 'vitest'
-import { CancelRequest, Decide, init, Message, type Model, ReadJob, update } from '../../../src/page/job/Job.ts'
+import { describe, expect as assert, test } from 'vitest'
+import {
+  CancelRequest,
+  Decide,
+  init,
+  Message,
+  type Model,
+  ReadJob,
+  ReadNames,
+  update,
+} from '../../../src/page/job/Job.ts'
+import { Preload } from '../../../src/Preload.ts'
 import { view } from '../../../src/page/job/JobPage.ts'
 import * as Room from '../../../src/page/job/Room.ts'
 import { Problem } from '../../../src/Problem.ts'
 import { Session } from '../../../src/Session.ts'
-import { ada, ben, bidderPending, buyerOpen, job, publicOpen, wallet } from '../../Fixtures.ts'
+import { ada, ben, bidderPending, buyerOpen, cleo, job, publicOpen, wallet, workerSettled } from '../../Fixtures.ts'
 import { Digest, type JobView, type ProposalRef } from '@sidequest/protocol'
 
-const signedOut = withViewInputs(view, { session: Session.SignedOut(), me: Option.none() })
-const asAda = withViewInputs(view, { session: Session.SignedOut(), me: Option.some(ada) })
+const signedOut = withViewInputs(view, { session: Session.SignedOut(), me: Option.none(), timeZone: 'UTC' })
+const asAda = withViewInputs(view, { session: Session.SignedOut(), me: Option.some(ada), timeZone: 'UTC' })
+const asBen = withViewInputs(view, { session: Session.SignedOut(), me: Option.some(ben), timeZone: 'UTC' })
 
 /** The job page once the job read answered with `jobView`. */
 const showing = (jobView: JobView): Model =>
   update(
-    modifyFields(init('en', job, Option.some(wallet), false).model, { view: () => AsyncData.Loading() }),
+    modifyFields(init('en', job, Option.some(wallet), false, Option.none()).model, { view: () => AsyncData.Loading() }),
     Message.SucceededReadJob({ view: jobView }),
   ).model
 
@@ -36,6 +47,52 @@ describe('the job page, for its buyer', () => {
       expect(text('1 earlier version')).toExist(),
       expect(role('button', { name: 'Accept version 2' })).toExist(),
       expect(role('button', { name: 'Accept version 1' })).toExist(),
+    )
+  })
+
+  test('names the buyer and every bidder once their names are read, in one lookup', () => {
+    const read = update(
+      init('en', job, Option.some(wallet), false, Option.none()).model,
+      Message.SucceededReadJob({ view: buyerOpen }),
+    )
+    assert(read.commands?.map((command) => command.name)).toEqual([ReadNames.name])
+    assert(read.model.askedNames).toEqual([ada, ben, cleo])
+    // The view read again asks for no name already asked for.
+    assert(update(read.model, Message.SucceededReadJob({ view: buyerOpen })).commands ?? []).toEqual([])
+    scene(
+      { update, view: asAda() },
+      given(
+        update(
+          read.model,
+          Message.SucceededReadNames({
+            names: [
+              { account: ben, displayName: 'Ben Bitdiddle' },
+              { account: cleo, displayName: 'Cleo' },
+            ],
+          }),
+        ).model,
+      ),
+      expect(role('heading', { name: 'From Ben Bitdiddle' })).toExist(),
+      expect(role('heading', { name: 'From Cleo' })).toExist(),
+      // An account with no name recorded keeps its short id.
+      expect(text('account …000ADA')).toExist(),
+    )
+  })
+
+  test('shows the job the server read, with its names, and reads neither again', () => {
+    const opened = init(
+      'en',
+      job,
+      Option.some(wallet),
+      false,
+      Option.some(Preload.Job({ view: buyerOpen, names: [{ account: ben, displayName: 'Ben Bitdiddle' }] })),
+    )
+    assert(opened.commands ?? []).toEqual([])
+    scene(
+      { update, view: asAda() },
+      given(opened.model),
+      expect(role('heading', { level: 1, name: 'A logo for my café' })).toExist(),
+      expect(role('heading', { name: 'From Ben Bitdiddle' })).toExist(),
     )
   })
 
@@ -82,13 +139,52 @@ describe('the job page, for its buyer', () => {
 })
 
 describe('the job page, for a bidder', () => {
-  test('shows their own versions, the change asked for, and a form for the next version', () => {
+  test('shows the request and its stage, their own versions, the change asked for, and a form for the next', () => {
     scene(
-      { update, view: withViewInputs(view, { session: Session.SignedOut(), me: Option.some(ben) })() },
+      { update, view: asBen() },
       given(showing(bidderPending)),
-      expect(role('heading', { level: 1, name: 'Your proposal: A logo, version 2' })).toExist(),
+      expect(role('heading', { level: 1, name: 'A logo for my café' })).toExist(),
+      expect(text('Warm colours.')).toExist(),
+      expect(text('Open')).toExist(),
       expect(text('The buyer asked for a change to this version')).toExist(),
       expect(role('heading', { name: 'Send a new version' })).toExist(),
+    )
+  })
+
+  test('shows the worker the fee on what they won and whether each side reviewed, and asks for their review', () => {
+    scene(
+      { update, view: asBen() },
+      given(showing(workerSettled)),
+      expect(text('Settled')).toExist(),
+      expect(
+        text(
+          'When the escrow pays you, 5% of the 300.00 USDC you agreed goes to Sidequest: 15.00 USDC. You receive 285.00 USDC.',
+        ),
+      ).toExist(),
+      expect(text('The buyer has reviewed your work.')).toExist(),
+      expect(text('You have reviewed the buyer.')).not.toExist(),
+      expect(role('heading', { name: 'Review' })).toExist(),
+      expect(text('account …000ADA: 5 of 5')).toExist(),
+      expect(role('heading', { name: 'Send a new version' })).not.toExist(),
+    )
+  })
+
+  test('stops asking the worker for a review once they left one', () => {
+    const reviewed =
+      workerSettled.audience === 'bidder'
+        ? {
+            ...workerSettled,
+            view: {
+              ...workerSettled.view,
+              reviews: [...workerSettled.view.reviews, { job, author: ben, subject: ada, rating: 4 }],
+            },
+          }
+        : workerSettled
+    scene(
+      { update, view: asBen() },
+      given(showing(reviewed)),
+      expect(text('You have reviewed the buyer.')).toExist(),
+      expect(role('heading', { name: 'Review' })).not.toExist(),
     )
   })
 })
@@ -109,7 +205,7 @@ describe('the job page, for anyone else', () => {
       { update, view: signedOut() },
       given(
         update(
-          init('en', job, Option.none(), false).model,
+          init('en', job, Option.none(), false, Option.none()).model,
           Message.FailedReadJob({ problem: Problem.NotFound({ reason: 'UnknownJob' }) }),
         ).model,
       ),

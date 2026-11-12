@@ -1,4 +1,5 @@
 export { Account } from './Account.ts'
+export { AccountApi, AccountIds, AccountName, DisplayName, JobSide, maxNamesPerLookup, Profile } from './AccountApi.ts'
 export { AccountRef } from './AccountRef.ts'
 export { Actor } from './Actor.ts'
 export { Agent } from './Agent.ts'
@@ -47,6 +48,7 @@ export { InboxApi } from './InboxApi.ts'
 export { JobsApi } from './JobsApi.ts'
 export { JobState } from './JobState.ts'
 export {
+  BidderBid,
   BidderJobView,
   BidOutcome,
   Bps,
@@ -58,11 +60,13 @@ export {
   ProposalRef,
   PublicJobView,
   Ruling,
+  WorkerFee,
 } from './JobView.ts'
 export { Listing, ListingDetails, PriceHint } from './Listing.ts'
 export { ListingsApi, SearchText } from './ListingsApi.ts'
 export { NetworkRef } from './NetworkRef.ts'
 export { Cursor, defaultPageSize, maxPageSize, Page, PageQuery, PageSize } from './Page.ts'
+export { JobRole, PartyJob } from './PartyJob.ts'
 export { PaymentIntent } from './PaymentIntent.ts'
 export { PaymentRail } from './PaymentRail.ts'
 export { Proposal, ProposalVersion } from './Proposal.ts'

@@ -1,4 +1,5 @@
 import { SessionView } from '@sidequest/protocol'
+import { Schema } from 'effect'
 import { defineMessageUnion } from 'foldkit/message'
 import { UrlRequest } from 'foldkit/navigation'
 import { Url } from 'foldkit/url'
@@ -10,6 +11,7 @@ export const Message = defineMessageUnion({
   ChangedUrl: { url: Url },
   CompletedNavigate: {},
   CompletedFocusTitle: {},
+  CompletedReadTimeZone: { timeZone: Schema.String },
   SucceededReadSession: { session: SessionView },
   FailedReadSession: { problem: Problem },
   ClickedSignOut: {},

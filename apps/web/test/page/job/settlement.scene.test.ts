@@ -15,6 +15,7 @@ import {
   submit,
   text,
   type,
+  withViewInputs,
 } from 'foldkit/scene'
 import { describe, expect as assert, test } from 'vitest'
 import {
@@ -33,9 +34,11 @@ import {
   update,
   WaitBeforeCheck,
 } from '../../../src/page/job/Settlement.ts'
-import { view } from '../../../src/page/job/SettlementView.ts'
+import * as SettlementView from '../../../src/page/job/SettlementView.ts'
 import { Problem } from '../../../src/Problem.ts'
 import { escrow, fundingRequest, job, signature, termsFor, transaction, typedData, wallet } from '../../Fixtures.ts'
+
+const view = withViewInputs(SettlementView.view, { timeZone: 'UTC' })()
 
 const setup = (side: Setup['role']): Setup => ({
   role: side,

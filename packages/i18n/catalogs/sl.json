@@ -114,7 +114,8 @@
       "title": "Odprta naročila",
       "loading": "Nalagamo odprta naročila …",
       "empty": "Trenutno ni odprtih naročil. Objavite prvo.",
-      "until": "Odprto do {date}"
+      "until": "Odprto do {date}",
+      "byUntil": "{name} · odprto do {date}"
     },
     "listings": {
       "title": "Ponudbe",
@@ -129,7 +130,8 @@
   "listing": {
     "noPrice": "Cena ni navedena",
     "priceFrom": "Okvirno {price}",
-    "tags": "Oznake"
+    "tags": "Oznake",
+    "by": "Ponudnik: {name}"
   },
   "signIn": {
     "title": "Prijava",
@@ -289,7 +291,7 @@
     "choose": "Pogovori",
     "engagement": "Delovni pogovor",
     "negotiation": "Pogajanje",
-    "withBidder": "Z računom …{bidder}",
+    "withBidder": "Z: {bidder}",
     "you": "Vi",
     "viaAgent": "{person} prek agenta …{agent}",
     "loading": "Nalagamo sporočila …",
@@ -301,7 +303,8 @@
     "resume": "Naj moji agenti nadaljujejo",
     "agentsHint": "Agenti lahko napišejo največ šest sporočil zapored, nato mora odgovoriti človek. Svoje agente lahko v tem pogovoru kadar koli ustavite.",
     "paused": "Vaši agenti so v tem pogovoru ustavljeni.",
-    "resumed": "Vaši agenti lahko v tem pogovoru spet pišejo."
+    "resumed": "Vaši agenti lahko v tem pogovoru spet pišejo.",
+    "running": "Vaši agenti lahko pišejo v tem pogovoru."
   },
   "settlement": {
     "title": "Plačilo",
@@ -415,7 +418,7 @@
     "signInToPropose": "Prijavite se, da daste predlog",
     "proposals": "Predlogi",
     "noProposals": "Predlogov še ni. Izvajalci in njihovi agenti predlagajo tukaj; videli boste vsako različico.",
-    "fromBidder": "Od računa …{bidder}",
+    "fromBidder": "Od: {bidder}",
     "latestVersion": "Različica {version}, najnovejša",
     "version": "Različica {version}",
     "earlierVersions": "{count, plural, one {# starejša različica} two {# starejši različici} few {# starejše različice} other {# starejših različic}}",
@@ -425,17 +428,21 @@
     "changeAsked": "Sprememba zaprošena",
     "changeRequested": "Naročnik je prosil za spremembo te različice",
     "confirmAcceptLabel": "Potrdite sprejem",
-    "confirmAccept": "Sprejmete različico {version} od računa …{bidder}? Postane dogovor natanko pod temi pogoji: {amount}, oddaja do {deadline}. Nato vplačate znesek v skrbniško pogodbo; zaenkrat se nič ne plača.",
+    "confirmAccept": "Sprejmete različico {version}, ki jo je poslal(a) {bidder}? Postane dogovor natanko pod temi pogoji: {amount}, oddaja do {deadline}. Nato vplačate znesek v skrbniško pogodbo; zaenkrat se nič ne plača.",
     "yourProposals": "Vaši predlogi",
     "won": "Naročnik je sprejel vaš predlog. Ko vplača znesek v skrbniško pogodbo, lahko začnete.",
     "lost": "Naročnik je sprejel drug predlog.",
     "agreement": "Dogovor",
-    "agreementWith": "Sprejeli ste različico {version} od računa …{worker}. Ti pogoji zavezujejo oba.",
+    "agreementWith": "Sprejeli ste različico {version}, ki jo je poslal(a) {worker}. Ti pogoji zavezujejo oba.",
     "reviews": "Ocene",
-    "reviewBy": "Račun …{author}: {rating} od 5",
+    "reviewBy": "{author}: {rating} od 5",
     "cancel": "Prekliči naročilo",
     "cancelling": "Preklicujemo …",
     "cancelConfirm": "Preklicati to naročilo? Ponudniki ne bodo mogli več predlagati in ga ni mogoče znova odpreti.",
-    "keep": "Pusti odprto"
+    "keep": "Pusti odprto",
+    "fee": "Ko vam skrbniška pogodba izplača znesek, gre {percent} od dogovorjenih {amount} Sidequestu: {fee}. Prejmete {worker}.",
+    "buyerReviewed": "Naročnik je ocenil vaše delo.",
+    "buyerNotReviewed": "Naročnik vašega dela še ni ocenil.",
+    "youReviewed": "Naročnika ste že ocenili."
   }
 }

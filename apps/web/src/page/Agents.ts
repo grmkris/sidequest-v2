@@ -191,15 +191,23 @@ export const CopyToken = Command.define('CopyToken', {
 
 type UpdateReturn = Update.Return<Model, Message, SidequestClient>
 
-export const init = (language: Language, mayRead: boolean): UpdateReturn => {
+/** The agents the server read, or a read of them when the person may be signed in. */
+export const init = (
+  language: Language,
+  mayRead: boolean,
+  maybeAgents: Option.Option<ReadonlyArray<Agent>>,
+): UpdateReturn => {
   const model: Model = {
     language,
-    agents: mayRead ? AsyncData.Loading() : AsyncData.Idle(),
+    agents: Option.match(maybeAgents, {
+      onSome: (agents) => AgentList.Success({ data: agents }),
+      onNone: () => (mayRead ? AsyncData.Loading() : AsyncData.Idle()),
+    }),
     name: '',
     register: FormStatus.Editing(),
     maybePanel: Option.none(),
   }
-  return mayRead ? { model, commands: [ListAgents()] } : { model }
+  return mayRead && Option.isNone(maybeAgents) ? { model, commands: [ListAgents()] } : { model }
 }
 
 // UPDATE

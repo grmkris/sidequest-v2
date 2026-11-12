@@ -5,7 +5,8 @@ import { CurrentActor } from '@sidequest/domain/CurrentActor.context'
 import { PeopleApi } from '@sidequest/domain/People.api'
 import { Session, Unauthorized } from '@sidequest/domain/Session.middleware'
 import { SignedInAccount } from '@sidequest/protocol'
-import { Context, Effect, Layer, type Scope } from 'effect'
+import { Context, Effect, Layer, Option, type Scope } from 'effect'
+import { Escrow } from '../Settlement/Escrow.ts'
 import { type ModelError, refused } from './Refusals.ts'
 
 /** The {@link PeopleApi} client: its commands as methods, its reads as namespaces. */
@@ -32,13 +33,19 @@ const anonymous: Session['Service'] = () => Effect.fail(new Unauthorized())
  */
 export class PeopleClients extends Context.Service<
   PeopleClients,
-  { readonly as: (party: Party | undefined) => Effect.Effect<People, never, Scope.Scope> }
+  {
+    readonly as: (party: Party | undefined) => Effect.Effect<People, never, Scope.Scope>
+    /** The escrow's fee in basis points, which a worker's view shows; none while settlement is not configured. */
+    readonly feeBps: Option.Option<number>
+  }
 >()('Sidequest/PeopleClients') {
   static readonly layer = Layer.effect(
     PeopleClients,
     Effect.gen(function* () {
       const model = yield* Effect.context<Internals>()
+      const escrow = Option.flatten(yield* Effect.serviceOption(Escrow))
       return PeopleClients.of({
+        feeBps: Option.map(escrow, (service) => service.chain.feeBps),
         as: (party) =>
           PeopleApi.testClient.pipe(
             Effect.provideService(Session, party === undefined ? anonymous : trusting(party)),

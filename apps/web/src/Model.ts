@@ -1,20 +1,25 @@
 import { Schema } from 'effect'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { Language } from './Language.ts'
+import { Preload, SessionRead } from './Preload.ts'
 import { Problem } from './Problem.ts'
 import { AppRoute } from './route.ts'
 import { Session } from './Session.ts'
 import * as Pages from './Pages.ts'
 
-/** What the server stamps into the page and hydration reads back: the reader's language, the release, and the origin
- * agents connect to. */
+/** What the server stamps into the page and hydration reads back: the reader's language, the time zone dates are
+ * drawn in (UTC until the browser reads its own), the release, the origin agents connect to, and what the server read
+ * for the page: the session and the page's data. */
 export const Flags = Schema.Struct({
   language: Language,
+  timeZone: Schema.String,
   release: Schema.String,
   origin: Schema.String,
-  /** The request carried a session cookie, so the browser reads the session; without one it is signed out. The cookie
-   * is HttpOnly, so only the server can tell. */
+  /** The request carried a session cookie, so the browser reads the session unless the server did; without one it is
+   * signed out. The cookie is HttpOnly, so only the server can tell. */
   hasSessionCookie: Schema.Boolean,
+  sessionRead: SessionRead,
+  preload: Preload,
 })
 export type Flags = typeof Flags.Type
 

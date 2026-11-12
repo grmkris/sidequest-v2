@@ -65,6 +65,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'home.listings.title': Readonly<Record<string, never>>
   'home.postRequest': Readonly<Record<string, never>>
   'home.publishListing': Readonly<Record<string, never>>
+  'home.requests.byUntil': { readonly name: string | number; readonly date: string | number }
   'home.requests.empty': Readonly<Record<string, never>>
   'home.requests.loading': Readonly<Record<string, never>>
   'home.requests.title': Readonly<Record<string, never>>
@@ -88,6 +89,8 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.askChange': Readonly<Record<string, never>>
   'job.bidderTitle': { readonly title: string | number }
   'job.buyer': Readonly<Record<string, never>>
+  'job.buyerNotReviewed': Readonly<Record<string, never>>
+  'job.buyerReviewed': Readonly<Record<string, never>>
   'job.cancel': Readonly<Record<string, never>>
   'job.cancelConfirm': Readonly<Record<string, never>>
   'job.cancelling': Readonly<Record<string, never>>
@@ -102,6 +105,12 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.confirmAcceptLabel': Readonly<Record<string, never>>
   'job.digest': Readonly<Record<string, never>>
   'job.earlierVersions': { readonly count: number }
+  'job.fee': {
+    readonly percent: string | number
+    readonly amount: string | number
+    readonly fee: string | number
+    readonly worker: string | number
+  }
   'job.fromBidder': { readonly bidder: string | number }
   'job.keep': Readonly<Record<string, never>>
   'job.latestVersion': { readonly version: string | number }
@@ -130,7 +139,9 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.untitled': Readonly<Record<string, never>>
   'job.version': { readonly version: string | number }
   'job.won': Readonly<Record<string, never>>
+  'job.youReviewed': Readonly<Record<string, never>>
   'job.yourProposals': Readonly<Record<string, never>>
+  'listing.by': { readonly name: string | number }
   'listing.noPrice': Readonly<Record<string, never>>
   'listing.priceFrom': { readonly price: string | number }
   'listing.tags': Readonly<Record<string, never>>
@@ -257,6 +268,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'room.paused': Readonly<Record<string, never>>
   'room.resume': Readonly<Record<string, never>>
   'room.resumed': Readonly<Record<string, never>>
+  'room.running': Readonly<Record<string, never>>
   'room.send': Readonly<Record<string, never>>
   'room.title': Readonly<Record<string, never>>
   'room.viaAgent': { readonly person: string | number; readonly agent: string | number }
@@ -372,4 +384,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'cb74dcb3e2a809332f3bd6f1e9dbf5d212927f86094b301bff1d031e9808d3ad'
+export const catalogVersion = '48781b676ae1ead5d7047f6c832650f1bf0bf396d09eedd44d88ddf104e22615'

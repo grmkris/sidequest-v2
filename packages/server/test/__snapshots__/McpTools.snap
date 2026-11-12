@@ -1448,6 +1448,75 @@
                 "view": {
                   "type": "object",
                   "properties": {
+                    "request": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "pattern": "^job_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                            },
+                            "buyer": {
+                              "type": "string",
+                              "pattern": "^account_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                            },
+                            "title": {
+                              "type": "string",
+                              "pattern": "^\\S[\\s\\S]*\\S$|^\\S$|^$",
+                              "minLength": 1,
+                              "maxLength": 200,
+                              "allOf": [
+                                {
+                                  "pattern": "^[^\\uD800-\\uDFFF]*$"
+                                }
+                              ]
+                            },
+                            "description": {
+                              "type": "string",
+                              "pattern": "^\\S[\\s\\S]*\\S$|^\\S$|^$",
+                              "minLength": 1,
+                              "maxLength": 5000,
+                              "allOf": [
+                                {
+                                  "pattern": "^[^\\uD800-\\uDFFF]*$"
+                                }
+                              ]
+                            },
+                            "expiresAt": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "buyer",
+                            "title",
+                            "description",
+                            "expiresAt"
+                          ],
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "Unposted",
+                        "Open",
+                        "Awarded",
+                        "Funded",
+                        "Delivered",
+                        "Disputed",
+                        "Settled",
+                        "Cancelled",
+                        "Expired"
+                      ]
+                    },
                     "job": {
                       "anyOf": [
                         {
@@ -1611,14 +1680,87 @@
                         "won",
                         "lost"
                       ]
+                    },
+                    "reviews": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "job": {
+                            "type": "string",
+                            "pattern": "^job_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                          },
+                          "author": {
+                            "type": "string",
+                            "pattern": "^account_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                          },
+                          "subject": {
+                            "type": "string",
+                            "pattern": "^account_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                          },
+                          "rating": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                          },
+                          "comment": {
+                            "type": "string",
+                            "pattern": "^\\S[\\s\\S]*\\S$|^\\S$|^$",
+                            "minLength": 1,
+                            "maxLength": 2000,
+                            "allOf": [
+                              {
+                                "pattern": "^[^\\uD800-\\uDFFF]*$"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "job",
+                          "author",
+                          "subject",
+                          "rating"
+                        ],
+                        "additionalProperties": true
+                      }
+                    },
+                    "fee": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "bps": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 10000
+                            },
+                            "amount": {
+                              "type": "string",
+                              "pattern": "^(0|[1-9][0-9]*)$"
+                            }
+                          },
+                          "required": [
+                            "bps",
+                            "amount"
+                          ],
+                          "additionalProperties": true
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
+                    "request",
+                    "state",
                     "job",
                     "bidder",
                     "proposals",
                     "changesRequested",
-                    "outcome"
+                    "outcome",
+                    "reviews",
+                    "fee"
                   ],
                   "additionalProperties": true
                 }

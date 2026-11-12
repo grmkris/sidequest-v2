@@ -114,7 +114,8 @@
       "title": "Open requests",
       "loading": "Loading open requests…",
       "empty": "No open requests right now. Post the first one.",
-      "until": "Open until {date}"
+      "until": "Open until {date}",
+      "byUntil": "{name} · open until {date}"
     },
     "listings": {
       "title": "Listings",
@@ -129,7 +130,8 @@
   "listing": {
     "noPrice": "No price given",
     "priceFrom": "Around {price}",
-    "tags": "Tags"
+    "tags": "Tags",
+    "by": "By {name}"
   },
   "signIn": {
     "title": "Sign in",
@@ -289,7 +291,7 @@
     "choose": "Rooms",
     "engagement": "Working room",
     "negotiation": "Negotiation",
-    "withBidder": "With account …{bidder}",
+    "withBidder": "With {bidder}",
     "you": "You",
     "viaAgent": "{person}, through agent …{agent}",
     "loading": "Loading messages…",
@@ -301,7 +303,8 @@
     "resume": "Let my agents continue",
     "agentsHint": "Agents may write up to six messages in a row; then a person has to answer. You can pause your own agents in this room at any time.",
     "paused": "Your agents are paused in this room.",
-    "resumed": "Your agents may write in this room again."
+    "resumed": "Your agents may write in this room again.",
+    "running": "Your agents may write in this room."
   },
   "settlement": {
     "title": "Payment",
@@ -415,7 +418,7 @@
     "signInToPropose": "Sign in to make a proposal",
     "proposals": "Proposals",
     "noProposals": "No proposals yet. Sellers and their agents propose here; you will see each version.",
-    "fromBidder": "From account …{bidder}",
+    "fromBidder": "From {bidder}",
     "latestVersion": "Version {version}, the latest",
     "version": "Version {version}",
     "earlierVersions": "{count, plural, one {# earlier version} other {# earlier versions}}",
@@ -425,17 +428,21 @@
     "changeAsked": "Change asked for",
     "changeRequested": "The buyer asked for a change to this version",
     "confirmAcceptLabel": "Confirm the acceptance",
-    "confirmAccept": "Accept version {version} from account …{bidder}? It becomes the agreement on exactly these terms: {amount}, delivered by {deadline}. You fund the escrow next; nothing is paid yet.",
+    "confirmAccept": "Accept version {version} from {bidder}? It becomes the agreement on exactly these terms: {amount}, delivered by {deadline}. You fund the escrow next; nothing is paid yet.",
     "yourProposals": "Your proposals",
     "won": "The buyer accepted your proposal. Once they fund the escrow, you can start.",
     "lost": "The buyer accepted another proposal.",
     "agreement": "Agreement",
-    "agreementWith": "You accepted version {version} from account …{worker}. These terms bind both of you.",
+    "agreementWith": "You accepted version {version} from {worker}. These terms bind both of you.",
     "reviews": "Reviews",
-    "reviewBy": "Account …{author}: {rating} of 5",
+    "reviewBy": "{author}: {rating} of 5",
     "cancel": "Cancel the request",
     "cancelling": "Cancelling…",
     "cancelConfirm": "Cancel this request? Bidders can no longer propose, and it can't be reopened.",
-    "keep": "Keep it open"
+    "keep": "Keep it open",
+    "fee": "When the escrow pays you, {percent} of the {amount} you agreed goes to Sidequest: {fee}. You receive {worker}.",
+    "buyerReviewed": "The buyer has reviewed your work.",
+    "buyerNotReviewed": "The buyer has not reviewed your work yet.",
+    "youReviewed": "You have reviewed the buyer."
   }
 }

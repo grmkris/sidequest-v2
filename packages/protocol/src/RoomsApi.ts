@@ -16,7 +16,7 @@ const SeqFromString = Schema.FiniteFromString.check(
 
 /**
  * The rooms of a job the signed-in person is a member of, and in each: read the messages after a sequence number,
- * post one under an idempotency key, and pause or resume your own agents.
+ * post one under an idempotency key, and see whether your own agents are paused, and pause or resume them.
  */
 export class RoomsApi extends HttpApiGroup.make('rooms')
   .add(
@@ -35,6 +35,11 @@ export class RoomsApi extends HttpApiGroup.make('rooms')
     HttpApiEndpoint.post('post', '/api/rooms/:room/messages', {
       params: onRoom,
       payload: Schema.Struct({ text: MessageText, key: IdempotencyKey }),
+      error: refusals,
+    }),
+    HttpApiEndpoint.get('agents', '/api/rooms/:room/agents', {
+      params: onRoom,
+      success: Schema.Struct({ paused: Schema.Boolean }),
       error: refusals,
     }),
     HttpApiEndpoint.post('pause', '/api/rooms/:room/pause', { params: onRoom, error: refusals }),

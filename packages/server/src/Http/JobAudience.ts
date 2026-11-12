@@ -1,12 +1,37 @@
 import type { Party } from '@sidequest/domain/Actor'
-import { type AccountId, type JobId, type JobView, NotFound, roomIdOf, type RoomRef } from '@sidequest/protocol'
-import { Effect } from 'effect'
+import {
+  type AccountId,
+  Amount,
+  type BidderBid,
+  type JobId,
+  type JobView,
+  NotFound,
+  type PublicJobView,
+  roomIdOf,
+  type RoomRef,
+  type WorkerFee,
+} from '@sidequest/protocol'
+import { Array, Effect, Option } from 'effect'
 import type { PeopleClients } from './People.ts'
 import { refused } from './Refusals.ts'
 
+/** The fee the escrow takes from the worker's pay, at `bps` of the amount they won, rounded down as the escrow does. */
+const feeOn = (bid: BidderBid, feeBps: Option.Option<number>): WorkerFee | null =>
+  Option.getOrNull(
+    Option.flatMap(
+      Option.filter(Array.last(bid.proposals), () => bid.outcome === 'won'),
+      (won) =>
+        Option.map(feeBps, (bps) => ({
+          bps,
+          amount: Amount.make(((BigInt(won.terms.amount) * BigInt(bps)) / 10_000n).toString()),
+        })),
+    ),
+  )
+
 /**
  * A job as the one asking sees it. Anyone reads the public summary; its buyer reads the buyer's summary, and a bidder
- * their own negotiation's. Each private summary's `validate` decides who may read it; this only picks the one that
+ * the request and its stage from the public summary with their own bid from their negotiation's, plus, once they
+ * won, the escrow's fee on their pay. Each private summary's `validate` decides who may read it; this only picks the one that
  * fits who asks, and falls back to the public summary when no private one admits them (yet: views follow events
  * eventually). A job never posted is `NotFound`. An agent sees what its operator sees, while its grant is live.
  */
@@ -31,9 +56,15 @@ export const jobViewFor = (clients: PeopleClients['Service'], job: JobId, viewer
         Effect.catchTag('NotPermitted', () => Effect.succeed(null)),
       ),
     )
-    const asBidder: JobView = bid === null ? shown : { audience: 'bidder', view: bid }
+    const asBidder: JobView = bid === null ? shown : { audience: 'bidder', view: bidderView(summary, bid, clients) }
     return asBidder
   }).pipe(Effect.scoped)
+
+const bidderView = (summary: PublicJobView, bid: BidderBid, clients: PeopleClients['Service']) => ({
+  ...summary,
+  ...bid,
+  fee: feeOn(bid, clients.feeBps),
+})
 
 /**
  * The rooms of a job its reader is a member of, from their view of it: the buyer's negotiation room with each bidder

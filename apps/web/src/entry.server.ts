@@ -1,10 +1,11 @@
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import * as Server from 'foldkit/experimental/server'
 import { provideAllCatalogs } from '@sidequest/i18n/all'
-import { sessionCookieName } from '@sidequest/protocol'
 import { init } from './App.ts'
 import { languageOf } from './Language.ts'
 import { Flags } from './Model.ts'
+import { Preload } from './Preload.ts'
+import { pageData, sessionCookieOf } from './server/PageData.ts'
 import { view } from './View.ts'
 // oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles.
 import './GlobalStyles.ts'
@@ -14,8 +15,20 @@ provideAllCatalogs()
 const release = import.meta.env.VITE_SIDEQUEST_RELEASE ?? 'local-build'
 export const application = { Flags, routing: {}, init, view }
 
-/** Every page renders on the server at its route, in the reader's language, without data: pages read their data in the
- * browser after hydration, so a page is never served with another person's view of a job. */
+/** Who may keep a copy of the page. One rendered for a session is that person's alone: never stored. One rendered for
+ * anyone may be revalidated by any cache, and briefly reused by a shared one; one the server could not read data for
+ * is not kept at all, so the next visitor gets the data. Either way it differs by language and by session cookie. */
+const cacheControlFor = (hasSessionCookie: boolean, preload: Preload): string =>
+  hasSessionCookie
+    ? 'private, no-store'
+    : Preload.guards.Nothing(preload)
+      ? 'no-store'
+      : 'public, max-age=0, s-maxage=10, must-revalidate'
+
+/** Every page renders on the server at its route, in the reader's language, with the data the server read for it as
+ * its visitor (the session cookie, forwarded alone to the API Worker, says who that is). Hydration starts from the same
+ * Flags, so the browser reads nothing again; when the server's read failed the page renders as the browser builds it
+ * and reads its data after hydration. */
 export const renderPage: Server.EntryModule['renderPage'] = (request) =>
   Effect.runPromise(
     Effect.gen(function* () {
@@ -23,16 +36,21 @@ export const renderPage: Server.EntryModule['renderPage'] = (request) =>
         return Server.Responded(new Response(null, { status: 405, headers: { allow: 'GET, HEAD' } }))
       }
       const url = new URL(request.url)
+      const { sessionRead, preload } = yield* pageData(request)
+      const hasSessionCookie = Option.isSome(sessionCookieOf(request.headers.get('cookie')))
       const flags: Flags = {
         language: languageOf(request.headers.get('accept-language')),
+        timeZone: 'UTC',
         release,
         origin: url.origin,
-        hasSessionCookie: (request.headers.get('cookie') ?? '').includes(`${sessionCookieName}=`),
+        hasSessionCookie,
+        sessionRead,
+        preload,
       }
       const rendered = yield* Server.renderToString(application, { url: request.url, flags })
       return Server.Rendered(rendered, {
         headers: {
-          'cache-control': 'private, no-store',
+          'cache-control': cacheControlFor(hasSessionCookie, preload),
           vary: 'Accept-Language, Cookie',
           'content-language': flags.language,
         },

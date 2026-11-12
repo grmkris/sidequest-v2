@@ -9,12 +9,14 @@ import { styled } from './Styled.ts'
 import * as Ui from './Ui.ts'
 import * as s from './Ui.styles.ts'
 
-// A list the server pages with a cursor: what is shown, where the next page starts, and whether a page is on its way.
+// A list the server pages with a cursor: what is shown, where the next page starts, and whether a page is on its way:
+// the first, a further one, or the first again while what was shown stays.
 
 const FeedStatus = defineTaggedUnion({
   Loading: {},
   Ready: {},
   LoadingMore: {},
+  Refreshing: {},
   Failed: { problem: Problem },
 })
 type FeedStatus = typeof FeedStatus.Type
@@ -49,6 +51,13 @@ export const withProblem = <A>(feed: AnyFeed<A>, problem: Problem): AnyFeed<A> =
 /** The next page is on its way. */
 export const loadingMore = <A>(feed: AnyFeed<A>): AnyFeed<A> =>
   modifyFields(feed, { status: () => FeedStatus.LoadingMore() })
+
+/** The first page is on its way again; what is shown stays until it arrives. */
+export const refreshing = <A>(feed: AnyFeed<A>): AnyFeed<A> =>
+  modifyFields(feed, { status: () => FeedStatus.Refreshing() })
+
+/** Whether the first page is being read again. */
+export const isRefreshing = <A>(feed: AnyFeed<A>): boolean => FeedStatus.guards.Refreshing(feed.status)
 
 export type FeedView<A, Message> = {
   readonly feed: AnyFeed<A>

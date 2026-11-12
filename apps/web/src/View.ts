@@ -76,6 +76,7 @@ const notFound = (h: Html.HtmlBuilder<Message>, model: Model) =>
 
 const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
   const language = model.flags.language
+  const timeZone = model.flags.timeZone
   const session = model.session
   return Page.match(model.page, {
     Home: ({ home }) =>
@@ -83,7 +84,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'home',
         model: home,
         view: Home.view,
-        viewInputs: { language },
+        viewInputs: { language, timeZone },
         toParentMessage: (message) => Message.GotHomeMessage({ message }),
       }),
     SignIn: ({ signIn }) =>
@@ -123,7 +124,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'job',
         model: job,
         view: JobPage.view,
-        viewInputs: { session, me: accountOf(session) },
+        viewInputs: { session, me: accountOf(session), timeZone },
         toParentMessage: (message) => Message.GotJobMessage({ message }),
       }),
     Inbox: ({ inbox }) =>
@@ -131,7 +132,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'inbox',
         model: inbox,
         view: Inbox.view,
-        viewInputs: { session },
+        viewInputs: { session, timeZone },
         toParentMessage: (message) => Message.GotInboxMessage({ message }),
       }),
     Agents: ({ agents }) =>
@@ -139,7 +140,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'agents',
         model: agents,
         view: AgentsView.view,
-        viewInputs: { session, origin: model.flags.origin },
+        viewInputs: { session, origin: model.flags.origin, timeZone },
         toParentMessage: (message) => Message.GotAgentsMessage({ message }),
       }),
     NotFound: () => notFound(h, model),

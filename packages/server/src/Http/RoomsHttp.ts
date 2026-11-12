@@ -24,7 +24,8 @@ export const messagesIn = (people: People, room: RoomId, after: number | undefin
 
 /**
  * The `rooms` group: the rooms of a job, from the signed-in person's view of it, and in a room the messages, read from
- * the `RoomMessages` stream, whose `validate` admits only members, and the room's commands.
+ * the `RoomMessages` stream, whose `validate` admits only members, whether the person's own agents are paused there,
+ * from the `RoomPauses` view, which admits only members too, and the room's commands.
  */
 export const roomsHandlers = HttpApiBuilder.group(SidequestApi, 'rooms', (handlers) =>
   Effect.gen(function* () {
@@ -42,6 +43,13 @@ export const roomsHandlers = HttpApiBuilder.group(SidequestApi, 'rooms', (handle
       )
       .handle('post', ({ params, payload }) =>
         asPerson.send((people) => people.PostMessage({ target: params.room, ...payload })),
+      )
+      .handle('agents', ({ params }) =>
+        Effect.gen(function* () {
+          const account = yield* SignedInAccount
+          const pauses = yield* asPerson.ask((people) => people.RoomPauses.get(params.room))
+          return { paused: pauses?.paused.includes(account) ?? false }
+        }),
       )
       .handle('pause', ({ params }) => asPerson.send((people) => people.PauseAgents({ target: params.room })))
       .handle('resume', ({ params }) => asPerson.send((people) => people.ResumeAgents({ target: params.room })))

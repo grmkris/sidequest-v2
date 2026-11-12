@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
-import { type AccountId, Listing, ListingDetails, ListingId } from '@sidequest/protocol'
-import { Effect, Option, Schema } from 'effect'
+import { AccountId, Listing, ListingDetails, ListingId } from '@sidequest/protocol'
+import { Array, Effect, Option, Schema } from 'effect'
 import { AsyncData, Command, type Html, Submodel, Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { defineTaggedUnion } from 'foldkit/schema'
@@ -8,9 +8,11 @@ import { modifyFields } from 'foldkit/struct'
 import { formatAmount } from '../Amount.ts'
 import { SidequestClient } from '../Api.ts'
 import { Language } from '../Language.ts'
+import { defineReadNames, Names, nameOf, unnamed, withNames } from '../Names.ts'
+import type { Preload } from '../Preload.ts'
 import { Problem, problemOf } from '../Problem.ts'
 import { styled } from '../Styled.ts'
-import { say, shortId } from '../Text.ts'
+import { say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
 import * as ListingForm from './ListingForm.ts'
@@ -34,6 +36,8 @@ export const Model = Schema.Struct({
   id: ListingId,
   listing: ListingData.schema,
   mode: Mode,
+  names: Names,
+  askedNames: Schema.Array(AccountId),
 })
 export type Model = typeof Model.Type
 
@@ -50,10 +54,14 @@ export const Message = defineMessageUnion({
   ClickedWithdraw: {},
   SucceededWithdrawListing: {},
   FailedWithdrawListing: { problem: Problem },
+  SucceededReadNames: { names: Names },
+  FailedReadNames: { problem: Problem },
 })
 export type Message = typeof Message.Type
 
 // COMMAND
+
+export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
 
 export const ReadListing = Command.define('ReadListing', {
   args: { id: ListingId },
@@ -92,10 +100,30 @@ export const WithdrawListing = Command.define('WithdrawListing', {
 
 type UpdateReturn = Update.Return<Model, Message, SidequestClient>
 
-export const init = (language: Language, id: ListingId): UpdateReturn => ({
-  model: { language, id, listing: AsyncData.Loading(), mode: Mode.Viewing({ maybeProblem: Option.none() }) },
-  commands: [ReadListing({ id })],
-})
+type ListingPreload = Extract<Preload, { readonly _tag: 'Listing' }>
+
+export const init = (language: Language, id: ListingId, maybePreload: Option.Option<ListingPreload>): UpdateReturn => {
+  const viewing = Mode.Viewing({ maybeProblem: Option.none() })
+  return Option.match(
+    Option.filter(maybePreload, (preload) => preload.listing.id === id),
+    {
+      onSome: ({ listing, names }) => ({
+        model: {
+          language,
+          id,
+          listing: ListingData.Success({ data: listing }),
+          mode: viewing,
+          names,
+          askedNames: [listing.owner],
+        },
+      }),
+      onNone: () => ({
+        model: { language, id, listing: AsyncData.Loading(), mode: viewing, names: [], askedNames: [] },
+        commands: [ReadListing({ id })],
+      }),
+    },
+  )
+}
 
 // UPDATE
 
@@ -124,9 +152,16 @@ const reread = (model: Model, mode: Mode): UpdateReturn => ({
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    SucceededReadListing: ({ listing }) => ({
-      model: modifyFields(model, { listing: () => ListingData.Success({ data: listing }) }),
-    }),
+    SucceededReadListing: ({ listing }) => {
+      const nextModel = modifyFields(model, { listing: () => ListingData.Success({ data: listing }) })
+      return Array.match(unnamed([listing.owner], model.names, model.askedNames), {
+        onEmpty: () => ({ model: nextModel }),
+        onNonEmpty: (ids) => ({
+          model: modifyFields(nextModel, { askedNames: Array.appendAll(ids) }),
+          commands: [ReadNames({ ids })],
+        }),
+      })
+    },
     FailedReadListing: ({ problem }) => ({
       model: modifyFields(model, { listing: () => ListingData.Failure({ error: problem }) }),
     }),
@@ -156,14 +191,17 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     FailedWithdrawListing: ({ problem }) => ({
       model: modifyFields(model, { mode: () => viewing(Option.some(problem)) }),
     }),
+    SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
+    FailedReadNames: () => ({ model }),
   })
 
 // VIEW
 
 type ViewInputs = { readonly maybeAccount: Option.Option<AccountId> }
 
-const details = (h: Html.HtmlBuilder<Message>, language: Language, listing: Listing) =>
-  h.section(styled(h, s.panel()), [
+const details = (h: Html.HtmlBuilder<Message>, model: Model, listing: Listing) => {
+  const language = model.language
+  return h.section(styled(h, s.panel()), [
     h.p([], [listing.description]),
     Ui.facts(h, [
       Ui.fact(
@@ -180,11 +218,7 @@ const details = (h: Html.HtmlBuilder<Message>, language: Language, listing: List
         say(language, 'listing.tags'),
         listing.tags.length === 0 ? say(language, 'listingPage.noTags') : listing.tags.join(', '),
       ),
-      Ui.fact(
-        h,
-        say(language, 'listingPage.seller'),
-        format(language, 'common.account', { id: shortId(listing.owner) }),
-      ),
+      Ui.fact(h, say(language, 'listingPage.seller'), nameOf(model.names, listing.owner, language)),
       Ui.fact(
         h,
         say(language, 'listingPage.state'),
@@ -194,6 +228,7 @@ const details = (h: Html.HtmlBuilder<Message>, language: Language, listing: List
       ),
     ]),
   ])
+}
 
 const ownerActions = (h: Html.HtmlBuilder<Message>, model: Model, listing: Listing) =>
   Mode.match(model.mode, {
@@ -253,7 +288,7 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { ma
     onData: (listing) =>
       h.div(styled(h, s.page()), [
         Ui.pageHead(h, listing.title),
-        details(h, model.language, listing),
+        details(h, model, listing),
         Option.contains(maybeAccount, listing.owner) ? ownerActions(h, model, listing) : h.empty,
       ]),
   }),

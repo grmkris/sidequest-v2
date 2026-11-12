@@ -1,15 +1,19 @@
 import { it } from '@effect/vitest'
 import { ListingStore, memoryListingStore, type ListingChange } from '@sidequest/domain/Directory/ListingStore'
+import { AccountNameStore, memoryAccountNameStore } from '@sidequest/domain/Identity/AccountNameStore'
 import { AgentStore, memoryAgentStore, type AgentChange } from '@sidequest/domain/Identity/AgentStore'
 import { InboxStore, memoryInboxStore, type InboxItem } from '@sidequest/domain/Inbox/InboxStore'
 import { memoryOpenJobStore, OpenJobStore, type OpenJobChange } from '@sidequest/domain/Job/OpenJobStore'
+import { memoryPartyJobStore, PartyJobStore, type PartyJobChange } from '@sidequest/domain/Job/PartyJobStore'
 import { AccountId, AgentId, Amount, AssetId, JobId, ListingId, RoomId } from '@sidequest/protocol'
 import { Effect, Layer, Option, Schema } from 'effect'
 import { describe, expect } from 'vitest'
+import { D1AccountNameStore } from '../src/Projections/D1AccountNameStore.ts'
 import { D1AgentStore } from '../src/Projections/D1AgentStore.ts'
 import { D1InboxStore } from '../src/Projections/D1InboxStore.ts'
 import { D1ListingStore } from '../src/Projections/D1ListingStore.ts'
 import { D1OpenJobStore } from '../src/Projections/D1OpenJobStore.ts'
+import { D1PartyJobStore } from '../src/Projections/D1PartyJobStore.ts'
 import { localSql } from './LocalSql.ts'
 
 // Each D1 store against the domain's memory store, the model its port describes: the same changes, in any order,
@@ -73,6 +77,24 @@ const openJobChange = ({ opened, which, version, title }: typeof OpenJobStep.Typ
     ? { _tag: 'Opened', row: { id, buyer: accounts[0], title, expiresAt: 1769904000 + which, version } }
     : { _tag: 'Closed', id, version }
 }
+
+const PartyJobStep = Schema.Struct({
+  kind: Schema.Literals(['Posted', 'Bid', 'Awarded', 'Moved']),
+  which: Which,
+  account: Which,
+  version: Version,
+  state: Schema.Literals(['Funded', 'Disputed', 'Settled', 'Cancelled']),
+})
+const partyJobChange = ({ kind, which, account, version, state }: typeof PartyJobStep.Type): PartyJobChange => {
+  const id = jobs[which]
+  if (kind === 'Posted')
+    return { _tag: kind, id, buyer: accounts[account], title: 'Logo design', expiresAt: 1, version }
+  if (kind === 'Bid') return { _tag: kind, id, bidder: accounts[account] }
+  if (kind === 'Awarded') return { _tag: kind, id, worker: accounts[account], version }
+  return { _tag: kind, id, state, version }
+}
+
+const NameStep = Schema.Struct({ which: Which, version: Version, name: Schema.Literals(['Ada', 'Ada L.', 'Ben']) })
 
 const InboxStep = Schema.Struct({
   account: Which,
@@ -173,6 +195,58 @@ describe('D1OpenJobStore', () => {
       yield* store.apply([{ _tag: 'Opened', row: { ...opened, version: 4 } }])
       expect(yield* store.list).toEqual([{ ...opened, version: 4 }])
     }).pipe(Effect.provide(D1OpenJobStore.pipe(Layer.provide(localSql().layer)))),
+  )
+})
+
+describe('D1PartyJobStore', () => {
+  it.effect.prop(
+    'lists each account the jobs the memory store lists, whatever order posts, bids, awards and stages arrive in',
+    [Schema.Array(PartyJobStep)],
+    ([steps]) =>
+      Effect.gen(function* () {
+        const store = yield* PartyJobStore
+        const memory = memoryPartyJobStore()
+        for (const batch of deliveries(steps.map(partyJobChange))) {
+          yield* store.apply(batch)
+          yield* memory.apply(batch)
+        }
+        for (const account of accounts)
+          expect(byId(yield* store.list(account))).toEqual(byId(yield* memory.list(account)))
+      }).pipe(Effect.provide(D1PartyJobStore.pipe(Layer.provide(localSql().layer)))),
+  )
+
+  it.effect('keeps the worker its worker when its bid is redelivered after the award', () =>
+    Effect.gen(function* () {
+      const store = yield* PartyJobStore
+      const id = jobs[0]
+      yield* store.apply([
+        { _tag: 'Posted', id, buyer: accounts[0], title: 'Logo design', expiresAt: 1, version: 1 },
+        { _tag: 'Bid', id, bidder: accounts[1] },
+        { _tag: 'Awarded', id, worker: accounts[1], version: 3 },
+        { _tag: 'Bid', id, bidder: accounts[1] },
+      ])
+      expect(yield* store.list(accounts[1])).toEqual([
+        { id, buyer: accounts[0], title: 'Logo design', expiresAt: 1, state: 'Awarded', role: 'worker' },
+      ])
+    }).pipe(Effect.provide(D1PartyJobStore.pipe(Layer.provide(localSql().layer)))),
+  )
+})
+
+describe('D1AccountNameStore', () => {
+  it.effect.prop(
+    'holds the names the memory store holds, whatever order renames arrive in',
+    [Schema.Array(NameStep)],
+    ([steps]) =>
+      Effect.gen(function* () {
+        const store = yield* AccountNameStore
+        const memory = memoryAccountNameStore()
+        const rows = steps.map(({ which, version, name }) => ({ id: accounts[which], displayName: name, version }))
+        for (const batch of deliveries(rows)) {
+          yield* store.apply(batch)
+          yield* memory.apply(batch)
+        }
+        expect(byId(yield* store.list)).toEqual(byId(yield* memory.list))
+      }).pipe(Effect.provide(D1AccountNameStore.pipe(Layer.provide(localSql().layer)))),
   )
 })
 

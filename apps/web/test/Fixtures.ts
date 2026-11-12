@@ -92,10 +92,36 @@ export const buyerOpen = Schema.decodeSync(JobView)({
   },
 })
 
-/** Ben's side of it: his versions, a change asked for on the first. */
+/** Ben's side of it: the request, his versions, a change asked for on the first. */
 export const bidderPending = Schema.decodeSync(JobView)({
   audience: 'bidder',
-  view: { job, bidder: ben, proposals: [benV1, benV2], changesRequested: [1], outcome: 'pending' },
+  view: {
+    request,
+    state: 'Open',
+    job,
+    bidder: ben,
+    proposals: [benV1, benV2],
+    changesRequested: [1],
+    outcome: 'pending',
+    reviews: [],
+    fee: null,
+  },
+})
+
+/** Ben's side once he won, the escrow paid him and Ada reviewed him: the fee is 5 % of his 300 USDC. */
+export const workerSettled = Schema.decodeSync(JobView)({
+  audience: 'bidder',
+  view: {
+    request,
+    state: 'Settled',
+    job,
+    bidder: ben,
+    proposals: [benV1, benV2],
+    changesRequested: [1],
+    outcome: 'won',
+    reviews: [{ job, author: ada, subject: ben, rating: 5, comment: 'Lovely work.' }],
+    fee: { bps: 500, amount: '15000000' },
+  },
 })
 
 export const publicOpen = Schema.decodeSync(JobView)({ audience: 'public', view: { request, state: 'Open' } })

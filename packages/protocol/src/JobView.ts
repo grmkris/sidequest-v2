@@ -1,5 +1,6 @@
 import { Schema } from 'effect'
 import { Agreement } from './Agreement.ts'
+import { Amount } from './Amount.ts'
 import { Delivery } from './Delivery.ts'
 import { Digest } from './Digest.ts'
 import { AccountId, JobId } from './Id.ts'
@@ -69,13 +70,33 @@ export type BuyerJobView = typeof BuyerJobView.Type
 /** Where a bid stands: open, or once the job is awarded, won or lost. */
 export const BidOutcome = Schema.Literals(['pending', 'won', 'lost'])
 
-/** One bidder's side of a job: only their own proposals, the versions the buyer asked them to change, the outcome. */
-export const BidderJobView = Schema.Struct({
+/**
+ * One bidder's own bid: only their proposals, the versions the buyer asked them to change, the outcome and, for the
+ * worker once the job is settled, the reviews either side left.
+ */
+export const BidderBid = Schema.Struct({
   job: Schema.NullOr(JobId),
   bidder: Schema.NullOr(AccountId),
   proposals: Schema.Array(Proposal),
   changesRequested: Schema.Array(ProposalVersion),
   outcome: BidOutcome,
+  reviews: Schema.Array(Review),
+})
+export type BidderBid = typeof BidderBid.Type
+
+/** What the escrow will take from the worker's pay: its rate and the amount, in the agreed asset's atomic units. */
+export const WorkerFee = Schema.Struct({ bps: Bps, amount: Amount })
+export type WorkerFee = typeof WorkerFee.Type
+
+/**
+ * One bidder's side of a job: the request and its stage, as anyone sees them, and their own bid. Once they won, the fee
+ * the escrow takes from their pay (`null` while settlement is not configured, or for anyone who did not win).
+ */
+export const BidderJobView = Schema.Struct({
+  request: Schema.NullOr(WorkRequest),
+  state: JobStage,
+  ...BidderBid.fields,
+  fee: Schema.NullOr(WorkerFee),
 })
 export type BidderJobView = typeof BidderJobView.Type
 

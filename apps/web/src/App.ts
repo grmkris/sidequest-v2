@@ -6,6 +6,7 @@ import { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
 import { Flags, Model } from './Model.ts'
 import { FocusTitle, followLink, NavigateInternal } from './Navigation.ts'
+import { Preload, SessionRead } from './Preload.ts'
 import * as Job from './page/job/Job.ts'
 import {
   foldAgents,
@@ -39,6 +40,14 @@ const ReadSession = Command.define('ReadSession', {
   }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedReadSession({ problem: problemOf(error) })))),
 })
 
+/** The browser's own time zone, which dates are drawn in once the page has hydrated. */
+const ReadTimeZone = Command.define('ReadTimeZone', {
+  messages: [Message.CompletedReadTimeZone],
+  execute: Effect.sync(() =>
+    Message.CompletedReadTimeZone({ timeZone: new Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' }),
+  ),
+})
+
 export const SignOut = Command.define('SignOut', {
   messages: [Message.SucceededSignOut, Message.FailedSignOut],
   execute: Effect.gen(function* () {
@@ -52,15 +61,28 @@ export const SignOut = Command.define('SignOut', {
 
 type UpdateReturn = Update.Return<Model, Message, Services>
 
-/** The page the address names, and the session read in the browser. The server renders the same page without data, so
- * hydration adopts it as it is. */
+/** The session as the server found it; when it did not read it, the browser reads it if it holds a session cookie. */
+const sessionFrom = (flags: Flags): Session =>
+  SessionRead.match(flags.sessionRead, {
+    SignedIn: ({ session }) => Session.SignedIn({ session }),
+    SignedOut: () => Session.SignedOut(),
+    Unread: () => (flags.hasSessionCookie ? Session.Checking() : Session.SignedOut()),
+  })
+
+/** The page the address names with the data the server read for it, and the session. The server renders from the same
+ * Flags, so hydration adopts its HTML as it is and reads only what the server did not: the browser's time zone, the
+ * session when the server could not read it, and the page's data when the server's read failed. */
 export const init: Runtime.RoutingApplicationInit<Model, Message, Flags, Services> = (flags: Flags, url: Url) => {
   const route = routeFromUrl(url)
-  const session = flags.hasSessionCookie ? Session.Checking() : Session.SignedOut()
-  const opened = openPage(flags, route, session)
+  const session = sessionFrom(flags)
+  const opened = openPage(flags, route, session, flags.preload)
   return {
     model: { flags, route, session, maybeShellProblem: Option.none(), page: opened.model },
-    commands: [...(flags.hasSessionCookie ? [ReadSession()] : []), ...(opened.commands ?? [])],
+    commands: [
+      ReadTimeZone(),
+      ...(Session.guards.Checking(session) ? [ReadSession()] : []),
+      ...(opened.commands ?? []),
+    ],
   }
 }
 
@@ -81,7 +103,7 @@ const changedUrl = (model: Model, url: Url): UpdateReturn => {
   if (AppRoute.guards.Home(model.route) && AppRoute.guards.Home(route)) {
     return foldHomeSearch(modifyFields(model, { route: () => route }), route.q)
   }
-  const opened = openPage(model.flags, route, model.session)
+  const opened = openPage(model.flags, route, model.session, Preload.Nothing())
   return {
     model: modifyFields(model, {
       route: () => route,
@@ -102,6 +124,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ChangedUrl: ({ url }) => changedUrl(model, url),
     CompletedNavigate: () => ({ model }),
     CompletedFocusTitle: () => ({ model }),
+    CompletedReadTimeZone: ({ timeZone }) => ({
+      model: modifyFields(model, { flags: (flags) => modifyFields(flags, { timeZone: () => timeZone }) }),
+    }),
     SucceededReadSession: ({ session }) => sessionRead(model, Session.SignedIn({ session })),
     FailedReadSession: ({ problem }) =>
       sessionRead(model, Problem.guards.NotSignedIn(problem) ? Session.SignedOut() : Session.Unknown({ problem })),

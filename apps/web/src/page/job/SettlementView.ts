@@ -66,11 +66,11 @@ const submittedView = (
   ])
 
 /** A step in flight, if one is: it shows whatever the escrow's stage. */
-const inFlight = (h: Html.HtmlBuilder<Message>, model: Model): Option.Option<Html.Html> =>
+const inFlight = (h: Html.HtmlBuilder<Message>, model: Model, timeZone: string): Option.Option<Html.Html> =>
   Flow.match(model.flow, {
     Idle: () => Option.none(),
     PreparingFunding: () => Option.some(progressView(h, model, 'fund', 'settlement.step.preparing')),
-    ReviewingFunding: ({ request }) => Option.some(fundingSlip(h, model.language, request)),
+    ReviewingFunding: ({ request }) => Option.some(fundingSlip(h, model.language, timeZone, request)),
     EditingDelivery: () => Option.none(),
     RecordingDelivery: () => Option.some(progressView(h, model, 'deliver', 'settlement.step.recording')),
     ConfirmingApproval: () => Option.none(),
@@ -158,22 +158,30 @@ const workerFunded = (h: Html.HtmlBuilder<Message>, model: Model, status: Escrow
         ]),
       ])
 
-const deadlineText = (model: Model) =>
+const deadlineText = (model: Model, timeZone: string) =>
   Option.match(model.setup.maybeTerms, {
     onNone: () => say(model.language, 'settlement.waitingDelivery'),
     onSome: (terms) =>
       format(model.language, 'settlement.waitingDeliveryBy', {
-        date: formatInstant(terms.deliveryDeadline, model.language),
+        date: formatInstant(terms.deliveryDeadline, model.language, timeZone),
       }),
   })
 
-const deliveredFacts = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus) =>
+const deliveredFacts = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus, timeZone: string) =>
   Option.match(Option.fromNullishOr(status.delivery), {
     onNone: () => h.empty,
     onSome: (delivery) =>
       Ui.facts(h, [
-        Ui.fact(h, say(model.language, 'settlement.deliveredAt'), formatInstant(delivery.deliveredAt, model.language)),
-        Ui.fact(h, say(model.language, 'settlement.reviewEnds'), formatInstant(delivery.reviewEndsAt, model.language)),
+        Ui.fact(
+          h,
+          say(model.language, 'settlement.deliveredAt'),
+          formatInstant(delivery.deliveredAt, model.language, timeZone),
+        ),
+        Ui.fact(
+          h,
+          say(model.language, 'settlement.reviewEnds'),
+          formatInstant(delivery.reviewEndsAt, model.language, timeZone),
+        ),
         Ui.fact(h, say(model.language, 'settlement.deliveryHash'), Ui.dataText(h, delivery.deliveryHash)),
         ...Option.match(model.setup.maybeDeliveryUrl, {
           onNone: () => [],
@@ -244,7 +252,7 @@ const buyerReview = (h: Html.HtmlBuilder<Message>, model: Model) =>
     Submitted: () => h.empty,
   })
 
-const disputeView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus) =>
+const disputeView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus, timeZone: string) =>
   h.div(styled(h, s.section()), [
     Option.match(Option.fromNullishOr(status.rejection), {
       onNone: () => h.p([], [say(model.language, 'settlement.disputed')]),
@@ -253,8 +261,8 @@ const disputeView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowS
           [],
           [
             format(model.language, 'settlement.disputedOn', {
-              rejected: formatInstant(rejection.rejectedAt, model.language),
-              ends: formatInstant(rejection.arbitrationEndsAt, model.language),
+              rejected: formatInstant(rejection.rejectedAt, model.language, timeZone),
+              ends: formatInstant(rejection.arbitrationEndsAt, model.language, timeZone),
             }),
           ],
         ),
@@ -306,24 +314,24 @@ const settledView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowS
       ]),
   })
 
-const stageView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus): Html.Html => {
+const stageView = (h: Html.HtmlBuilder<Message>, model: Model, status: EscrowStatus, timeZone: string): Html.Html => {
   const buyer = model.setup.role === 'buyer'
   const stages = {
     Unfunded: () => (buyer ? fundIntro(h, model) : h.p([], [say(model.language, 'settlement.waitingFunding')])),
-    Funded: () => (buyer ? h.p([], [deadlineText(model)]) : workerFunded(h, model, status)),
+    Funded: () => (buyer ? h.p([], [deadlineText(model, timeZone)]) : workerFunded(h, model, status)),
     Delivered: () =>
       h.div(styled(h, s.section()), [
-        deliveredFacts(h, model, status),
+        deliveredFacts(h, model, status, timeZone),
         buyer ? buyerReview(h, model) : h.p([], [say(model.language, 'settlement.waitingReview')]),
       ]),
-    Disputed: () => disputeView(h, model, status),
+    Disputed: () => disputeView(h, model, status, timeZone),
     Settled: () => settledView(h, model, status),
   }
   return stages[status.stage]()
 }
 
 /** The escrow's stage and the step it is the person's turn to sign. */
-export const view = Submodel.defineView<Model, Message>((model, h) =>
+export const view = Submodel.defineView<Model, Message, { readonly timeZone: string }>((model, { timeZone }, h) =>
   h.section(
     [h.AriaLabelledBy('job-payment'), ...styled(h, s.panel())],
     [
@@ -332,8 +340,8 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
         onEmpty: () => Ui.waiting(h, say(model.language, 'settlement.loading')),
         onFailure: (problem) => Ui.problemNotice(h, model.language, problem),
         onData: (status) =>
-          Option.match(inFlight(h, model), {
-            onNone: () => stageView(h, model, status),
+          Option.match(inFlight(h, model, timeZone), {
+            onNone: () => stageView(h, model, status, timeZone),
             onSome: (shownStep) => shownStep,
           }),
       }),

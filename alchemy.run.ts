@@ -8,11 +8,10 @@ export default Alchemy.Stack(
   { providers: Cloudflare.providers(), state: Alchemy.localState() },
   Effect.gen(function* () {
     const release = yield* Config.String('SIDEQUEST_RELEASE').pipe(Config.withDefault('local-build'))
-    return yield* sidequestWorkers(
-      release,
+    return yield* sidequestWorkers(release, (api) =>
       Cloudflare.Website.Foldkit('SidequestWebsite', {
         rootDir: 'apps/web',
-        env: { VITE_SIDEQUEST_RELEASE: release },
+        env: { VITE_SIDEQUEST_RELEASE: release, API: api },
         compatibility,
         observability,
         workersDev: { enabled: false, previewsEnabled: false },

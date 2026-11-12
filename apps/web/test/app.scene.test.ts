@@ -5,18 +5,26 @@ import { fromString } from 'foldkit/url'
 import { describe, expect as assert, test } from 'vitest'
 import { init, Message, type Model, SignOut, update } from '../src/App.ts'
 import type { Flags } from '../src/Model.ts'
+import { Preload, SessionRead } from '../src/Preload.ts'
 import { FocusTitle, NavigateInternal, ReplaceInternal } from '../src/Navigation.ts'
 import * as Home from '../src/page/Home.ts'
 import * as SignIn from '../src/page/SignIn.ts'
 import { Problem } from '../src/Problem.ts'
 import { view } from '../src/View.ts'
-import { adaSession, signature, wallet } from './Fixtures.ts'
+import { ada, adaSession, job, signature, wallet } from './Fixtures.ts'
 
-const flags = (hasSessionCookie: boolean): Flags => ({
+const flags = (
+  hasSessionCookie: boolean,
+  sessionRead: SessionRead = SessionRead.Unread(),
+  preload: Preload = Preload.Nothing(),
+): Flags => ({
   language: 'en',
+  timeZone: 'UTC',
   release: 'test',
   origin: 'https://sidequest.example',
   hasSessionCookie,
+  sessionRead,
+  preload,
 })
 
 const urlOf = (path: string) =>
@@ -24,10 +32,48 @@ const urlOf = (path: string) =>
 
 const opened = (path: string, hasSessionCookie: boolean): Model => init(flags(hasSessionCookie), urlOf(path)).model
 
+const commandsOf = (stamped: Flags) => init(stamped, urlOf('/sign-in')).commands?.map((command) => command.name)
+
 describe('the app', () => {
-  test('reads the session only when the request carried a session cookie', () => {
-    assert(init(flags(true), urlOf('/sign-in')).commands?.map((command) => command.name)).toEqual(['ReadSession'])
-    assert(init(flags(false), urlOf('/sign-in')).commands ?? []).toEqual([])
+  test('reads the session only when the request carried a session cookie the server did not read', () => {
+    assert(commandsOf(flags(true))).toEqual(['ReadTimeZone', 'ReadSession'])
+    assert(commandsOf(flags(false))).toEqual(['ReadTimeZone'])
+    assert(commandsOf(flags(true, SessionRead.SignedIn({ session: adaSession })))).toEqual(['ReadTimeZone'])
+    assert(commandsOf(flags(true, SessionRead.SignedOut()))).toEqual(['ReadTimeZone'])
+  })
+
+  test('hydrates the page the server rendered from its data and session, reading neither again', () => {
+    const preload = Preload.Home({
+      requests: { items: [{ id: job, buyer: ada, title: 'A logo for my café', expiresAt: 1_800_600_000 }], next: null },
+      listings: { items: [], next: null },
+      names: [{ account: ada, displayName: 'Ada Lovelace' }],
+    })
+    const hydrated = init(flags(true, SessionRead.SignedIn({ session: adaSession }), preload), urlOf('/'))
+    assert(hydrated.commands?.map((command) => command.name)).toEqual(['ReadTimeZone'])
+    scene(
+      { update, view },
+      given(hydrated.model),
+      expect(text('Wallet 0x1111…1111')).toExist(),
+      expect(role('link', { name: 'A logo for my café' })).toHaveAttr('href', `/jobs/${job}`),
+      expect(text('Ada Lovelace · open until Jan 22, 2027, 6:40 AM')).toExist(),
+    )
+    // The browser then reads its own time zone and draws dates in it.
+    scene(
+      { update, view },
+      given(update(hydrated.model, Message.CompletedReadTimeZone({ timeZone: 'Europe/Ljubljana' })).model),
+      expect(text('Ada Lovelace · open until Jan 22, 2027, 7:40 AM')).toExist(),
+    )
+  })
+
+  test('opens a page reached in the browser without the server’s data, and reads it', () => {
+    const preload = Preload.Home({
+      requests: { items: [], next: null },
+      listings: { items: [], next: null },
+      names: [],
+    })
+    const model = init(flags(false, SessionRead.Unread(), preload), urlOf('/')).model
+    const changed = update(model, Message.ChangedUrl({ url: urlOf(`/jobs/${job}`) }))
+    assert(changed.commands?.map((command) => command.name)).toEqual(['ReadJob', FocusTitle.name])
   })
 
   test('signing in on the sign-in page puts the wallet in the header and returns to the page it was asked from', () => {

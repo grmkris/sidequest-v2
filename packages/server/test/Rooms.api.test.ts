@@ -9,6 +9,7 @@ import { ada, ben, bodyOf, cy, eventually, type Person, type Reply, withApi } fr
 
 const Rooms = Schema.Struct({ rooms: Schema.Array(RoomRef) })
 const Messages = Schema.Struct({ messages: Schema.Array(Message), next: Schema.NullOr(MessageSeq) })
+const Paused = Schema.Struct({ paused: Schema.Boolean })
 const roomsOf = (reply: Reply) => bodyOf(Rooms, reply).rooms
 const messagesOf = (reply: Reply) => bodyOf(Messages, reply)
 const roomsFor = (person: Person, job: JobId) => person.get(`/api/jobs/${job}/rooms`)
@@ -107,17 +108,35 @@ describe('the rooms API', () => {
       expect((await page('?limit=51')).status).toBe(400)
     }))
 
-  test('lets a member pause and resume their own agents, and no one else', () =>
+  test('lets a member pause and resume their own agents and see whether they are paused, and no one else', () =>
     withApi(async ({ signIn }) => {
       const buyer = await signIn(ada)
       const bidder = await signIn(ben)
       const stranger = await signIn(cy)
-      const { room } = await negotiated(buyer, bidder)
+      const { job, room } = await negotiated(buyer, bidder)
+      const pausedFor = (person: Person) => person.get(`/api/rooms/${room}/agents`)
+      expect(await pausedFor(bidder)).toMatchObject({ status: 200, body: { paused: false } })
       expect((await bidder.post(`/api/rooms/${room}/pause`)).status).toBe(204)
+      await eventually(
+        () => pausedFor(bidder),
+        (reply) => bodyOf(Paused, reply).paused,
+      )
+      // Each member reads their own agents: Ben's pause leaves Ada's free.
+      expect(await pausedFor(buyer)).toMatchObject({ status: 200, body: { paused: false } })
       expect((await bidder.post(`/api/rooms/${room}/resume`)).status).toBe(204)
+      await eventually(
+        () => pausedFor(bidder),
+        (reply) => !bodyOf(Paused, reply).paused,
+      )
       expect(await stranger.post(`/api/rooms/${room}/pause`)).toMatchObject({
         status: 403,
         body: { reason: 'NotPermitted' },
       })
+      expect(await pausedFor(stranger)).toMatchObject({
+        status: 403,
+        body: { reason: 'NotPermitted', evidence: { required: 'member' } },
+      })
+      const unopened = roomIdOf({ job, kind: 'negotiation', bidder: stranger.account })
+      expect(await stranger.get(`/api/rooms/${unopened}/agents`)).toMatchObject({ status: 403 })
     }))
 })

@@ -1,4 +1,6 @@
 import { OpenRequest, Page } from '@sidequest/protocol'
+import { arcTestnet } from '@sidequest/settlement/SettlementChain'
+import { Option, Redacted } from 'effect'
 import { describe, expect, test } from 'vitest'
 import {
   artifactHash,
@@ -13,11 +15,27 @@ import {
   recordSettlement,
 } from './Hire.ts'
 import { ada, ben, bodyOf, cy, eventually, inSeconds, type Reply, request, terms, withApi } from './HttpWorld.ts'
+import { fakeArc, signInWorld } from './World.ts'
 
 // The hire over HTTP up to the chain: requests, proposals, the award and what follows it, each refused where the
 // model refuses, with the chain's reports sent to the model directly.
 
 const openPage = (reply: Reply) => bodyOf(Page(OpenRequest), reply)
+
+/** A world whose escrow is configured with a 2.5 % fee; nothing here reaches its chain. */
+const feeWorld = signInWorld(fakeArc().client, {
+  escrow: Option.some({
+    chain: arcTestnet({
+      operator: '0x1000000000000000000000000000000000000001',
+      feeReceiver: '0x1000000000000000000000000000000000000002',
+      arbitrator: '0x1000000000000000000000000000000000000003',
+      feeBps: 250,
+    }),
+    relayerKey: Redacted.make(`0x${'42'.repeat(32)}` as const),
+    arbitratorKey: Option.none(),
+    arbitrationOperator: Option.none(),
+  }),
+}).layer
 const delivery = { artifactHash, url: 'https://files.example/logo.zip' }
 /** A wallet signature's shape; these tests never reach a chain that would check it. */
 const signature = `0x${'11'.repeat(65)}`
@@ -48,7 +66,14 @@ describe('the jobs API', () => {
       )
       expect(jobViewOf(asBidder)).toMatchObject({
         audience: 'bidder',
-        view: { bidder: bidder.account, outcome: 'pending' },
+        view: {
+          request: { id: job, buyer: buyer.account, title: request().title },
+          state: 'Open',
+          bidder: bidder.account,
+          outcome: 'pending',
+          reviews: [],
+          fee: null,
+        },
       })
       expect(jobViewOf(await stranger.get(`/api/jobs/${job}`)).audience).toBe('public')
       expect(await anonymous.get('/api/jobs/job_01JCXZ4Q6N8M2V7T3R5W9Y0B1Z')).toMatchObject({
@@ -209,7 +234,52 @@ describe('the jobs API', () => {
       })
       const settled = await buyerViewOf(buyer, job, (view) => view.reviews.length === 2)
       expect(settled).toMatchObject({ state: 'Settled', outcome: 'paid', delivery: { ...delivery, job } })
+      // The worker sees the job settled and who reviewed it; with no escrow configured, no fee to show.
+      const asWorker = await eventually(
+        () => worker.get(`/api/jobs/${job}`),
+        (reply) => {
+          const shown = jobViewOf(reply)
+          return shown.audience === 'bidder' && shown.view.state === 'Settled' && shown.view.reviews.length === 2
+        },
+      )
+      expect(jobViewOf(asWorker)).toMatchObject({ audience: 'bidder', view: { outcome: 'won', fee: null } })
+      const shownToWorker = jobViewOf(asWorker)
+      const reviewers =
+        shownToWorker.audience === 'bidder' ? shownToWorker.view.reviews.map(({ author }) => author) : []
+      expect(reviewers.toSorted()).toEqual([buyer.account, worker.account].toSorted())
     }))
+
+  test('shows the worker the escrow’s fee on what they won, and no fee to a bidder who lost', () =>
+    withApi(async ({ signIn }) => {
+      const buyer = await signIn(ada)
+      const worker = await signIn(ben)
+      const loser = await signIn(cy)
+      const job = await postJob(buyer)
+      await propose(worker, job, undefined, terms('300000001'))
+      await propose(loser, job)
+      const [offer] = (await buyerViewOf(buyer, job, (view) => view.proposals.length === 2)).proposals.filter(
+        ({ bidder }) => bidder === worker.account,
+      )
+      if (offer === undefined) throw new Error('No proposal arrived')
+      expect((await buyer.post(`/api/jobs/${job}/acceptance`, named(offer))).status).toBe(204)
+      const won = await eventually(
+        () => worker.get(`/api/jobs/${job}`),
+        (reply) => {
+          const shown = jobViewOf(reply)
+          return shown.audience === 'bidder' && shown.view.outcome === 'won'
+        },
+      )
+      // 2.5 % of 300.000001 USDC, rounded down as the escrow rounds.
+      expect(jobViewOf(won)).toMatchObject({ view: { state: 'Awarded', fee: { bps: 250, amount: '7500000' } } })
+      const lost = await eventually(
+        () => loser.get(`/api/jobs/${job}`),
+        (reply) => {
+          const shown = jobViewOf(reply)
+          return shown.audience === 'bidder' && shown.view.outcome === 'lost'
+        },
+      )
+      expect(jobViewOf(lost)).toMatchObject({ view: { fee: null } })
+    }, feeWorld))
 
   test('opens a dispute only when the chain reports the rejection, whatever a client posts', () =>
     withApi(async (api) => {

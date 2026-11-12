@@ -11,10 +11,12 @@ export const say = (language: Language, key: PlainKey): string => format(languag
 
 const locales: Readonly<Record<Language, string>> = { en: 'en', sl: 'sl-SI' }
 
-/** An instant (Unix seconds) as a date and time in the reader's own time zone. Only data read in the browser is
- * dated, so the server never renders a time the browser would draw differently. */
-export const formatInstant = (seconds: number, language: Language): string =>
-  new Intl.DateTimeFormat(locales[language], { dateStyle: 'medium', timeStyle: 'short' }).format(seconds * 1000)
+/** An instant (Unix seconds) as a date and time in `timeZone`. The server renders in UTC, which the page hydrates
+ * with, and the browser then reads its own zone (`ReadTimeZone`), so hydration draws exactly what the server sent. */
+export const formatInstant = (seconds: number, language: Language, timeZone: string): string =>
+  new Intl.DateTimeFormat(locales[language], { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(
+    seconds * 1000,
+  )
 
 const minute = 60
 const hour = 60 * minute

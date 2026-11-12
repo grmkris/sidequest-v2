@@ -1,5 +1,5 @@
 import { AgentAccessToken, AgentId, AgentTokenId } from '@sidequest/protocol'
-import { Redacted, Schema } from 'effect'
+import { Option, Redacted, Schema } from 'effect'
 import {
   change,
   Command,
@@ -35,12 +35,13 @@ import { ada, adaSession } from '../Fixtures.ts'
 const signedIn = withViewInputs(view, {
   session: Session.SignedIn({ session: adaSession }),
   origin: 'https://sidequest.example',
+  timeZone: 'UTC',
 })
 const scout = AgentId.make('agent_01JQ0000000000000000000SC1')
 const tokenId = AgentTokenId.make('token_01JQ0000000000000000000TK1')
 const secret = Schema.decodeSync(AgentAccessToken)(`sqa_${'f'.repeat(64)}`)
 const agent = { id: scout, operator: ada, name: 'Scout', revoked: false }
-const listed = update(init('en', true).model, Message.SucceededListAgents({ agents: [agent] })).model
+const listed = update(init('en', true, Option.none()).model, Message.SucceededListAgents({ agents: [agent] })).model
 const issued = { id: tokenId, agent: scout, issuedAt: 1_800_000_000, expiresAt: 1_802_592_000, revokedAt: null }
 
 describe('the agents page', () => {

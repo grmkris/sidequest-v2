@@ -1,4 +1,5 @@
 import type * as Domain from '@alchemy.run/domain'
+import { roomIdOf } from '@sidequest/protocol'
 import { Story } from '@alchemy.run/domain/Story'
 import { describe, it } from '@effect/vitest'
 import { DateTime, Effect } from 'effect'
@@ -22,7 +23,9 @@ import { ReviewLeft } from '../src/Job/LeaveReview.command.ts'
 import { DeliverySubmitted } from '../src/Job/SubmitDelivery.command.ts'
 import { NotPermitted } from '../src/NotPermitted.rejection.ts'
 import { PartyRequired } from '../src/PartyRequired.rejection.ts'
+import { Room } from '../src/Rooms/Room.aggregate.ts'
 import { RoomMessage, RoomMessages } from '../src/Rooms/RoomMessages.stream.ts'
+import { RoomPauses } from '../src/Rooms/RoomPauses.view.ts'
 import {
   accepted,
   agentOf,
@@ -57,6 +60,7 @@ const delivery = { job: jobId, artifactHash, url: 'https://files.example/logo.zi
 const reason = 'The favicon set is missing.'
 const split = [receipt('capture', '180000000'), receipt('void', '120000000')] as const
 const review = { job: jobId, author: alice, subject: bob, rating: 4 }
+const aliceRoom = Room.ref(roomIdOf({ job: jobId, kind: 'negotiation', bidder: alice }))
 
 describe('the job summaries', () => {
   it.effect('show the public the request and its stage, the buyer everything, and each bidder their own bid', () =>
@@ -103,6 +107,7 @@ describe('the job summaries', () => {
           proposals: [bobV1.proposal, bobV2.proposal],
           changesRequested: [1],
           outcome: 'won',
+          reviews: [review],
         }),
       ),
       Story.view(BidderJobSummary, carolRoom, (view) =>
@@ -112,8 +117,11 @@ describe('the job summaries', () => {
           proposals: [carolV1.proposal],
           changesRequested: [],
           outcome: 'lost',
+          reviews: [],
         }),
       ),
+      // The buyer never bid: the review's route to them keeps no bid.
+      Story.view(BidderJobSummary, aliceRoom, Story.none),
     ),
   )
 
@@ -231,6 +239,21 @@ describe('each read', () => {
       )
       expect(yield* refusal(read, carolRoom, null, person(carol))).toEqual(
         new NotPermitted({ account: carol, required: 'bidder' }),
+      )
+    }),
+  )
+
+  it.effect('lets only a room’s members read whose agents are paused there, and no one a room not open', () =>
+    Effect.gen(function* () {
+      const read = RoomPauses.definition
+      const pauses = { members: [alice, bob], paused: [bob] }
+      yield* judge(read, bobRoom, pauses, person(alice))
+      yield* judge(read, bobRoom, pauses, agentOf(bob, bobAgent, ['discuss']))
+      expect(yield* refusal(read, bobRoom, pauses, person(carol))).toEqual(
+        new NotPermitted({ account: carol, required: 'member' }),
+      )
+      expect(yield* refusal(read, bobRoom, null, person(alice))).toEqual(
+        new NotPermitted({ account: alice, required: 'member' }),
       )
     }),
   )

@@ -4,39 +4,38 @@ import { Array, Option } from 'effect'
 import { AsyncData, type Html, Submodel } from 'foldkit'
 import type { Language } from '../../Language.ts'
 import { styled } from '../../Styled.ts'
+import { type Names, nameOf } from '../../Names.ts'
 import { say, shortId } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
 import * as rs from './Room.styles.ts'
 import { Agents, Message, type Model, type OpenRoom, Send } from './Room.ts'
 
-const roomLabel = (language: Language, room: RoomRef, me: Option.Option<AccountId>): string =>
+/** Who is reading: their account, and the names of the accounts the rooms show. */
+type Reader = { readonly me: Option.Option<AccountId>; readonly names: Names }
+
+const roomLabel = (language: Language, room: RoomRef, { me, names }: Reader): string =>
   room.kind === 'engagement'
     ? say(language, 'room.engagement')
     : Option.contains(me, room.bidder)
       ? say(language, 'room.negotiation')
-      : format(language, 'room.withBidder', { bidder: shortId(room.bidder) })
+      : format(language, 'room.withBidder', { bidder: nameOf(names, room.bidder, language) })
 
-const authorOf = (language: Language, message: RoomMessage, me: Option.Option<AccountId>): string => {
+const authorOf = (language: Language, message: RoomMessage, { me, names }: Reader): string => {
   const person = Option.contains(me, message.author)
     ? say(language, 'room.you')
-    : format(language, 'common.account', { id: shortId(message.author) })
+    : nameOf(names, message.author, language)
   return Option.match(Option.fromNullishOr(message.agent), {
     onNone: () => person,
     onSome: (agent) => format(language, 'room.viaAgent', { person, agent: shortId(agent) }),
   })
 }
 
-const messageView = (
-  h: Html.HtmlBuilder<Message>,
-  language: Language,
-  message: RoomMessage,
-  me: Option.Option<AccountId>,
-) =>
+const messageView = (h: Html.HtmlBuilder<Message>, language: Language, message: RoomMessage, reader: Reader) =>
   h.keyed('li')(
     String(message.seq),
-    [h.DataAttribute('mine', String(Option.contains(me, message.author))), ...styled(h, rs.message())],
-    [h.p(styled(h, rs.author()), [authorOf(language, message, me)]), h.p(styled(h, rs.text()), [message.text])],
+    [h.DataAttribute('mine', String(Option.contains(reader.me, message.author))), ...styled(h, rs.message())],
+    [h.p(styled(h, rs.author()), [authorOf(language, message, reader)]), h.p(styled(h, rs.text()), [message.text])],
   )
 
 const roomTabs = (
@@ -44,7 +43,7 @@ const roomTabs = (
   language: Language,
   rooms: ReadonlyArray<RoomRef>,
   open: OpenRoom,
-  me: Option.Option<AccountId>,
+  reader: Reader,
 ) =>
   rooms.length < 2
     ? h.empty
@@ -59,32 +58,34 @@ const roomTabs = (
               h.OnClick(Message.SelectedRoom({ room: room.id })),
               ...styled(h, rs.tab()),
             ],
-            [roomLabel(language, room, me)],
+            [roomLabel(language, room, reader)],
           ),
         ),
       )
 
+const pauseButton = (h: Html.HtmlBuilder<Message>, language: Language, busy: boolean) =>
+  Ui.button(h, { label: say(language, 'room.pause'), onClick: Message.ClickedPauseAgents(), busy })
+
+const resumeButton = (h: Html.HtmlBuilder<Message>, language: Language, busy: boolean) =>
+  Ui.button(h, { label: say(language, 'room.resume'), onClick: Message.ClickedResumeAgents(), busy })
+
+/** Whether the person's agents may post here, and the one button that changes it. */
 const agentControls = (h: Html.HtmlBuilder<Message>, language: Language, open: OpenRoom) =>
   h.div(styled(h, s.section()), [
-    h.div(styled(h, s.actions()), [
-      Ui.button(h, {
-        label: say(language, 'room.pause'),
-        onClick: Message.ClickedPauseAgents(),
-        busy: Agents.guards.Pausing(open.agents),
-      }),
-      Ui.button(h, {
-        label: say(language, 'room.resume'),
-        onClick: Message.ClickedResumeAgents(),
-        busy: Agents.guards.Resuming(open.agents),
-      }),
-    ]),
+    h.p(styled(h, s.hint()), [say(language, 'room.agentsHint')]),
     Agents.match(open.agents, {
-      Unknown: () => h.p(styled(h, s.hint()), [say(language, 'room.agentsHint')]),
-      Pausing: () => h.empty,
-      Resuming: () => h.empty,
-      Paused: () => Ui.notice(h, 'neutral', [h.p([], [say(language, 'room.paused')])]),
-      Resumed: () => Ui.notice(h, 'neutral', [h.p([], [say(language, 'room.resumed')])]),
-      Failed: ({ problem }) => Ui.problemNotice(h, language, problem),
+      Reading: () => h.empty,
+      Running: () =>
+        h.div(styled(h, s.actions()), [h.p([], [say(language, 'room.running')]), pauseButton(h, language, false)]),
+      Pausing: () => h.div(styled(h, s.actions()), [pauseButton(h, language, true)]),
+      Paused: () =>
+        h.div(styled(h, s.actions()), [h.p([], [say(language, 'room.paused')]), resumeButton(h, language, false)]),
+      Resuming: () => h.div(styled(h, s.actions()), [resumeButton(h, language, true)]),
+      Failed: ({ problem }) =>
+        h.div(styled(h, s.section()), [
+          Ui.problemNotice(h, language, problem),
+          h.div(styled(h, s.actions()), [pauseButton(h, language, false), resumeButton(h, language, false)]),
+        ]),
     }),
   ])
 
@@ -113,10 +114,10 @@ const openRoomView = (
   model: Model,
   rooms: ReadonlyArray<RoomRef>,
   open: OpenRoom,
-  me: Option.Option<AccountId>,
+  reader: Reader,
 ) =>
   h.div(styled(h, s.section()), [
-    roomTabs(h, model.language, rooms, open, me),
+    roomTabs(h, model.language, rooms, open, reader),
     Array.match(open.messages, {
       onEmpty: () =>
         open.reading
@@ -125,7 +126,7 @@ const openRoomView = (
       onNonEmpty: (messages) =>
         h.ol(
           [h.AriaLabel(say(model.language, 'room.messages')), h.AriaLive('polite'), ...styled(h, rs.messages())],
-          messages.map((message) => messageView(h, model.language, message, me)),
+          messages.map((message) => messageView(h, model.language, message, reader)),
         ),
     }),
     Option.match(open.maybeReadProblem, {
@@ -137,7 +138,7 @@ const openRoomView = (
   ])
 
 /** The rooms, for a member of the job; nothing for anyone else. */
-export const view = Submodel.defineView<Model, Message, { readonly me: Option.Option<AccountId> }>((model, { me }, h) =>
+export const view = Submodel.defineView<Model, Message, Reader>((model, reader, h) =>
   AsyncData.matchData(model.rooms, {
     onEmpty: () => h.empty,
     onFailure: () => h.empty,
@@ -147,7 +148,10 @@ export const view = Submodel.defineView<Model, Message, { readonly me: Option.Op
         onSome: (open) =>
           h.section(
             [h.AriaLabelledBy('job-room'), ...styled(h, s.panel())],
-            [h.h2([h.Id('job-room')], [say(model.language, 'room.title')]), openRoomView(h, model, rooms, open, me)],
+            [
+              h.h2([h.Id('job-room')], [say(model.language, 'room.title')]),
+              openRoomView(h, model, rooms, open, reader),
+            ],
           ),
       }),
   }),

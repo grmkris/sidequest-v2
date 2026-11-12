@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
-import { Cursor, Listing, OpenRequest, SearchText } from '@sidequest/protocol'
-import { Effect, Option, Schema } from 'effect'
+import { AccountId, Cursor, Listing, OpenRequest, SearchText } from '@sidequest/protocol'
+import { Array, Effect, Option, Schema } from 'effect'
 import { Command, type Html, Submodel, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { pushUrl } from 'foldkit/navigation'
@@ -9,6 +9,8 @@ import { formatAmount } from '../Amount.ts'
 import { SidequestClient } from '../Api.ts'
 import { Feed, feedView, loadingFeed, loadingMore, withPage, withProblem } from '../Feed.ts'
 import type { Language } from '../Language.ts'
+import { defineReadNames, Names, nameOf, unnamed, withNames } from '../Names.ts'
+import type { Preload } from '../Preload.ts'
 import { Problem, problemOf } from '../Problem.ts'
 import { homeRouter, jobRouter, listingRouter, newListingRouter, newRequestRouter } from '../route.ts'
 import { styled } from '../Styled.ts'
@@ -17,7 +19,8 @@ import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
 import * as hs from './Home.styles.ts'
 
-// What Sidequest is, the open requests and the listings, which anyone may read and search.
+// What Sidequest is, the open requests and the listings, which anyone may read and search, each with the name of the
+// account behind it.
 
 // MODEL
 
@@ -29,6 +32,8 @@ export const Model = Schema.Struct({
   maybeSearched: Schema.Option(SearchText),
   requests: RequestFeed,
   listings: ListingFeed,
+  names: Names,
+  askedNames: Schema.Array(AccountId),
 })
 export type Model = typeof Model.Type
 
@@ -44,6 +49,8 @@ export const Message = defineMessageUnion({
   SucceededSearchListings: { items: Schema.Array(Listing), next: Schema.NullOr(Cursor) },
   FailedSearchListings: { problem: Problem },
   CompletedPushSearch: {},
+  SucceededReadNames: { names: Names },
+  FailedReadNames: { problem: Problem },
 })
 export type Message = typeof Message.Type
 
@@ -79,6 +86,8 @@ export const PushSearch = Command.define('PushSearch', {
   execute: ({ maybeQuery }) => pushUrl(homeRouter({ q: maybeQuery })).pipe(Effect.as(Message.CompletedPushSearch())),
 })
 
+export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
+
 // INIT
 
 /** A search as the address names it, if it is one the API takes. */
@@ -87,20 +96,34 @@ const searchOf = (q: Option.Option<string>): Option.Option<typeof SearchText.Typ
 
 type UpdateReturn = Update.Return<Model, Message, SidequestClient>
 
-export const init = (q: Option.Option<string>): UpdateReturn => {
+type HomePreload = Extract<Preload, { readonly _tag: 'Home' }>
+
+export const init = (q: Option.Option<string>, maybePreload: Option.Option<HomePreload>): UpdateReturn => {
   const maybeSearched = searchOf(q)
-  return {
-    model: {
-      query: Option.getOrElse(maybeSearched, () => ''),
-      maybeSearched,
-      requests: loadingFeed(),
-      listings: loadingFeed(),
-    },
-    commands: [
-      ReadRequests({ maybeCursor: Option.none() }),
-      SearchListings({ maybeQuery: maybeSearched, maybeCursor: Option.none() }),
-    ],
-  }
+  const query = Option.getOrElse(maybeSearched, () => '')
+  return Option.match(maybePreload, {
+    onSome: ({ requests, listings, names }) => ({
+      model: {
+        query,
+        maybeSearched,
+        requests: withPage(loadingFeed(), requests),
+        listings: withPage(loadingFeed(), listings),
+        names,
+        // The server asked for every name these pages show; one it did not find is not asked for again.
+        askedNames: [
+          ...Array.map(requests.items, (request) => request.buyer),
+          ...Array.map(listings.items, (listing) => listing.owner),
+        ],
+      },
+    }),
+    onNone: () => ({
+      model: { query, maybeSearched, requests: loadingFeed(), listings: loadingFeed(), names: [], askedNames: [] },
+      commands: [
+        ReadRequests({ maybeCursor: Option.none() }),
+        SearchListings({ maybeQuery: maybeSearched, maybeCursor: Option.none() }),
+      ],
+    }),
+  })
 }
 
 /** The address's search changed (a search was submitted, or Back): search again, and keep the requests. */
@@ -118,6 +141,16 @@ export const searchChanged = (model: Model, q: Option.Option<string>): UpdateRet
 
 // UPDATE
 
+/** Ask for the names of the accounts `ids` names that are not known or asked for yet. */
+const askNames = (model: Model, ids: ReadonlyArray<AccountId>): UpdateReturn =>
+  Array.match(unnamed(ids, model.names, model.askedNames), {
+    onEmpty: () => ({ model }),
+    onNonEmpty: (missing) => ({
+      model: modifyFields(model, { askedNames: Array.appendAll(missing) }),
+      commands: [ReadNames({ ids: missing })],
+    }),
+  })
+
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     UpdatedQuery: ({ value }) => ({ model: modifyFields(model, { query: () => value }) }),
@@ -130,28 +163,44 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: modifyFields(model, { listings: loadingMore }),
       commands: [SearchListings({ maybeQuery: model.maybeSearched, maybeCursor: model.listings.next })],
     }),
-    SucceededReadRequests: (page) => ({ model: modifyFields(model, { requests: (feed) => withPage(feed, page) }) }),
+    SucceededReadRequests: (page) =>
+      askNames(
+        modifyFields(model, { requests: (feed) => withPage(feed, page) }),
+        Array.map(page.items, (request) => request.buyer),
+      ),
     FailedReadRequests: ({ problem }) => ({
       model: modifyFields(model, { requests: (feed) => withProblem(feed, problem) }),
     }),
-    SucceededSearchListings: (page) => ({ model: modifyFields(model, { listings: (feed) => withPage(feed, page) }) }),
+    SucceededSearchListings: (page) =>
+      askNames(
+        modifyFields(model, { listings: (feed) => withPage(feed, page) }),
+        Array.map(page.items, (listing) => listing.owner),
+      ),
     FailedSearchListings: ({ problem }) => ({
       model: modifyFields(model, { listings: (feed) => withProblem(feed, problem) }),
     }),
     CompletedPushSearch: () => ({ model }),
+    SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
+    FailedReadNames: () => ({ model }),
   })
 
 // VIEW
 
-const requestRow = (h: Html.HtmlBuilder<Message>, language: Language, request: OpenRequest) => [
+type ViewInputs = { readonly language: Language; readonly timeZone: string }
+
+const requestRow = (h: Html.HtmlBuilder<Message>, model: Model, inputs: ViewInputs, request: OpenRequest) => [
   h.a([h.Href(jobRouter({ job: request.id })), ...styled(h, s.rowTitle())], [request.title]),
   h.p(styled(h, s.meta()), [
-    format(language, 'home.requests.until', { date: formatInstant(request.expiresAt, language) }),
+    format(inputs.language, 'home.requests.byUntil', {
+      name: nameOf(model.names, request.buyer, inputs.language),
+      date: formatInstant(request.expiresAt, inputs.language, inputs.timeZone),
+    }),
   ]),
 ]
 
-const listingRow = (h: Html.HtmlBuilder<Message>, language: Language, listing: Listing) => [
+const listingRow = (h: Html.HtmlBuilder<Message>, model: Model, language: Language, listing: Listing) => [
   h.a([h.Href(listingRouter({ listing: listing.id })), ...styled(h, s.rowTitle())], [listing.title]),
+  h.p(styled(h, s.meta()), [format(language, 'listing.by', { name: nameOf(model.names, listing.owner, language) })]),
   h.p(styled(h, s.meta()), [
     Option.match(Option.fromNullishOr(listing.priceHint), {
       onNone: () => say(language, 'listing.noPrice'),
@@ -187,8 +236,9 @@ const searchForm = (h: Html.HtmlBuilder<Message>, language: Language, model: Mod
     ],
   )
 
-export const view = Submodel.defineView<Model, Message, { readonly language: Language }>((model, { language }, h) =>
-  h.div(styled(h, s.page()), [
+export const view = Submodel.defineView<Model, Message, ViewInputs>((model, inputs, h) => {
+  const language = inputs.language
+  return h.div(styled(h, s.page()), [
     h.header(styled(h, hs.hero()), [
       h.h1(styled(h, hs.heroTitle()), [say(language, 'home.title')]),
       h.p(styled(h, s.lede()), [say(language, 'home.lede')]),
@@ -210,7 +260,7 @@ export const view = Submodel.defineView<Model, Message, { readonly language: Lan
           more: say(language, 'common.showMore'),
           onMore: Message.ClickedMoreRequests(),
           keyOf: (request) => request.id,
-          row: (request) => requestRow(h, language, request),
+          row: (request) => requestRow(h, model, inputs, request),
         }),
       ],
     ),
@@ -230,9 +280,9 @@ export const view = Submodel.defineView<Model, Message, { readonly language: Lan
           more: say(language, 'common.showMore'),
           onMore: Message.ClickedMoreListings(),
           keyOf: (listing) => listing.id,
-          row: (listing) => listingRow(h, language, listing),
+          row: (listing) => listingRow(h, model, language, listing),
         }),
       ],
     ),
-  ]),
-)
+  ])
+})

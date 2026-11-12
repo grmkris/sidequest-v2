@@ -13,6 +13,7 @@ import {
 import { Layer, Schema } from 'effect'
 import { type Actor, system } from '../src/Actor.ts'
 import { ListingStore, memoryListingStore } from '../src/Directory/ListingStore.ts'
+import { AccountNameStore, memoryAccountNameStore } from '../src/Identity/AccountNameStore.ts'
 import { AgentStore, memoryAgentStore } from '../src/Identity/AgentStore.ts'
 import { InboxStore, memoryInboxStore } from '../src/Inbox/InboxStore.ts'
 import { ProposalAccepted } from '../src/Job/AcceptProposal.command.ts'
@@ -20,6 +21,7 @@ import { Job } from '../src/Job/Job.aggregate.ts'
 import { RequestPosted } from '../src/Job/PostRequest.command.ts'
 import { FundingRecorded } from '../src/Job/RecordFunding.command.ts'
 import { memoryOpenJobStore, OpenJobStore } from '../src/Job/OpenJobStore.ts'
+import { memoryPartyJobStore, PartyJobStore } from '../src/Job/PartyJobStore.ts'
 import { DeliveryRecorded } from '../src/Job/RecordDelivery.command.ts'
 import { ProposalSubmitted } from '../src/Job/SubmitProposal.command.ts'
 import { RoomOpened } from '../src/Rooms/OpenRoom.command.ts'
@@ -34,13 +36,17 @@ export const memoryStores = () => {
   const listings = memoryListingStore()
   const openJobs = memoryOpenJobStore()
   const inbox = memoryInboxStore()
+  const accountNames = memoryAccountNameStore()
+  const partyJobs = memoryPartyJobStore()
   const layer = Layer.mergeAll(
     Layer.succeed(AgentStore, agents),
     Layer.succeed(ListingStore, listings),
     Layer.succeed(OpenJobStore, openJobs),
     Layer.succeed(InboxStore, inbox),
+    Layer.succeed(AccountNameStore, accountNames),
+    Layer.succeed(PartyJobStore, partyJobs),
   )
-  return { agents, listings, openJobs, inbox, layer }
+  return { agents, listings, openJobs, inbox, accountNames, partyJobs, layer }
 }
 
 /** Stories over the whole model, its policies and projections running for real against `stores`. */

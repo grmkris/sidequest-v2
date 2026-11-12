@@ -20,6 +20,7 @@ const address = (h: Html.HtmlBuilder<Message>, value: string) => Ui.dataText(h, 
 const sentences = (
   h: Html.HtmlBuilder<Message>,
   language: Language,
+  timeZone: string,
   request: FundingRequest,
 ): ReadonlyArray<Html.Html> => {
   const amount = (atomic: string) => formatAmount(atomic, request.asset, language)
@@ -29,7 +30,7 @@ const sentences = (
     h.li(
       [],
       [
-        format(language, 'slip.worker', { deadline: formatInstant(request.deliveryDeadline, language) }),
+        format(language, 'slip.worker', { deadline: formatInstant(request.deliveryDeadline, language, timeZone) }),
         ' ',
         address(h, request.receiver),
       ],
@@ -50,19 +51,27 @@ const sentences = (
       [],
       [format(language, 'slip.fee', { fee: amount(fee), percent: percentOf(request.feeBps), worker: amount(worker) })],
     ),
-    h.li([], [format(language, 'slip.expiry', { date: formatInstant(request.authorizationExpiry, language) })]),
-    h.li([], [format(language, 'slip.wallet', { date: formatInstant(request.preApprovalExpiry, language) })]),
+    h.li(
+      [],
+      [format(language, 'slip.expiry', { date: formatInstant(request.authorizationExpiry, language, timeZone) })],
+    ),
+    h.li([], [format(language, 'slip.wallet', { date: formatInstant(request.preApprovalExpiry, language, timeZone) })]),
   ]
 }
 
 /** The slip: the amount, what happens to it in every case, and the two actions. */
-export const fundingSlip = (h: Html.HtmlBuilder<Message>, language: Language, request: FundingRequest): Html.Html =>
+export const fundingSlip = (
+  h: Html.HtmlBuilder<Message>,
+  language: Language,
+  timeZone: string,
+  request: FundingRequest,
+): Html.Html =>
   h.section(
     [h.AriaLabelledBy('funding-slip'), ...styled(h, js.slip())],
     [
       h.h3([h.Id('funding-slip')], [say(language, 'slip.title')]),
       h.p(styled(h, js.slipAmount()), [formatAmount(request.amount, request.asset, language)]),
-      h.ul(styled(h, js.slipTerms()), sentences(h, language, request)),
+      h.ul(styled(h, js.slipTerms()), sentences(h, language, timeZone, request)),
       h.div(styled(h, s.actions()), [
         Ui.button(h, { label: say(language, 'slip.sign'), onClick: Message.ClickedSignFunding(), kind: 'seal' }),
         Ui.button(h, { label: say(language, 'slip.notNow'), onClick: Message.ClickedCancel() }),

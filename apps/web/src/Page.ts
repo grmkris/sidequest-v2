@@ -4,6 +4,7 @@ import { modifyFields } from 'foldkit/struct'
 import type { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
 import { type Flags, type Model, Page } from './Model.ts'
+import { Preload } from './Preload.ts'
 import { NavigateInternal, ReplaceInternal } from './Navigation.ts'
 import * as Agents from './page/Agents.ts'
 import * as Home from './page/Home.ts'
@@ -22,45 +23,80 @@ import type { Wallet } from './Wallet.ts'
 export type Services = SidequestClient | Wallet
 type Step = Update.Step<Model, Message, Services>
 
-/** The wallet of the signed-in person, which signs their steps on a job. */
 /** Whether a page may read what only a signed-in person can: not when the browser is known to be signed out, which
  * would only earn a 401. */
 const mayRead = (session: Session): boolean => !Session.guards.SignedOut(session)
 
+/** The wallet of the signed-in person, which signs their steps on a job. */
 const signerOf = (session: Session): Option.Option<string> =>
   Session.guards.SignedIn(session) ? Option.some(addressOf(session.session)) : Option.none()
 
-/** The page a route opens, with the Commands that read its data. */
-export const openPage = (flags: Flags, route: AppRoute, session: Session): Update.Return<Page, Message, Services> =>
+/** The page a route opens: from the data the server read for it, or with the Commands that read its data. */
+export const openPage = (
+  flags: Flags,
+  route: AppRoute,
+  session: Session,
+  preload: Preload,
+): Update.Return<Page, Message, Services> =>
   AppRoute.match(route, {
     Home: ({ q }) =>
-      Update.foldChildInit(Home.init(q), {
+      Update.foldChildInit(Home.init(q, Preload.guards.Home(preload) ? Option.some(preload) : Option.none()), {
         toParentModel: (home) => Page.Home({ home }),
         toParentMessage: (message) => Message.GotHomeMessage({ message }),
       }),
     SignIn: ({ next }) => ({ model: Page.SignIn({ signIn: SignIn.init(next) }) }),
     NewListing: () => ({ model: Page.NewListing({ newListing: NewListing.init(flags.language) }) }),
     Listing: ({ listing }) =>
-      Update.foldChildInit(ListingPage.init(flags.language, listing), {
-        toParentModel: (listingModel) => Page.Listing({ listing: listingModel }),
-        toParentMessage: (message) => Message.GotListingMessage({ message }),
-      }),
+      Update.foldChildInit(
+        ListingPage.init(
+          flags.language,
+          listing,
+          Preload.guards.Listing(preload) ? Option.some(preload) : Option.none(),
+        ),
+        {
+          toParentModel: (listingModel) => Page.Listing({ listing: listingModel }),
+          toParentMessage: (message) => Message.GotListingMessage({ message }),
+        },
+      ),
     NewRequest: () => ({ model: Page.NewRequest({ newRequest: NewRequest.init(flags.language) }) }),
     Job: ({ job }) =>
-      Update.foldChildInit(Job.init(flags.language, job, signerOf(session), mayRead(session)), {
-        toParentModel: (jobModel) => Page.Job({ job: jobModel }),
-        toParentMessage: (message) => Message.GotJobMessage({ message }),
-      }),
+      Update.foldChildInit(
+        Job.init(
+          flags.language,
+          job,
+          signerOf(session),
+          mayRead(session),
+          Preload.guards.Job(preload) ? Option.some(preload) : Option.none(),
+        ),
+        {
+          toParentModel: (jobModel) => Page.Job({ job: jobModel }),
+          toParentMessage: (message) => Message.GotJobMessage({ message }),
+        },
+      ),
     Inbox: () =>
-      Update.foldChildInit(Inbox.init(flags.language, mayRead(session)), {
-        toParentModel: (inbox) => Page.Inbox({ inbox }),
-        toParentMessage: (message) => Message.GotInboxMessage({ message }),
-      }),
+      Update.foldChildInit(
+        Inbox.init(
+          flags.language,
+          mayRead(session),
+          Preload.guards.Inbox(preload) ? Option.some(preload.recent) : Option.none(),
+        ),
+        {
+          toParentModel: (inbox) => Page.Inbox({ inbox }),
+          toParentMessage: (message) => Message.GotInboxMessage({ message }),
+        },
+      ),
     Agents: () =>
-      Update.foldChildInit(Agents.init(flags.language, mayRead(session)), {
-        toParentModel: (agents) => Page.Agents({ agents }),
-        toParentMessage: (message) => Message.GotAgentsMessage({ message }),
-      }),
+      Update.foldChildInit(
+        Agents.init(
+          flags.language,
+          mayRead(session),
+          Preload.guards.Agents(preload) ? Option.some(preload.agents.items) : Option.none(),
+        ),
+        {
+          toParentModel: (agents) => Page.Agents({ agents }),
+          toParentMessage: (message) => Message.GotAgentsMessage({ message }),
+        },
+      ),
     NotFound: () => ({ model: Page.NotFound() }),
   })
 

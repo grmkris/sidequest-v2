@@ -14,7 +14,8 @@ import {
   type,
   withViewInputs,
 } from 'foldkit/scene'
-import { describe, test } from 'vitest'
+import { describe, expect as assert, test } from 'vitest'
+import { Preload } from '../../src/Preload.ts'
 import * as ListingPage from '../../src/page/ListingPage.ts'
 import * as NewListing from '../../src/page/NewListing.ts'
 import { Problem } from '../../src/Problem.ts'
@@ -33,7 +34,7 @@ const published: Listing = {
 
 const read = (current: Listing) =>
   ListingPage.update(
-    ListingPage.init('en', listing).model,
+    ListingPage.init('en', listing, Option.none()).model,
     ListingPage.Message.SucceededReadListing({ listing: current }),
   ).model
 
@@ -70,13 +71,39 @@ describe('publishing a listing', () => {
 })
 
 describe('a listing’s page', () => {
-  test('shows anyone the listing, without its owner’s controls', () => {
+  test('shows anyone the listing and its seller’s name, without its owner’s controls', () => {
     scene(
       { update: ListingPage.update, view: withViewInputs(ListingPage.view, { maybeAccount: Option.some(ben) })() },
       given(read(published)),
       expect(role('heading', { level: 1, name: 'Hand-drawn logos' })).toExist(),
       expect(text('Around 250.50 USDC')).toExist(),
+      expect(text('account …000ADA')).toExist(),
+    )
+    scene(
+      { update: ListingPage.update, view: withViewInputs(ListingPage.view, { maybeAccount: Option.some(ben) })() },
+      given(
+        ListingPage.update(
+          read(published),
+          ListingPage.Message.SucceededReadNames({ names: [{ account: ada, displayName: 'Ada Lovelace' }] }),
+        ).model,
+      ),
+      expect(text('Ada Lovelace')).toExist(),
       expect(role('button', { name: 'Edit listing' })).not.toExist(),
+    )
+  })
+
+  test('shows the listing the server read, with its seller’s name, and reads nothing', () => {
+    const opened = ListingPage.init(
+      'en',
+      listing,
+      Option.some(Preload.Listing({ listing: published, names: [{ account: ada, displayName: 'Ada Lovelace' }] })),
+    )
+    assert(opened.commands ?? []).toEqual([])
+    scene(
+      { update: ListingPage.update, view: withViewInputs(ListingPage.view, { maybeAccount: Option.none() })() },
+      given(opened.model),
+      expect(role('heading', { level: 1, name: 'Hand-drawn logos' })).toExist(),
+      expect(text('Ada Lovelace')).toExist(),
     )
   })
 

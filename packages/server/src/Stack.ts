@@ -23,13 +23,14 @@ export const edgeWorker = {
 
 /** Sidequest's Workers around one website: the API Worker with its database (migrated from
  * `packages/server/migrations`), its media bucket and the model's Durable Object classes, which the API Worker declares
- * as it builds; the edge in front of both; and the stage, release and Arc RPC endpoint the API runs with. Production
+ * as it builds; the website, made with a service binding to the API Worker (`API`) that it reads a page's data
+ * through as it renders it; the edge in front of both; and the stage, release and Arc RPC endpoint the API runs with. Production
  * builds the website from source and reads Arc testnet's public RPC; the native acceptance test runs the built
  * artifact, because Foldkit's dev mode runs Vite in Node rather than the deployed Worker, and names an RPC endpoint
  * that must not be called. */
 export const sidequestWorkers = <R>(
   release: string,
-  website: Effect.Effect<Cloudflare.Worker, never, R>,
+  website: (api: Cloudflare.Worker) => Effect.Effect<Cloudflare.Worker, never, R>,
   arcRpcUrl: string = arcTestnetRpcUrl,
 ) =>
   Effect.gen(function* () {
@@ -37,7 +38,7 @@ export const sidequestWorkers = <R>(
     yield* SidequestDatabase
     yield* SidequestMedia
     const api = yield* SidequestWorker
-    const site = yield* website
+    const site = yield* website(api)
     const edge = yield* Cloudflare.Worker('SidequestEdge', {
       ...edgeWorker,
       env: { API: api, WEBSITE: site },

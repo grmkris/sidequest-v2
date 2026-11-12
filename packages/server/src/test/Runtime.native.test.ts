@@ -50,11 +50,13 @@ const Stack = Alchemy.Stack(
   Effect.gen(function* () {
     const { url } = yield* sidequestWorkers(
       release,
-      Cloudflare.Worker('SidequestWebsite', {
-        main: 'apps/web/dist/server/fetch.js',
-        assets: { directory: 'apps/web/dist/client' },
-        compatibility,
-      }),
+      (api) =>
+        Cloudflare.Worker('SidequestWebsite', {
+          main: 'apps/web/dist/server/fetch.js',
+          assets: { directory: 'apps/web/dist/client' },
+          compatibility,
+          env: { API: api },
+        }),
       unreachableRpc,
     )
     const received = yield* Cloudflare.Worker('ReceivedHeaders', {
@@ -246,7 +248,7 @@ const browserOf = (url: string, cookie: string) => {
     put: (path: string, body: unknown) => send(HttpClientRequest.put(`${url}${path}`), body),
   }
 }
-type Browser = ReturnType<typeof browserOf> & { readonly account: AccountId }
+type Browser = ReturnType<typeof browserOf> & { readonly account: AccountId; readonly cookie: string }
 
 /** Sign a fresh wallet in and keep its session cookie. */
 const signedIn = (url: string) =>
@@ -254,7 +256,7 @@ const signedIn = (url: string) =>
     const { response } = yield* signIn(url, privateKeyToAccount(generatePrivateKey()))
     const cookie = (response.headers['set-cookie'] ?? '').split('; ')[0] ?? ''
     const { account } = yield* Effect.flatMap(response.json, Schema.decodeUnknownEffect(SessionView))
-    const browser: Browser = { ...browserOf(url, cookie), account }
+    const browser: Browser = { ...browserOf(url, cookie), account, cookie }
     return browser
   })
 
@@ -459,6 +461,22 @@ const hydrated = (page: Page) =>
     }),
   )
 
+/** Open `target` in `page` and wait until it hydrated; the paths of the API reads the page made meanwhile, data or
+ * session alike. A page hydrated from the server's data makes none of the reads it rendered. */
+const apiReadsDuring = (page: Page, target: string) =>
+  Effect.gen(function* () {
+    const reads: Array<string> = []
+    const record = (request: { readonly method: () => string; readonly url: () => string }) => {
+      const path = new URL(request.url()).pathname
+      if (request.method() === 'GET' && path.startsWith('/api/')) reads.push(path)
+    }
+    page.on('request', record)
+    yield* Effect.promise(() => page.goto(target, { waitUntil: 'networkidle' }))
+    yield* hydrated(page)
+    page.off('request', record)
+    return reads
+  })
+
 /** Reload until `text` shows: the open requests come from a D1 projection, which follows the job eventually. A bounded
  * retry on what the page shows, never a fixed sleep. */
 const reloadUntilShown = (page: Page, text: string) =>
@@ -498,9 +516,56 @@ test(
       yield* reloadUntilShown(home.page, title)
       const link = home.page.getByRole('link', { name: title })
       expect(yield* Effect.promise(() => link.getAttribute('href'))).toBe(new URL(page.url()).pathname)
+
+      // Rendered with its data on the server, the page hydrates from it and reads none of it again.
+      const jobPath = new URL(page.url()).pathname
+      const homeReads = yield* apiReadsDuring(home.page, url)
+      expect(homeReads).toEqual([])
+      yield* Effect.promise(() => home.page.getByRole('link', { name: title }).waitFor({ timeout: 1000 }))
+      // The buyer's own view of the job, rendered for their session: the request, and no proposals yet.
+      const buyerReads = yield* apiReadsDuring(page, `${url}${jobPath}`)
+      expect(buyerReads.filter((path) => path.startsWith('/api/jobs/') && !path.endsWith('/rooms'))).toEqual([])
+      expect(buyerReads).not.toContain('/api/session')
+      yield* Effect.promise(() => page.getByRole('heading', { level: 1, name: title }).waitFor({ timeout: 1000 }))
+      yield* Effect.promise(() => page.getByText('No proposals yet.', { exact: false }).waitFor({ timeout: 1000 }))
       expect(problems).toEqual([])
       expect(home.problems).toEqual([])
     }),
   ),
   { timeout: 120000 },
+)
+
+test(
+  'renders the home page and a job page with a posted request in the HTML, readable without JavaScript',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const buyer = yield* signedIn(url)
+    const title = `Server rendered ${generatePrivateKey().slice(2, 10)}`
+    const expiresAt = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000) + 7 * day
+    const job = yield* createdBy(buyer.post('/api/jobs', { title, description: 'In the HTML.', expiresAt }), JobId)
+    const html = (path: string, headers: Record<string, string> = {}) =>
+      HttpClient.get(`${url}${path}`, { headers: { accept: 'text/html', ...headers } })
+    // The open requests are a D1 projection, which follows the job eventually: read until the page shows it.
+    const home = yield* html('/').pipe(
+      Effect.flatMap((response) =>
+        Effect.map(response.text, (body) => ({ body, cacheControl: response.headers['cache-control'] })),
+      ),
+      Effect.flatMap((read) => (read.body.includes(title) ? Effect.succeed(read) : Effect.fail(new NotYet()))),
+      Effect.retry({ schedule: Schedule.spaced('100 millis'), times: 200 }),
+    )
+    expect(home.body).toContain(`/jobs/${job}`)
+    expect(home.cacheControl).toBe('public, max-age=0, s-maxage=10, must-revalidate')
+    const anyone = yield* html(`/jobs/${job}`)
+    expect(anyone.status).toBe(200)
+    expect(yield* anyone.text).toContain(title)
+    // The page differs by language and by session; Foldkit adds what it negotiates on itself.
+    expect(anyone.headers.vary).toStartWith('Accept-Language, Cookie')
+    const own = yield* html(`/jobs/${job}`, { cookie: buyer.cookie })
+    const ownBody = yield* own.text
+    expect(ownBody).toContain(title)
+    // Their own view, for their session alone: never kept by any cache.
+    expect(ownBody).toContain('No proposals yet.')
+    expect(own.headers['cache-control']).toBe('private, no-store')
+  }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 60000 },
 )

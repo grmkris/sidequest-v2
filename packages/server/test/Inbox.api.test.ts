@@ -8,6 +8,8 @@ import { ada, ben, bodyOf, eventually, type Person, type Reply, withApi } from '
 // a page at a time, with a cursor to poll with.
 
 const Inbox = Schema.Struct({ items: Schema.Array(InboxEntry), next: Cursor, more: Schema.Boolean })
+const Recent = Schema.Struct({ items: Schema.Array(InboxEntry), next: Schema.NullOr(Cursor), latest: Cursor })
+const recentOf = (reply: Reply) => bodyOf(Recent, reply)
 const inboxOf = (reply: Reply) => bodyOf(Inbox, reply)
 const kinds = (reply: Reply) => inboxOf(reply).items.map(({ kind }) => kind)
 const read = (person: Person, query = '') => person.get(`/api/inbox${query}`)
@@ -62,5 +64,37 @@ describe('the inbox API', () => {
       expect(polled).toEqual({ items: [], next: rest.next, more: false })
       expect(inboxOf(await read(bidder)).items).toEqual([])
       expect(await read(buyer, '?cursor=bm9wZQ')).toMatchObject({ status: 400, body: { _tag: 'BadCursor' } })
+    }))
+
+  test('reads newest first a page at a time back to the oldest, and answers the cursor to poll for what comes next', () =>
+    withApi(async ({ signIn, anonymous }) => {
+      const buyer = await signIn(ada)
+      const bidder = await signIn(ben)
+      for (const title of ['One', 'Two', 'Three']) await propose(bidder, await postJob(buyer, title))
+      const oldestFirst = await eventually(
+        () => read(buyer),
+        (reply) => kinds(reply).length === 3,
+      )
+      const ids = inboxOf(oldestFirst).items.map(({ id }) => id)
+      const newest = recentOf(await buyer.get('/api/inbox/recent?limit=2'))
+      expect(newest.items.map(({ id }) => id)).toEqual([ids[2], ids[1]])
+      const oldest = recentOf(await buyer.get(`/api/inbox/recent?limit=2&cursor=${newest.next}`))
+      expect(oldest).toMatchObject({ next: null })
+      expect(oldest.items.map(({ id }) => id)).toEqual([ids[0]])
+      expect(inboxOf(await read(buyer, `?cursor=${newest.latest}`))).toMatchObject({ items: [], more: false })
+      const job = await postJob(buyer, 'Four')
+      await propose(bidder, job)
+      const polled = await eventually(
+        () => read(buyer, `?cursor=${newest.latest}`),
+        (reply) => kinds(reply).length === 1,
+      )
+      expect(inboxOf(polled).items.map(({ job: about }) => about)).toEqual([job])
+      expect(recentOf(await bidder.get('/api/inbox/recent'))).toMatchObject({ items: [], next: null })
+      // A cursor that polls forwards does not page backwards.
+      expect(await buyer.get(`/api/inbox/recent?cursor=${newest.latest}`)).toMatchObject({
+        status: 400,
+        body: { _tag: 'BadCursor' },
+      })
+      expect(await anonymous.get('/api/inbox/recent')).toMatchObject({ status: 401 })
     }))
 })

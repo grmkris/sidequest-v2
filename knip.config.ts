@@ -14,6 +14,9 @@ export default {
       // Story and Scene tests drive (FOLDKIT.md › Testing), so an export the module itself uses is not reported as
       // test-only; one nothing uses still is. The website only: the packages keep full unused-export detection.
       ignoreExportsUsedInFile: true,
+      // `cloudflare:workers` is workerd's built-in module, which the server entry reads the Worker's bindings from;
+      // it is no package to list.
+      ignoreDependencies: ['cloudflare'],
     },
     ...Object.fromEntries(
       ['domain', 'observability', 'server', 'settlement'].map((name) => [

@@ -1,6 +1,6 @@
 import { Story } from '@alchemy.run/domain/Story'
 import { describe, it } from '@effect/vitest'
-import { JobId, ListingId } from '@sidequest/protocol'
+import { AccountRef, JobId, ListingId } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
 import { expect } from 'vitest'
 import { CurrentActor } from '../src/CurrentActor.context.ts'
@@ -9,15 +9,20 @@ import { memoryListingStore } from '../src/Directory/ListingStore.ts'
 import { ListingPublished, PublishListing } from '../src/Directory/PublishListing.command.ts'
 import { ListingUpdated, UpdateListing } from '../src/Directory/UpdateListing.command.ts'
 import { ListingWithdrawn, WithdrawListing } from '../src/Directory/WithdrawListing.command.ts'
+import { Account } from '../src/Identity/Account.aggregate.ts'
+import { memoryAccountNameStore } from '../src/Identity/AccountNameStore.ts'
 import { Agent } from '../src/Identity/Agent.aggregate.ts'
 import { memoryAgentStore } from '../src/Identity/AgentStore.ts'
 import { AgentGranted, GrantAgent } from '../src/Identity/GrantAgent.command.ts'
+import { AccountRegistered, RegisterAccount } from '../src/Identity/RegisterAccount.command.ts'
 import { AgentRegistered, RegisterAgent } from '../src/Identity/RegisterAgent.command.ts'
+import { AccountRenamed, RenameAccount } from '../src/Identity/RenameAccount.command.ts'
 import { GrantRevoked, RevokeGrant } from '../src/Identity/RevokeGrant.command.ts'
-import { AcceptProposal } from '../src/Job/AcceptProposal.command.ts'
+import { AcceptProposal, ProposalDeclined } from '../src/Job/AcceptProposal.command.ts'
 import { Job } from '../src/Job/Job.aggregate.ts'
 import { RequestCancelled } from '../src/Job/CancelRequest.command.ts'
 import { RequestExpired } from '../src/Job/ExpireRequest.command.ts'
+import { memoryPartyJobStore } from '../src/Job/PartyJobStore.ts'
 import { RequestPosted } from '../src/Job/PostRequest.command.ts'
 import { JobSettled } from '../src/Job/RecordSettlement.command.ts'
 import { ChangeRequested } from '../src/Job/RequestChange.command.ts'
@@ -34,6 +39,7 @@ import {
   bobV1,
   bobV2,
   carol,
+  carolV1,
   deliveredOnChain,
   digestV2,
   funded,
@@ -214,5 +220,86 @@ describe('the inbox projection', () => {
         ])
       }),
     )
+  })
+})
+
+describe('the account names projection', () => {
+  const wallet = AccountRef.make('eip155:5042002:0x00000000000000000000000000000000000a11ce')
+
+  it.effect('keeps the name each account goes by through registration and a rename', () => {
+    const stores = memoryStores()
+    const account = Account.ref(alice)
+    return storyOver(stores)(
+      Story.provide(CurrentActor, person(alice)),
+      Story.when(account, new RegisterAccount({ displayName: '0x0000…a11ce', wallet })),
+      Story.then(account, new AccountRegistered({ displayName: '0x0000…a11ce', wallet })),
+      Story.when(account, new RenameAccount({ displayName: 'Alice' })),
+      Story.then(account, new AccountRenamed({ displayName: 'Alice' })),
+    ).pipe(
+      Effect.andThen(stores.accountNames.list),
+      Effect.map((rows) => expect(rows).toEqual([{ id: alice, displayName: 'Alice', version: 2 }])),
+    )
+  })
+
+  it.effect('ignores a redelivered name older than the one it holds', () => {
+    const store = memoryAccountNameStore()
+    return Effect.gen(function* () {
+      yield* store.apply([
+        { id: alice, displayName: 'Alice', version: 2 },
+        { id: alice, displayName: '0x0000…a11ce', version: 1 },
+      ])
+      expect(yield* store.list).toEqual([{ id: alice, displayName: 'Alice', version: 2 }])
+    })
+  })
+})
+
+describe('the party jobs projection', () => {
+  const awarded = [accepted, new ProposalDeclined({ bidder: carol, version: 1 })] as const
+
+  it.effect('lists a job for its buyer and each bidder, follows its stage, and makes the winner its worker', () => {
+    const stores = memoryStores()
+    return storyOver(stores)(
+      Story.given(job, posted, bobV1, carolV1, bobV2),
+      Story.given(Job.ref(cancelled), postedByBob(cancelled), new RequestCancelled()),
+      Story.provide(CurrentActor, person(alice)),
+      Story.when(job, new AcceptProposal({ bidder: bob, version: 2, termsDigest: digestV2 })),
+      Story.then(job, ...awarded),
+    ).pipe(
+      Effect.andThen(
+        Effect.all([stores.partyJobs.list(alice), stores.partyJobs.list(bob), stores.partyJobs.list(carol)]),
+      ),
+      Effect.map(([alices, bobs, carols]) => {
+        const ours = { id: jobId, buyer: alice, title: request.title, expiresAt: at.requestExpiry, state: 'Awarded' }
+        expect(alices).toEqual([{ ...ours, role: 'buyer' }])
+        expect(bobs.toSorted((left, right) => left.id.localeCompare(right.id))).toEqual([
+          { ...ours, role: 'worker' },
+          {
+            id: cancelled,
+            buyer: bob,
+            title: request.title,
+            expiresAt: at.requestExpiry,
+            state: 'Cancelled',
+            role: 'buyer',
+          },
+        ])
+        expect(carols).toEqual([{ ...ours, role: 'bidder' }])
+      }),
+    )
+  })
+
+  it.effect('ignores an older stage after a newer one, and never turns the worker back into a bidder', () => {
+    const store = memoryPartyJobStore()
+    const posting = { id: jobId, buyer: alice, title: request.title, expiresAt: at.requestExpiry }
+    return Effect.gen(function* () {
+      yield* store.apply([
+        { _tag: 'Posted', ...posting, version: 1 },
+        { _tag: 'Bid', id: jobId, bidder: bob },
+        { _tag: 'Awarded', id: jobId, worker: bob, version: 3 },
+        { _tag: 'Moved', id: jobId, state: 'Disputed', version: 6 },
+        { _tag: 'Moved', id: jobId, state: 'Funded', version: 4 },
+        { _tag: 'Bid', id: jobId, bidder: bob },
+      ])
+      expect(yield* store.list(bob)).toEqual([{ ...posting, state: 'Disputed', role: 'worker' }])
+    })
   })
 })

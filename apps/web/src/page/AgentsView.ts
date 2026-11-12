@@ -27,7 +27,10 @@ const scopeLabel = (language: Language, scope: GrantScope): string =>
     { onNone: () => scope, onSome: (entry) => say(language, entry.label) },
   )
 
-const grantSummary = (h: Html.HtmlBuilder<Message>, language: Language, agent: Agent) => {
+/** Where the page is read: the origin agents connect to, and the time zone dates are drawn in. */
+type Reader = { readonly origin: string; readonly timeZone: string }
+
+const grantSummary = (h: Html.HtmlBuilder<Message>, language: Language, agent: Agent, timeZone: string) => {
   if (agent.revoked) {
     return Ui.chip(h, say(language, 'agents.revoked'), 'danger')
   }
@@ -37,7 +40,7 @@ const grantSummary = (h: Html.HtmlBuilder<Message>, language: Language, agent: A
       h.span(styled(h, s.meta()), [
         format(language, 'agents.grantSummary', {
           scopes: grant.scopes.map((scope) => scopeLabel(language, scope)).join(', '),
-          date: formatInstant(grant.expiresAt, language),
+          date: formatInstant(grant.expiresAt, language, timeZone),
         }),
       ]),
   })
@@ -117,14 +120,14 @@ const issuedView = (h: Html.HtmlBuilder<Message>, language: Language, issue: Iss
       ]),
   })
 
-const tokenRow = (h: Html.HtmlBuilder<Message>, language: Language, token: AgentToken) =>
+const tokenRow = (h: Html.HtmlBuilder<Message>, language: Language, token: AgentToken, timeZone: string) =>
   h.keyed('li')(token.id, styled(h, s.row()), [
     h.p(
       [],
       [
         format(language, 'agents.tokenIssued', {
-          issued: formatInstant(token.issuedAt, language),
-          expires: formatInstant(token.expiresAt, language),
+          issued: formatInstant(token.issuedAt, language, timeZone),
+          expires: formatInstant(token.expiresAt, language, timeZone),
         }),
       ],
     ),
@@ -139,12 +142,12 @@ const tokenRow = (h: Html.HtmlBuilder<Message>, language: Language, token: Agent
       : Ui.chip(h, say(language, 'agents.tokenRevoked')),
   ])
 
-const tokensView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, origin: string) =>
+const tokensView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, reader: Reader) =>
   h.section(
     [h.AriaLabelledBy('agent-tokens'), ...styled(h, s.section())],
     [
       h.h3([h.Id('agent-tokens')], [say(language, 'agents.tokens')]),
-      h.p(styled(h, s.meta()), [format(language, 'agents.endpoint', { url: `${origin}/mcp` })]),
+      h.p(styled(h, s.meta()), [format(language, 'agents.endpoint', { url: `${reader.origin}/mcp` })]),
       h.div(styled(h, s.actions()), [
         Ui.button(h, {
           label: say(language, 'agents.issue'),
@@ -162,17 +165,17 @@ const tokensView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Pan
             onNonEmpty: (items) =>
               h.ul(
                 [h.AriaLabel(say(language, 'agents.tokens')), ...styled(h, s.rows())],
-                items.map((token) => tokenRow(h, language, token)),
+                items.map((token) => tokenRow(h, language, token, reader.timeZone)),
               ),
           }),
       }),
     ],
   )
 
-const panelView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, agent: Agent, origin: string) =>
+const panelView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, agent: Agent, reader: Reader) =>
   h.div(styled(h, as.panel()), [
     agent.revoked ? h.p(styled(h, s.meta()), [say(language, 'agents.revokedNote')]) : grantForm(h, language, panel),
-    agent.revoked ? h.empty : tokensView(h, language, panel, origin),
+    agent.revoked ? h.empty : tokensView(h, language, panel, reader),
     agent.revoked
       ? h.empty
       : h.div(styled(h, s.actions()), [
@@ -189,7 +192,7 @@ const panelView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Pane
     ]),
   ])
 
-const agentRow = (h: Html.HtmlBuilder<Message>, model: Model, agent: Agent, origin: string) => {
+const agentRow = (h: Html.HtmlBuilder<Message>, model: Model, agent: Agent, reader: Reader) => {
   const maybeOpen = Option.filter(model.maybePanel, (panel) => panel.agent === agent.id)
   return h.keyed('li')(agent.id, styled(h, s.row()), [
     h.div(styled(h, s.sectionHead()), [
@@ -201,10 +204,10 @@ const agentRow = (h: Html.HtmlBuilder<Message>, model: Model, agent: Agent, orig
             onClick: Message.ClickedManage({ agent: agent.id }),
           }),
     ]),
-    grantSummary(h, model.language, agent),
+    grantSummary(h, model.language, agent, reader.timeZone),
     Option.match(maybeOpen, {
       onNone: () => h.empty,
-      onSome: (panel) => panelView(h, model.language, panel, agent, origin),
+      onSome: (panel) => panelView(h, model.language, panel, agent, reader),
     }),
   ])
 }
@@ -232,7 +235,7 @@ const registerForm = (h: Html.HtmlBuilder<Message>, model: Model) =>
     ],
   )
 
-const agentsView = (h: Html.HtmlBuilder<Message>, model: Model, origin: string) =>
+const agentsView = (h: Html.HtmlBuilder<Message>, model: Model, reader: Reader) =>
   h.div(styled(h, s.page()), [
     h.section([h.AriaLabel(say(model.language, 'agents.register')), ...styled(h, s.panel())], [registerForm(h, model)]),
     AsyncData.matchData(model.agents, {
@@ -244,18 +247,18 @@ const agentsView = (h: Html.HtmlBuilder<Message>, model: Model, origin: string) 
           onNonEmpty: (items) =>
             h.ul(
               [h.AriaLabel(say(model.language, 'agents.title')), ...styled(h, s.rows())],
-              items.map((agent) => agentRow(h, model, agent, origin)),
+              items.map((agent) => agentRow(h, model, agent, reader)),
             ),
         }),
     }),
   ])
 
-export const view = Submodel.defineView<Model, Message, { readonly session: Session; readonly origin: string }>(
-  (model, { session, origin }, h) =>
+export const view = Submodel.defineView<Model, Message, Reader & { readonly session: Session }>(
+  (model, { session, ...reader }, h) =>
     h.div(styled(h, s.page()), [
       Ui.pageHead(h, say(model.language, 'agents.title'), [say(model.language, 'agents.lede')]),
       signedInOnly(h, { language: model.language, session, route: AppRoute.Agents() }, () =>
-        agentsView(h, model, origin),
+        agentsView(h, model, reader),
       ),
     ]),
 )

@@ -1,6 +1,7 @@
 import { SidequestApi } from '@sidequest/protocol'
 import { Layer } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
+import { accountHandlers } from './Http/AccountHttp.ts'
 import { agentsHandlers } from './Http/AgentsHttp.ts'
 import { inboxHandlers } from './Http/InboxHttp.ts'
 import { jobsHandlers } from './Http/JobsHttp.ts'
@@ -11,15 +12,24 @@ import { settlementHandlers } from './Http/SettlementHttp.ts'
 import { PeopleClients } from './Http/People.ts'
 import { SignedInLive } from './Http/SignedInLive.ts'
 import { mcpRoutes } from './Mcp/McpRoutes.ts'
+import { AccountNameReads } from './Reads/AccountNameReads.ts'
 import { AgentReads } from './Reads/AgentReads.ts'
 import { InboxReads } from './Reads/InboxReads.ts'
 import { ListingReads } from './Reads/ListingReads.ts'
 import { OpenRequestReads } from './Reads/OpenRequestReads.ts'
+import { PartyJobReads } from './Reads/PartyJobReads.ts'
 import { sessionHandlers } from './SignIn/SessionHttp.ts'
 import { systemHandlers } from './Status.ts'
 
 /** The D1 reads the handlers answer lists and single records from; they need the database's `SqlClient`. */
-const Reads = Layer.mergeAll(AgentReads.layer, ListingReads.layer, OpenRequestReads.layer, InboxReads.layer)
+const Reads = Layer.mergeAll(
+  AgentReads.layer,
+  AccountNameReads.layer,
+  ListingReads.layer,
+  OpenRequestReads.layer,
+  PartyJobReads.layer,
+  InboxReads.layer,
+)
 
 /**
  * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` with its handlers and the `SameOrigin`
@@ -32,6 +42,7 @@ export const apiRoutes = (release: string) =>
       Layer.provide([
         systemHandlers(release),
         sessionHandlers,
+        accountHandlers,
         agentsHandlers,
         listingsHandlers,
         jobsHandlers,

@@ -12,6 +12,7 @@ import { AgentPaused, AgentTurnLimit, IdempotencyConflict, PostMessage } from '.
 import { AgentsResumed, ResumeAgents } from '../src/Rooms/ResumeAgents.command.ts'
 import { RoomMessage, RoomMessages } from '../src/Rooms/RoomMessages.stream.ts'
 import { RoomNotOpen } from '../src/Rooms/RoomNotOpen.rejection.ts'
+import { RoomPauses } from '../src/Rooms/RoomPauses.view.ts'
 import { SystemOnly } from '../src/SystemOnly.rejection.ts'
 import {
   agentOf,
@@ -99,12 +100,14 @@ describe('a room', () => {
     ),
   )
 
-  it.effect('lets a person pause and resume only their own agents', () =>
+  it.effect('lets a person pause and resume only their own agents, and shows whose agents are paused', () =>
     story(
       Story.given(bobRoom, bobRoomOpened),
+      Story.view(RoomPauses, bobRoom, { members: [alice, bob], paused: [] }),
       Story.provide(CurrentActor, person(alice)),
       Story.when(bobRoom, new PauseAgents()),
       Story.then(bobRoom, new AgentsPaused({ member: alice })),
+      Story.view(RoomPauses, bobRoom, { paused: [alice] }),
       Story.when(bobRoom, new PauseAgents()),
       Story.then(bobRoom),
       Story.provide(CurrentActor, alicesAgent),
@@ -118,6 +121,7 @@ describe('a room', () => {
       Story.provide(CurrentActor, person(alice)),
       Story.when(bobRoom, new ResumeAgents()),
       Story.then(bobRoom, new AgentsResumed({ member: alice })),
+      Story.view(RoomPauses, bobRoom, { paused: [] }),
       Story.when(bobRoom, new ResumeAgents()),
       Story.then(bobRoom),
       Story.provide(CurrentActor, alicesAgent),

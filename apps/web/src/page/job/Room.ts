@@ -10,7 +10,8 @@ import { Language } from '../../Language.ts'
 import { Problem, problemOf } from '../../Problem.ts'
 
 // The rooms of a job the person is a member of: a bidder's negotiation room, the job's engagement room. Read the
-// messages (followed every few seconds while the room is open), write one, pause or resume your own agents.
+// messages (followed every few seconds while the room is open), write one, see whether your own agents are paused
+// there, and pause or resume them.
 
 // MODEL
 
@@ -26,14 +27,14 @@ export const Send = defineTaggedUnion({
 })
 export type Send = typeof Send.Type
 
-/** What the person last did with their agents in this room. The API has no read of it, so only this session's action
- * is shown. */
+/** Whether the person's own agents may post in this room: being read, running, paused, changing, or a read or change
+ * that failed. */
 export const Agents = defineTaggedUnion({
-  Unknown: {},
+  Reading: {},
+  Running: {},
   Pausing: {},
   Paused: {},
   Resuming: {},
-  Resumed: {},
   Failed: { problem: Problem },
 })
 export type Agents = typeof Agents.Type
@@ -75,6 +76,8 @@ export const Message = defineMessageUnion({
   ClickedResumeAgents: {},
   SucceededSetAgents: { room: RoomId, paused: Schema.Boolean },
   FailedSetAgents: { room: RoomId, problem: Problem },
+  SucceededReadAgents: { room: RoomId, paused: Schema.Boolean },
+  FailedReadAgents: { room: RoomId, problem: Problem },
 })
 export type Message = typeof Message.Type
 
@@ -122,6 +125,18 @@ export const PostMessage = Command.define('PostMessage', {
     }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedPostMessage({ room, problem: problemOf(error) })))),
 })
 
+/** Whether the person's own agents are paused in the room. */
+export const ReadAgents = Command.define('ReadAgents', {
+  args: { room: RoomId },
+  messages: [Message.SucceededReadAgents, Message.FailedReadAgents],
+  execute: ({ room }) =>
+    Effect.gen(function* () {
+      const api = yield* (yield* SidequestClient).api
+      const { paused } = yield* api.rooms.agents({ params: { room } })
+      return Message.SucceededReadAgents({ room, paused })
+    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedReadAgents({ room, problem: problemOf(error) })))),
+})
+
 export const SetAgents = Command.define('SetAgents', {
   args: { room: RoomId, paused: Schema.Boolean },
   messages: [Message.SucceededSetAgents, Message.FailedSetAgents],
@@ -155,12 +170,12 @@ const opened = (room: RoomId): OpenRoom => ({
   maybeReadProblem: Option.none(),
   draft: '',
   send: Send.Idle(),
-  agents: Agents.Unknown(),
+  agents: Agents.Reading(),
 })
 
 const openRoom = (model: Model, room: RoomId): UpdateReturn => ({
   model: modifyFields(model, { maybeOpen: () => Option.some(opened(room)) }),
-  commands: [ReadMessages({ room, maybeAfter: Option.none() })],
+  commands: [ReadMessages({ room, maybeAfter: Option.none() }), ReadAgents({ room })],
 })
 
 /** A change to the open room, if it is still the room the result is about. */
@@ -287,16 +302,22 @@ const setAgents = (model: Model, paused: boolean): UpdateReturn =>
     }),
   })
 
+const agentsIn = (model: Model, room: RoomId, paused: boolean): UpdateReturn => ({
+  model: inRoom(model, room, (open) =>
+    modifyFields(open, { agents: () => (paused ? Agents.Paused() : Agents.Running()) }),
+  ),
+})
+
 const agentHandlers = (model: Model) =>
   ({
     ClickedPauseAgents: () => setAgents(model, true),
     ClickedResumeAgents: () => setAgents(model, false),
-    SucceededSetAgents: ({ room, paused }) => ({
-      model: inRoom(model, room, (open) =>
-        modifyFields(open, { agents: () => (paused ? Agents.Paused() : Agents.Resumed()) }),
-      ),
-    }),
+    SucceededSetAgents: ({ room, paused }) => agentsIn(model, room, paused),
     FailedSetAgents: ({ room, problem }) => ({
+      model: inRoom(model, room, (open) => modifyFields(open, { agents: () => Agents.Failed({ problem }) })),
+    }),
+    SucceededReadAgents: ({ room, paused }) => agentsIn(model, room, paused),
+    FailedReadAgents: ({ room, problem }) => ({
       model: inRoom(model, room, (open) => modifyFields(open, { agents: () => Agents.Failed({ problem }) })),
     }),
   }) satisfies Group

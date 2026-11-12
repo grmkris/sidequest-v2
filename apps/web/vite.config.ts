@@ -4,7 +4,12 @@ import { zyzz } from 'zyzz/vite'
 
 export default defineConfig({
   // The bundle budget reads which chunks the document loads; public/.assetsignore keeps it unpublished.
-  environments: { client: { build: { manifest: true } } },
+  // The server entry reads the Worker's bindings from workerd's own `cloudflare:workers` module, which only the Worker
+  // runtime provides, so the server build leaves it to the runtime.
+  environments: {
+    client: { build: { manifest: true } },
+    ssr: { build: { rolldownOptions: { external: ['cloudflare:workers'] } } },
+  },
   // CSS browser baseline, made explicit: zyzz requires native light-dark() and emits CSS
   // nesting, so older browsers drop nested state rules (hover, active, user-invalid).
   // Fonts always ship as files: the edge CSP allows `font-src 'self'`, not inlined data: URLs.

@@ -1,5 +1,5 @@
 import {
-  type AccountId,
+  AccountId,
   type BidderJobView,
   type BuyerJobView,
   JobId,
@@ -16,6 +16,8 @@ import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../../Api.ts'
 import { Language } from '../../Language.ts'
+import { defineReadNames, Names, unnamed, withNames } from '../../Names.ts'
+import type { Preload } from '../../Preload.ts'
 import { Problem, problemOf } from '../../Problem.ts'
 import type { Wallet } from '../../Wallet.ts'
 
@@ -26,8 +28,9 @@ import * as Room from './Room.ts'
 import * as Settlement from './Settlement.ts'
 
 // The job page: the request and, for whoever is looking, their part of it. The buyer sees every proposal, accepts one
-// exact version or asks for a change, then funds, approves or rejects; a bidder sees and revises their own proposals and,
-// once they win, delivers; anyone else sees the request and may propose. The rooms sit beside it for its members.
+// exact version or asks for a change, then funds, approves or rejects; a bidder sees the request and its stage, sees and
+// revises their own proposals and, once they win, the escrow's fee, delivers, and reviews; anyone else sees the request
+// and may propose. The rooms sit beside it for its members. Every account shown goes by its name.
 
 // MODEL
 
@@ -55,6 +58,8 @@ export const Model = Schema.Struct({
   room: Room.Model,
   maybeSettlement: Schema.Option(Settlement.Model),
   review: Review.Model,
+  names: Names,
+  askedNames: Schema.Array(AccountId),
 })
 export type Model = typeof Model.Type
 
@@ -75,6 +80,8 @@ export const Message = defineMessageUnion({
   GotRoomMessage: { message: Room.Message },
   GotSettlementMessage: { message: Settlement.Message },
   GotReviewMessage: { message: Review.Message },
+  SucceededReadNames: { names: Names },
+  FailedReadNames: { problem: Problem },
 })
 export type Message = typeof Message.Type
 
@@ -116,16 +123,22 @@ export const CancelRequest = Command.define('CancelRequest', {
     }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedDecide({ problem: problemOf(error) })))),
 })
 
+export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
+
 // INIT
 
 type Services = SidequestClient | Wallet
 type UpdateReturn = Update.Return<Model, Message, Services>
 
+type JobPreload = Extract<Preload, { readonly _tag: 'Job' }>
+
+/** The job as the server read it, or a read of it; the rooms are read in the browser either way. */
 export const init = (
   language: Language,
   job: JobId,
   maybeSigner: Option.Option<string>,
   mayReadRooms: boolean,
+  maybePreload: Option.Option<JobPreload>,
 ): UpdateReturn => {
   const roomInit = Update.foldChildInit(Room.init(language, job, mayReadRooms), {
     toParentModel: (room): Model => ({
@@ -138,10 +151,19 @@ export const init = (
       room,
       maybeSettlement: Option.none(),
       review: Review.init(language, job),
+      names: Option.match(maybePreload, { onNone: () => [], onSome: (preload) => preload.names }),
+      // The server asked for every name its view shows; one it did not find is not asked for again.
+      askedNames: Option.match(maybePreload, { onNone: () => [], onSome: (preload) => accountsIn(preload.view) }),
     }),
     toParentMessage: (message) => Message.GotRoomMessage({ message }),
   })
-  return { model: roomInit.model, commands: [ReadJob({ job }), ...(roomInit.commands ?? [])] }
+  return Option.match(maybePreload, {
+    onNone: () => ({ model: roomInit.model, commands: [ReadJob({ job }), ...(roomInit.commands ?? [])] }),
+    onSome: ({ view }) => {
+      const shown = shownJob(roomInit.model, view)
+      return { model: shown.model, commands: [...(roomInit.commands ?? []), ...(shown.commands ?? [])] }
+    },
+  })
 }
 
 // DERIVED
@@ -254,9 +276,56 @@ const reread: Step = (model) => Update.combine(model, [readAgain, refreshRooms])
 const proposing = (view: JobView): boolean =>
   byAudience(view, {
     buyer: () => false,
-    bidder: (bidder) => bidder.outcome === 'pending',
+    bidder: (bidder) => bidder.outcome === 'pending' && bidder.state === 'Open',
     public: (anyone) => anyone.state === 'Open',
   })
+
+/** Every account the job shows: its buyer, and for the buyer every bidder and the worker; the reviews' authors. */
+export const accountsIn = (view: JobView): ReadonlyArray<AccountId> =>
+  byAudience(view, {
+    buyer: (buyer) => [
+      ...(buyer.request === null ? [] : [buyer.request.buyer]),
+      ...Array.map(buyer.proposals, (proposal) => proposal.bidder),
+      ...Array.map(buyer.reviews, (review) => review.author),
+    ],
+    bidder: (bidder) => [
+      ...(bidder.request === null ? [] : [bidder.request.buyer]),
+      ...Array.map(bidder.reviews, (review) => review.author),
+    ],
+    public: (anyone) => (anyone.request === null ? [] : [anyone.request.buyer]),
+  })
+
+/** Every account the rooms show: the bidders they are with and the authors of the messages read. */
+const accountsInRooms = (room: Room.Model): ReadonlyArray<AccountId> => [
+  ...Option.match(AsyncData.getData(room.rooms), {
+    onNone: () => [],
+    onSome: (rooms) => Array.flatMap(rooms, (ref) => (ref.kind === 'negotiation' ? [ref.bidder] : [])),
+  }),
+  ...Option.match(room.maybeOpen, {
+    onNone: () => [],
+    onSome: (open) => Array.map(open.messages, (message) => message.author),
+  }),
+]
+
+/** After a step that may show new accounts, ask for the names not known or asked for yet. */
+const askNames: Step = (model) =>
+  Array.match(
+    unnamed(
+      [
+        ...Option.match(AsyncData.getData(model.view), { onNone: () => [], onSome: accountsIn }),
+        ...accountsInRooms(model.room),
+      ],
+      model.names,
+      model.askedNames,
+    ),
+    {
+      onEmpty: () => ({ model }),
+      onNonEmpty: (ids) => ({
+        model: modifyFields(model, { askedNames: Array.appendAll(ids) }),
+        commands: [ReadNames({ ids })],
+      }),
+    },
+  )
 
 const withPropose = (model: Model, view: JobView): Model => {
   if (!proposing(view)) {
@@ -294,10 +363,16 @@ const decide = (model: Model, decision: Decision, command: Command.Command<Messa
   commands: [command],
 })
 
+/** The job as read: what the person may do with it, the settlement panel for its parties, and the names it shows. */
+const shownJob = (model: Model, view: JobView): UpdateReturn =>
+  Update.combine(withPropose(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view), [
+    (stepModel) => withSettlement(stepModel, view),
+    askNames,
+  ])
+
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    SucceededReadJob: ({ view }) =>
-      withSettlement(withPropose(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view), view),
+    SucceededReadJob: ({ view }) => shownJob(model, view),
     FailedReadJob: ({ problem }) => ({
       model: modifyFields(model, { view: () => ViewData.Failure({ error: problem }) }),
     }),
@@ -320,9 +395,12 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     SucceededDecide: () => reread(modifyFields(model, { decision: () => Decision.Idle() })),
     FailedDecide: ({ problem }) => ({ model: modifyFields(model, { decision: () => Decision.Failed({ problem }) }) }),
     GotProposeMessage: ({ message: proposeMessage }) => foldPropose(model, proposeMessage),
-    GotRoomMessage: ({ message: roomMessage }) => foldRoom(model, roomMessage),
+    GotRoomMessage: ({ message: roomMessage }) =>
+      Update.combine(model, [(stepModel) => foldRoom(stepModel, roomMessage), askNames]),
     GotSettlementMessage: ({ message: settlementMessage }) => foldSettlement(model, settlementMessage),
     GotReviewMessage: ({ message: reviewMessage }) => foldReview(model, reviewMessage),
+    SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
+    FailedReadNames: () => ({ model }),
   })
 
 /** The session became known or changed: the wallet that signs this person's steps. */
