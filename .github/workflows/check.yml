@@ -39,3 +39,14 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - run: bun run check
+      # The phase 1 technical gate on a local chain: the built stack in workerd, four escrowed hires over HTTP and MCP
+      # against Anvil (about 2.5 minutes). Its evidence is kept with the run.
+      - name: Gate rehearsal on Anvil
+        run: bun run gate:rehearse
+      - name: Keep the rehearsal's evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-rehearsal-evidence
+          path: .artifacts/gate-rehearsal/
+          if-no-files-found: ignore

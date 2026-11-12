@@ -7,8 +7,6 @@ import { ReserveWallet } from '@sidequest/domain/Identity/ReserveWallet.command'
 import { WalletClaim } from '@sidequest/domain/Identity/WalletClaim.aggregate'
 import { AccountId, EscrowStatus, FundingRequest, type JobId, Relayed, TypedData } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
-import { isAddress } from 'viem'
-import type { PrivateKeyAccount } from 'viem/accounts'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { walletRef } from '../src/SignIn/Siwe.ts'
 import { type LocalChain, onChainOnly, skipOnChain, startChain } from './Anvil.ts'
@@ -16,6 +14,7 @@ import { artifactHash, buyerViewOf, named, postJob, propose } from './Hire.ts'
 import { ada, ben, bodyOf, cy, type Person, terms, withApi } from './HttpWorld.ts'
 import { callTool, grantedAgent } from './McpWorld.ts'
 import { signInWorld } from './World.ts'
+import { signTyped } from '../rehearsal/Surfaces.ts'
 
 // The whole hire against a real chain: Anvil running the Foundry build of the audited escrow and `SidequestOperator`
 // (see Anvil.ts). Each person signs with their own key; the server relays and records only what its chain reader
@@ -25,25 +24,6 @@ const fast = { pollMillis: 25, maxPollMillis: 200, idleMillis: 200 }
 const operator = AccountId.make('account_01JCXZ4Q6N8M2V7T3R5W9Y0B1Z')
 const amount = 250_000_000n
 const url = 'https://files.example/logo.zip'
-
-/** Sign typed data as the protocol carries it: every integer a decimal string. */
-const signTyped = (signer: PrivateKeyAccount, typed: TypedData) => {
-  const fields = [...(typed.types[typed.primaryType] ?? [])]
-  const message = Object.fromEntries(
-    fields.map(({ name, type }) => {
-      const value = typed.message[name] ?? ''
-      return [name, type.startsWith('uint') ? BigInt(value) : value]
-    }),
-  )
-  const { verifyingContract } = typed.domain
-  if (!isAddress(verifyingContract)) throw new Error('The typed data names no contract')
-  return signer.signTypedData({
-    domain: { ...typed.domain, verifyingContract },
-    types: { [typed.primaryType]: fields },
-    primaryType: typed.primaryType,
-    message,
-  })
-}
 
 /** Claims Cy's wallet for the arbitration operator's account before Cy first signs in, as sign-in would. */
 const claimOperatorWallet = Effect.gen(function* () {
