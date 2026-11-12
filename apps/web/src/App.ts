@@ -10,6 +10,8 @@ import { Preload, SessionRead } from './Preload.ts'
 import * as Job from './page/job/Job.ts'
 import {
   foldAgents,
+  foldConnect,
+  foldConnections,
   foldHome,
   foldHomeSearch,
   foldInbox,
@@ -150,6 +152,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotJobMessage: ({ message: jobMessage }) => foldJob(model, jobMessage),
     GotInboxMessage: ({ message: inboxMessage }) => foldInbox(model, inboxMessage),
     GotAgentsMessage: ({ message: agentsMessage }) => foldAgents(model, agentsMessage),
+    GotConnectMessage: ({ message: connectMessage }) => foldConnect(model, connectMessage),
+    GotConnectionsMessage: ({ message: connectionsMessage }) => foldConnections(model, connectionsMessage),
   })
 
 // SUBSCRIPTION

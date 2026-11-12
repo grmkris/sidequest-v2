@@ -7,6 +7,8 @@ import { type Flags, type Model, Page } from './Model.ts'
 import { Preload } from './Preload.ts'
 import { NavigateInternal, ReplaceInternal } from './Navigation.ts'
 import * as Agents from './page/Agents.ts'
+import * as Connect from './page/Connect.ts'
+import * as Connections from './page/Connections.ts'
 import * as Home from './page/Home.ts'
 import * as Inbox from './page/Inbox.ts'
 import * as Job from './page/job/Job.ts'
@@ -97,6 +99,16 @@ export const openPage = (
           toParentMessage: (message) => Message.GotAgentsMessage({ message }),
         },
       ),
+    Connect: ({ request }) =>
+      Update.foldChildInit(Connect.init(flags.language, request, mayRead(session)), {
+        toParentModel: (connect) => Page.Connect({ connect }),
+        toParentMessage: (message) => Message.GotConnectMessage({ message }),
+      }),
+    Connections: () =>
+      Update.foldChildInit(Connections.init(flags.language, mayRead(session)), {
+        toParentModel: (connections) => Page.Connections({ connections }),
+        toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
+      }),
     NotFound: () => ({ model: Page.NotFound() }),
   })
 
@@ -195,4 +207,18 @@ export const foldAgents = Update.foldChild({
   read: (model: Model) => (Page.guards.Agents(model.page) ? Option.some(model.page.agents) : Option.none()),
   write: (model: Model, nextAgents: Agents.Model) => writePage(model, Page.Agents({ agents: nextAgents })),
   toParentMessage: (message) => Message.GotAgentsMessage({ message }),
+})
+
+export const foldConnect = Update.foldChild({
+  update: Connect.update,
+  read: (model: Model) => (Page.guards.Connect(model.page) ? Option.some(model.page.connect) : Option.none()),
+  write: (model: Model, nextConnect: Connect.Model) => writePage(model, Page.Connect({ connect: nextConnect })),
+  toParentMessage: (message) => Message.GotConnectMessage({ message }),
+})
+
+export const foldConnections = Update.foldChild({
+  update: Connections.update,
+  read: (model: Model) => (Page.guards.Connections(model.page) ? Option.some(model.page.connections) : Option.none()),
+  write: (model: Model, next: Connections.Model) => writePage(model, Page.Connections({ connections: next })),
+  toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
 })

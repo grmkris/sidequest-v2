@@ -1,4 +1,4 @@
-import { JobId, ListingId } from '@sidequest/protocol'
+import { ConnectRequestId, JobId, ListingId } from '@sidequest/protocol'
 import { Option, pipe, Schema } from 'effect'
 import { Route } from 'foldkit'
 import { defineRouteUnion, literal, schemaSegment, slash } from 'foldkit/route'
@@ -13,6 +13,8 @@ export const AppRoute = defineRouteUnion({
   Job: { job: JobId },
   Inbox: {},
   Agents: {},
+  Connect: { request: ConnectRequestId },
+  Connections: {},
   NotFound: { path: Schema.String },
 })
 export type AppRoute = typeof AppRoute.Type
@@ -38,6 +40,18 @@ export const newRequestRouter = pipe(literal('requests'), slash(literal('new')),
 export const jobRouter = pipe(literal('jobs'), slash(schemaSegment('job', JobId)), Route.mapTo(AppRoute.Job))
 export const inboxRouter = pipe(literal('inbox'), Route.mapTo(AppRoute.Inbox))
 export const agentsRouter = pipe(literal('agents'), Route.mapTo(AppRoute.Agents))
+/** The apps a person connected to their agents over OAuth. */
+export const connectionsRouter = pipe(
+  literal('agents'),
+  slash(literal('connections')),
+  Route.mapTo(AppRoute.Connections),
+)
+/** The consent page an MCP client's authorization request waits on. The server sends the browser here (`/connect/<id>`). */
+export const connectRouter = pipe(
+  literal('connect'),
+  slash(schemaSegment('request', ConnectRequestId)),
+  Route.mapTo(AppRoute.Connect),
+)
 
 const routeParser = Route.oneOf(
   newListingRouter,
@@ -45,7 +59,9 @@ const routeParser = Route.oneOf(
   newRequestRouter,
   jobRouter,
   inboxRouter,
+  connectionsRouter,
   agentsRouter,
+  connectRouter,
   signInRouter,
   homeRouter,
 )
@@ -63,6 +79,8 @@ const pathOf = (route: AppRoute): string =>
     Job: ({ job }) => jobRouter({ job }),
     Inbox: () => inboxRouter(),
     Agents: () => agentsRouter(),
+    Connect: ({ request }) => connectRouter({ request }),
+    Connections: () => connectionsRouter(),
     NotFound: ({ path }) => path,
   })
 

@@ -4,6 +4,7 @@ import type { FormatXMLElementFn } from 'intl-messageformat'
 export type RichTextValue<T = string> = FormatXMLElementFn<T>
 export interface MessageArgumentsByKey<_T = string> {
   'agents.close': Readonly<Record<string, never>>
+  'agents.connections': Readonly<Record<string, never>>
   'agents.copied': Readonly<Record<string, never>>
   'agents.copy': Readonly<Record<string, never>>
   'agents.empty': Readonly<Record<string, never>>
@@ -46,6 +47,31 @@ export interface MessageArgumentsByKey<_T = string> {
   'common.cancel': Readonly<Record<string, never>>
   'common.showMore': Readonly<Record<string, never>>
   'common.tryAgain': Readonly<Record<string, never>>
+  'connect.allow': Readonly<Record<string, never>>
+  'connect.asks': { readonly client: string | number }
+  'connect.gone': Readonly<Record<string, never>>
+  'connect.leaving': Readonly<Record<string, never>>
+  'connect.lede': Readonly<Record<string, never>>
+  'connect.manageAgents': Readonly<Record<string, never>>
+  'connect.noAgents': Readonly<Record<string, never>>
+  'connect.pickAgent': Readonly<Record<string, never>>
+  'connect.publishedBy': { readonly publisher: string | number }
+  'connect.reading': Readonly<Record<string, never>>
+  'connect.refuse': Readonly<Record<string, never>>
+  'connect.resource': Readonly<Record<string, never>>
+  'connect.sendsTo': Readonly<Record<string, never>>
+  'connect.thisDevice': Readonly<Record<string, never>>
+  'connect.title': Readonly<Record<string, never>>
+  'connect.unnamed': Readonly<Record<string, never>>
+  'connect.until': Readonly<Record<string, never>>
+  'connect.unverified': Readonly<Record<string, never>>
+  'connections.agent': Readonly<Record<string, never>>
+  'connections.empty': Readonly<Record<string, never>>
+  'connections.lede': Readonly<Record<string, never>>
+  'connections.loading': Readonly<Record<string, never>>
+  'connections.revoke': Readonly<Record<string, never>>
+  'connections.since': Readonly<Record<string, never>>
+  'connections.title': Readonly<Record<string, never>>
   'form.amount': { readonly example: string | number; readonly decimals: string | number }
   'form.days': { readonly count: number }
   'form.positive': Readonly<Record<string, never>>
@@ -384,4 +410,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '48781b676ae1ead5d7047f6c832650f1bf0bf396d09eedd44d88ddf104e22615'
+export const catalogVersion = 'cf3e52677f1ef31583f914d5b41aff1e1782def6d9869b6bacee8e12b263a838'

@@ -33,6 +33,8 @@ export const Page = defineTaggedUnion({
   Job: { job: Pages.Job.Model },
   Inbox: { inbox: Pages.Inbox.Model },
   Agents: { agents: Pages.Agents.Model },
+  Connect: { connect: Pages.Connect.Model },
+  Connections: { connections: Pages.Connections.Model },
   NotFound: {},
 })
 export type Page = typeof Page.Type

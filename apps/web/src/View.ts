@@ -4,6 +4,10 @@ import type { Html } from 'foldkit'
 import { Message } from './Message.ts'
 import { type Model, Page } from './Model.ts'
 import * as AgentsView from './page/AgentsView.ts'
+import * as ConnectionsView from './page/ConnectionsView.ts'
+import * as ConnectView from './page/ConnectView.ts'
+import type { Model as ConnectModel } from './page/Connect.ts'
+import type { Model as ConnectionsModel } from './page/Connections.ts'
 import * as Home from './page/Home.ts'
 import * as Inbox from './page/Inbox.ts'
 import * as JobPage from './page/job/JobPage.ts'
@@ -74,6 +78,26 @@ const notFound = (h: Html.HtmlBuilder<Message>, model: Model) =>
     h.p([], [h.a([h.Href(homeRouter({ q: Option.none() }))], [say(model.flags.language, 'notFound.home')])]),
   ])
 
+/** The consent page an MCP client's authorization request waits on. */
+const connectPage = (h: Html.HtmlBuilder<Message>, connect: ConnectModel, session: Session) =>
+  h.submodel({
+    slotId: 'connect',
+    model: connect,
+    view: ConnectView.view,
+    viewInputs: { session },
+    toParentMessage: (message) => Message.GotConnectMessage({ message }),
+  })
+
+/** The apps connected to the person's agents. */
+const connectionsPage = (h: Html.HtmlBuilder<Message>, connections: ConnectionsModel, session: Session) =>
+  h.submodel({
+    slotId: 'connections',
+    model: connections,
+    view: ConnectionsView.view,
+    viewInputs: { session },
+    toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
+  })
+
 const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
   const language = model.flags.language
   const timeZone = model.flags.timeZone
@@ -143,6 +167,8 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         viewInputs: { session, origin: model.flags.origin, timeZone },
         toParentMessage: (message) => Message.GotAgentsMessage({ message }),
       }),
+    Connect: ({ connect }) => connectPage(h, connect, session),
+    Connections: ({ connections }) => connectionsPage(h, connections, session),
     NotFound: () => notFound(h, model),
   })
 }
@@ -158,6 +184,8 @@ const pageTitle = (model: Model): string => {
     Job: ({ job }) => JobPage.documentTitle(job),
     Inbox: () => say(language, 'inbox.title'),
     Agents: () => say(language, 'agents.title'),
+    Connect: () => say(language, 'connect.title'),
+    Connections: () => say(language, 'connections.title'),
     NotFound: () => say(language, 'notFound.title'),
   })
 }

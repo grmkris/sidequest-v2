@@ -5,7 +5,7 @@ import { AsyncData, type Html, Submodel } from 'foldkit'
 import { dayChoices, FormStatus, formProblem, shown } from '../Forms.ts'
 import { signedInOnly } from '../Gate.ts'
 import type { Language } from '../Language.ts'
-import { AppRoute } from '../route.ts'
+import { AppRoute, connectionsRouter } from '../route.ts'
 import type { Session } from '../Session.ts'
 import { styled } from '../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../Text.ts'
@@ -21,7 +21,7 @@ const scopeKeys: ReadonlyArray<{ readonly scope: GrantScope; readonly label: Pla
   { scope: 'deliver', label: 'agents.scope.deliver', hint: 'agents.scope.deliverHint' },
 ]
 
-const scopeLabel = (language: Language, scope: GrantScope): string =>
+export const scopeLabel = (language: Language, scope: GrantScope): string =>
   Option.match(
     Array.findFirst(scopeKeys, (entry) => entry.scope === scope),
     { onNone: () => scope, onSome: (entry) => say(language, entry.label) },
@@ -256,7 +256,11 @@ const agentsView = (h: Html.HtmlBuilder<Message>, model: Model, reader: Reader) 
 export const view = Submodel.defineView<Model, Message, Reader & { readonly session: Session }>(
   (model, { session, ...reader }, h) =>
     h.div(styled(h, s.page()), [
-      Ui.pageHead(h, say(model.language, 'agents.title'), [say(model.language, 'agents.lede')]),
+      Ui.pageHead(h, say(model.language, 'agents.title'), [
+        say(model.language, 'agents.lede'),
+        ' ',
+        h.a([h.Href(connectionsRouter())], [say(model.language, 'agents.connections')]),
+      ]),
       signedInOnly(h, { language: model.language, session, route: AppRoute.Agents() }, () =>
         agentsView(h, model, reader),
       ),

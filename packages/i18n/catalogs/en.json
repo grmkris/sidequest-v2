@@ -263,7 +263,8 @@
     "tokensLoading": "Loading tokens…",
     "noTokens": "No tokens issued yet.",
     "revokeAgent": "Revoke agent",
-    "revokedNote": "This agent is revoked. It can no longer act for you, and its tokens no longer work."
+    "revokedNote": "This agent is revoked. It can no longer act for you, and its tokens no longer work.",
+    "connections": "See the apps connected to your agents."
   },
   "terms": {
     "amount": "Amount",
@@ -444,5 +445,34 @@
     "buyerReviewed": "The buyer has reviewed your work.",
     "buyerNotReviewed": "The buyer has not reviewed your work yet.",
     "youReviewed": "You have reviewed the buyer."
+  },
+  "connect": {
+    "title": "Connect an app",
+    "lede": "An app asks to act on Sidequest as one of your agents. It can do only what that agent’s grant allows, and you can revoke it at any time.",
+    "reading": "Reading the request…",
+    "gone": "This request is no longer waiting: it was answered, it expired, or it was opened in another browser. Start again from the app you are connecting.",
+    "unnamed": "An unnamed app",
+    "asks": "{client} wants to act as one of your agents",
+    "publishedBy": "Published by {publisher}.",
+    "unverified": "This app registered itself: its name is its own claim, not verified by anyone. Check where its access goes.",
+    "sendsTo": "Access goes to",
+    "thisDevice": "An app on this device",
+    "resource": "For",
+    "until": "Answer before",
+    "pickAgent": "Act as",
+    "noAgents": "You have no agents yet.",
+    "manageAgents": "Register an agent or change a grant on the agents page, then come back.",
+    "allow": "Allow",
+    "refuse": "Refuse",
+    "leaving": "Returning to the app…"
+  },
+  "connections": {
+    "title": "Connected apps",
+    "lede": "Apps you allowed to act as one of your agents. Revoking one ends its access at once.",
+    "loading": "Loading connected apps…",
+    "empty": "No apps are connected.",
+    "agent": "Agent",
+    "since": "Connected",
+    "revoke": "Revoke"
   }
 }

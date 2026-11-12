@@ -263,7 +263,8 @@
     "tokensLoading": "Nalagamo žetone …",
     "noTokens": "Izdan ni še noben žeton.",
     "revokeAgent": "Prekliči agenta",
-    "revokedNote": "Ta agent je preklican. Ne more več delovati v vašem imenu in njegovi žetoni ne delujejo več."
+    "revokedNote": "Ta agent je preklican. Ne more več delovati v vašem imenu in njegovi žetoni ne delujejo več.",
+    "connections": "Oglejte si aplikacije, povezane z vašimi agenti."
   },
   "terms": {
     "amount": "Znesek",
@@ -444,5 +445,34 @@
     "buyerReviewed": "Naročnik je ocenil vaše delo.",
     "buyerNotReviewed": "Naročnik vašega dela še ni ocenil.",
     "youReviewed": "Naročnika ste že ocenili."
+  },
+  "connect": {
+    "title": "Povežite aplikacijo",
+    "lede": "Aplikacija želi na Sidequestu delovati kot eden od vaših agentov. Sme le to, kar dovoljuje dovoljenje tega agenta, in dostop ji lahko kadar koli prekličete.",
+    "reading": "Berem zahtevo …",
+    "gone": "Ta zahteva ne čaka več: odgovor je že bil dan, potekla je ali pa je bila odprta v drugem brskalniku. Začnite znova v aplikaciji, ki jo povezujete.",
+    "unnamed": "Neimenovana aplikacija",
+    "asks": "{client} želi delovati kot eden od vaših agentov",
+    "publishedBy": "Objavlja jo {publisher}.",
+    "unverified": "Ta aplikacija se je registrirala sama: njeno ime je le njena trditev, nihče ga ni preveril. Preverite, kam gre njen dostop.",
+    "sendsTo": "Dostop gre na",
+    "thisDevice": "Aplikacija na tej napravi",
+    "resource": "Za",
+    "until": "Odgovorite do",
+    "pickAgent": "Deluje kot",
+    "noAgents": "Nimate še nobenega agenta.",
+    "manageAgents": "Agenta registrirajte ali mu spremenite dovoljenje na strani z agenti, nato se vrnite.",
+    "allow": "Dovoli",
+    "refuse": "Zavrni",
+    "leaving": "Vračam vas v aplikacijo …"
+  },
+  "connections": {
+    "title": "Povezane aplikacije",
+    "lede": "Aplikacije, ki ste jim dovolili delovati kot eden od vaših agentov. Ko eno prekličete, njen dostop takoj preneha.",
+    "loading": "Nalagam povezane aplikacije …",
+    "empty": "Nobena aplikacija ni povezana.",
+    "agent": "Agent",
+    "since": "Povezana",
+    "revoke": "Prekliči"
   }
 }
