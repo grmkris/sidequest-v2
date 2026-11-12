@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: partly superseded by ADR-0002
 date: 2026-10-30
 ---
 
@@ -52,4 +52,4 @@ Sidequest V2 keeps Sidequest as the coordination and escrow protocol, with Nod a
 ## Consequences
 
 - A Foundry `contracts/` workspace, server-only settlement packages and Nod's app and packages will appear. Chain adapters stay outside the browser graph (`AGENTS.md`), and `tools/quality/graph.ts` gains their dependency directions, including "Nod never imports Sidequest".
-- `docs/FEATURE-PORT-PLAN.md` sequences the work. Contracts may not be ported until Kris accepts it.
+- `docs/ROADMAP.md` sequences the work.
