@@ -74,7 +74,9 @@ export const settlementVariablesFromShell = Effect.gen(function* () {
     Effect.mapError(
       ({ names }) =>
         new Config.ConfigError(
-          new ConfigProvider.SourceError({ message: `Settlement is half configured; set or fix: ${names.join(', ')}` }),
+          new ConfigProvider.SourceError({
+            message: `Sidequest.Settlement.halfConfigured: set or fix ${names.join(', ')}`,
+          }),
         ),
     ),
   )
