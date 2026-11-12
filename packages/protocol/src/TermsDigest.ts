@@ -1,8 +1,7 @@
 import { Effect, Schema } from 'effect'
-import { Digest } from './Digest.ts'
+import { textDigest } from './Digest.ts'
 import { canonicalize } from './Jcs.ts'
 import { Terms } from './Terms.ts'
-import { webCrypto } from './WebCrypto.ts'
 
 const encodeTerms = Schema.encodeEffect(Terms)
 
@@ -10,11 +9,9 @@ const encodeTerms = Schema.encodeEffect(Terms)
 export const termsDigest = Effect.fn('Sidequest.Protocol.termsDigest')(
   function* (terms: Terms) {
     const encoded = yield* encodeTerms(terms)
-    const canonical = yield* Effect.fromResult(canonicalize(encoded))
-    const hash = yield* webCrypto.digest('SHA-256', new TextEncoder().encode(canonical))
-    return yield* Digest.makeEffect(Array.from(hash, (byte) => byte.toString(16).padStart(2, '0')).join(''))
+    return yield* textDigest(yield* Effect.fromResult(canonicalize(encoded)))
   },
-  // Valid terms always encode to I-JSON (Text rejects unpaired surrogates, numbers are integers)
-  // and a SHA-256 is always 64 hex characters, so any failure here is a broken invariant.
+  // Valid terms always encode to I-JSON (Text rejects unpaired surrogates, numbers are integers), so any failure
+  // here is a broken invariant.
   Effect.orDie,
 )

@@ -17,10 +17,8 @@ import { GrantRevoked, RevokeGrant } from '../src/Identity/RevokeGrant.command.t
 import { NotPermitted } from '../src/NotPermitted.rejection.ts'
 import { PartyRequired } from '../src/PartyRequired.rejection.ts'
 import { PersonRequired } from '../src/PersonRequired.rejection.ts'
-import { Sidequest } from '../src/Sidequest.model.ts'
-import { agentOf, alice, aliceAgent, at, bob, person, settlement } from './fixtures.ts'
+import { agentOf, alice, aliceAgent, at, bob, person, settlement, story } from './fixtures.ts'
 
-const story = Story.make(Sidequest)
 const account = Account.ref(alice)
 const agent = Agent.ref(aliceAgent)
 const wallet = AccountRef.make('eip155:5042002:0x00000000000000000000000000000000000a11ce')

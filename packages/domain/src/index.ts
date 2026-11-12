@@ -1,1 +1,1 @@
-export { Sidequest } from './Sidequest.model.ts'
+export { Sidequest, SidequestHandlers } from './Sidequest.model.ts'

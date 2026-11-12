@@ -30,7 +30,6 @@ import { MissingScope } from '../src/MissingScope.rejection.ts'
 import { NotPermitted } from '../src/NotPermitted.rejection.ts'
 import { PartyRequired } from '../src/PartyRequired.rejection.ts'
 import { PersonRequired } from '../src/PersonRequired.rejection.ts'
-import { Sidequest } from '../src/Sidequest.model.ts'
 import { SystemOnly } from '../src/SystemOnly.rejection.ts'
 import {
   agentOf,
@@ -54,11 +53,11 @@ import {
   receipt,
   request,
   settlement,
+  story,
   termsV1,
   termsV2,
 } from './fixtures.ts'
 
-const story = Story.make(Sidequest)
 const acceptV2 = new AcceptProposal({ bidder: bob, version: 2, termsDigest: digestV2 })
 const url = 'https://files.example/logo.zip'
 const settled = new JobSettled({ buyer: alice, worker: bob, outcome: 'paid', receipts: [receipt('capture')] })

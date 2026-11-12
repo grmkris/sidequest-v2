@@ -2,6 +2,7 @@ import { it } from '@effect/vitest'
 import { Effect, Schema } from 'effect'
 import { describe, expect } from 'vitest'
 import { Terms } from '../src/Terms.ts'
+import { textDigest } from '../src/Digest.ts'
 import { termsDigest } from '../src/TermsDigest.ts'
 import { encodedTerms, terms } from './fixtures.ts'
 
@@ -39,6 +40,16 @@ describe('termsDigest', () => {
       const decomposed = yield* termsDigest(decodeTerms({ ...encodedTerms, title: 'Café' }))
       expect(composed).not.toBe(decomposed)
       expect(composed).toMatch(/^[0-9a-f]{64}$/)
+    }),
+  )
+})
+
+describe('textDigest', () => {
+  // Expected values from `printf '%s' "$text" | sha256sum`.
+  it.effect('is the SHA-256 of the text as UTF-8, in lowercase hex', () =>
+    Effect.gen(function* () {
+      expect(yield* textDigest('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+      expect(yield* textDigest('Grüße ☕')).toBe('cc32342a0436a9f2fbb226c3e66e941720eb2c903a009b0e973440182f44807c')
     }),
   )
 })

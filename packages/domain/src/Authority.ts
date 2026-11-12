@@ -26,20 +26,45 @@ export const asPerson = Effect.fnUntraced(function* () {
   return actor.account
 })
 
+/** The person or agent acting, if it is not the system and, for an agent, its grant is not revoked or ended at `now`. */
+const liveParty = Effect.fnUntraced(function* (now: DateTime.Utc) {
+  const actor = yield* CurrentActor
+  if (Predicate.isTagged(actor, 'System')) return yield* new PartyRequired({ system: actor.name })
+  const agent = actor.agent
+  if (agent === undefined) return actor
+  if (agent.revoked) return yield* new AgentRevoked({ agent: agent.id })
+  const at = unixSeconds(now)
+  if (at >= agent.expiresAt) return yield* new GrantExpired({ agent: agent.id, expiresAt: agent.expiresAt, now: at })
+  return actor
+})
+
 /**
  * The account a person acts as, directly or through an agent whose grant covers `scope`, is not revoked and has not
  * ended at `now`, the time the command arrived.
  */
 export const withScope = Effect.fnUntraced(function* (scope: GrantScope, now: DateTime.Utc) {
-  const actor = yield* CurrentActor
-  if (Predicate.isTagged(actor, 'System')) return yield* new PartyRequired({ system: actor.name })
-  const agent = actor.agent
-  if (agent === undefined) return actor.account
-  if (agent.revoked) return yield* new AgentRevoked({ agent: agent.id })
-  const at = unixSeconds(now)
-  if (at >= agent.expiresAt) return yield* new GrantExpired({ agent: agent.id, expiresAt: agent.expiresAt, now: at })
-  if (!agent.scopes.includes(scope)) return yield* new MissingScope({ agent: agent.id, scope })
+  const actor = yield* liveParty(now)
+  if (actor.agent !== undefined && !actor.agent.scopes.includes(scope))
+    return yield* new MissingScope({ agent: actor.agent.id, scope })
   return actor.account
+})
+
+/** Every rejection {@link asViewer} can return. */
+export const viewerRejections = [PartyRequired, AgentRevoked, GrantExpired] as const
+
+/**
+ * The account a person reads as, directly or through an agent that is not revoked and whose grant has not ended.
+ * A read records nothing, so it is judged on the clock when it is served rather than at a command's receive time.
+ */
+export const asViewer = Effect.fnUntraced(function* () {
+  const actor = yield* liveParty(yield* DateTime.now)
+  return actor.account
+})
+
+/** The agent the command came through, or `undefined` when a person or the system sent it. */
+export const actingAgent = Effect.gen(function* () {
+  const actor = yield* CurrentActor
+  return Predicate.isTagged(actor, 'System') ? undefined : actor.agent?.id
 })
 
 /** Whether the system sent the command. */

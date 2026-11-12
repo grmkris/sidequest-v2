@@ -17,7 +17,6 @@ import { ChangeRequested, RequestChange } from '../src/Job/RequestChange.command
 import { DeliverySubmitted, SubmitDelivery } from '../src/Job/SubmitDelivery.command.ts'
 import { SubmitProposal } from '../src/Job/SubmitProposal.command.ts'
 import { WrongState } from '../src/Job/WrongState.rejection.ts'
-import { Sidequest } from '../src/Sidequest.model.ts'
 import {
   accepted,
   agentOf,
@@ -44,11 +43,11 @@ import {
   receipt,
   request,
   settlement,
+  story,
   termsV1,
   termsV2,
 } from './fixtures.ts'
 
-const story = Story.make(Sidequest)
 const url = 'https://files.example/logo.zip'
 const review = (author: typeof alice, subject: typeof alice, rating: number) =>
   new ReviewLeft({ review: { job: jobId, author, subject, rating } })

@@ -9,10 +9,8 @@ import { ListingUpdated, UpdateListing } from '../src/Directory/UpdateListing.co
 import { ListingWithdrawn, WithdrawListing } from '../src/Directory/WithdrawListing.command.ts'
 import { MissingScope } from '../src/MissingScope.rejection.ts'
 import { NotPermitted } from '../src/NotPermitted.rejection.ts'
-import { Sidequest } from '../src/Sidequest.model.ts'
-import { agentOf, bob, bobAgent, carol, person } from './fixtures.ts'
+import { agentOf, bob, bobAgent, carol, person, story } from './fixtures.ts'
 
-const story = Story.make(Sidequest)
 const listing = Listing.ref(ListingId.make('listing_01JCXZ4Q6N8M2V7T3R5W9Y0B1D'))
 const details = { title: 'Hand-drawn logos', description: 'Three concepts, two rounds.', tags: ['logo', 'branding'] }
 const updated = { ...details, tags: ['logo'] }

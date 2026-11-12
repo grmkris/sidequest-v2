@@ -1,10 +1,10 @@
 import * as Domain from '@alchemy.run/domain'
 import { JobId, termsDigest } from '@sidequest/protocol'
-import { Effect, Predicate } from 'effect'
+import { Effect, Predicate, Record } from 'effect'
 import { asPerson, asSystem, requireRole, sentBySystem, unixSeconds, withScope } from '../Authority.ts'
 import { ExpiryNotInFuture } from '../ExpiryNotInFuture.rejection.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
-import { AcceptProposal, ProposalAccepted } from './AcceptProposal.command.ts'
+import { AcceptProposal, ProposalAccepted, ProposalDeclined } from './AcceptProposal.command.ts'
 import { ApproveDelivery, DeliveryApproved } from './ApproveDelivery.command.ts'
 import { CancelRequest, RequestCancelled } from './CancelRequest.command.ts'
 import { ExpireRequest, RequestExpired } from './ExpireRequest.command.ts'
@@ -114,7 +114,10 @@ export class Job extends Domain.Aggregate('Job', {
         terms,
         termsDigest: digest,
       }
-      return [new ProposalAccepted({ agreement })]
+      const declined = Record.toEntries(open.heads)
+        .filter(([bidder]) => bidder !== command.bidder)
+        .map(([bidder, head]) => new ProposalDeclined({ bidder, version: head.version }))
+      return [new ProposalAccepted({ agreement }), ...declined]
     }),
     CancelRequest: Effect.fn(function* (state) {
       const account = yield* asPerson()
@@ -204,6 +207,7 @@ export class Job extends Domain.Aggregate('Job', {
     },
     ChangeRequested: (state) => state,
     ProposalAccepted: (_, { agreement }) => Awarded.make({ agreement }),
+    ProposalDeclined: (state) => state,
     RequestCancelled: () => ({ _tag: 'Cancelled' as const }),
     RequestExpired: () => ({ _tag: 'Expired' as const }),
     FundingRecorded: (state) =>
