@@ -18,6 +18,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { DomainHandlers } from '../src/DomainLive.ts'
+import { ClientDocuments } from '../src/OAuth/ClientDocuments.ts'
 import type { EscrowConfig } from '../src/Settlement/EscrowConfig.ts'
 import { escrowLive } from '../src/Settlement/SettlementLive.ts'
 import { ArcRpc } from '../src/SignIn/ArcRpc.ts'
@@ -77,17 +78,37 @@ export interface Settling {
 }
 
 /**
+ * Client metadata documents for tests, by URL, in place of the hosts that publish them: a URL not in the map answers
+ * nothing, as an unreachable host does. `fetched` records each URL asked for.
+ */
+export const clientDocuments = (documents: Readonly<Record<string, unknown>>) => {
+  const fetched: Array<string> = []
+  const layer = Layer.succeed(ClientDocuments, {
+    fetch: (url) =>
+      Effect.sync(() => {
+        fetched.push(url)
+        return Option.map(Option.fromNullishOr(documents[url]), (document) => JSON.stringify(document))
+      }),
+  })
+  return { fetched, layer }
+}
+
+/**
  * Sign-in over the model in memory, its projections and the sign-in and settlement stores on a fresh local D1, and
  * `rpc` as the chain. `sqlite` reads the database directly.
  */
-export const signInWorld = (rpc: PublicClient, settling: Settling = { escrow: Option.none() }) => {
+export const signInWorld = (
+  rpc: PublicClient,
+  settling: Settling = { escrow: Option.none() },
+  documents: Layer.Layer<ClientDocuments> = clientDocuments({}).layer,
+) => {
   const { sqlite, layer: sql } = localSql()
   const handlers =
     settling.timing === undefined
       ? DomainHandlers
       : DomainHandlers.pipe(Layer.provide(Layer.succeed(SettlementTiming, settling.timing)))
   const model = Sidequest.layer(handlers).pipe(Layer.provide(Domain.InMemory))
-  const layer = SignInLive.pipe(
+  const layer = Layer.merge(SignInLive, documents).pipe(
     Layer.provideMerge(model),
     Layer.provideMerge(escrowLive(settling.escrow)),
     Layer.provideMerge(Layer.succeed(ArcRpc, rpc)),

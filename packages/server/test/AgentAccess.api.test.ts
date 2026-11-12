@@ -1,6 +1,6 @@
 import { AgentToken, IssuedAgentToken, Page } from '@sidequest/protocol'
 import { describe, expect, test } from 'vitest'
-import { ada, ben, bodyOf, eventually, inSeconds, type Reply, withApi } from './HttpWorld.ts'
+import { ada, ben, bodyOf, eventually, inSeconds, origin, type Reply, withApi } from './HttpWorld.ts'
 import { callTool, grantedAgent, rpc } from './McpWorld.ts'
 
 // An agent's access to MCP: its operator issues it a token over HTTP (shown once, stored hashed, bound to the agent),
@@ -9,8 +9,9 @@ import { callTool, grantedAgent, rpc } from './McpWorld.ts'
 
 const tokensOf = (reply: Reply) => bodyOf(Page(AgentToken), reply)
 const challengeOf = (reply: { readonly headers: Headers }) => reply.headers.get('www-authenticate')
-const invalid = (description: string) =>
-  `Bearer realm="sidequest", error="invalid_token", error_description="${description}"`
+/** The challenge every 401 from `/mcp` starts with: the realm, and where a client learns to get a token (RFC 9728). */
+const realm = `Bearer realm="sidequest", resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp"`
+const invalid = (description: string) => `${realm}, error="invalid_token", error_description="${description}"`
 
 describe('agent tokens', () => {
   test('are issued once to the operator, listed without the secret, and revoked for good', () =>
@@ -86,7 +87,7 @@ describe('the MCP endpoint', () => {
       const person = await api.signIn(ada)
       const bare = await rpc(api, undefined, 'tools/list')
       expect(bare.status).toBe(401)
-      expect(challengeOf(bare)).toBe('Bearer realm="sidequest"')
+      expect(challengeOf(bare)).toBe(realm)
       const withCookie = await rpc(api, undefined, 'tools/list', {}, { cookie: person.cookie })
       expect(withCookie.status).toBe(401)
       const basic = await rpc(api, undefined, 'tools/list', {}, { authorization: 'Basic YWRhOnNlY3JldA==' })

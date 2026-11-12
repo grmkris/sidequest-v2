@@ -8,6 +8,8 @@ const prefixes = {
   JobId: 'job',
   ProposalId: 'proposal',
   AgentTokenId: 'token',
+  ConnectionId: 'connection',
+  ConnectRequestId: 'connect',
 } as const
 type IdKind = keyof typeof prefixes
 
@@ -31,6 +33,12 @@ export type ProposalId = typeof ProposalId.Type
 /** An access token an operator issued to one of their agents. The id names it; it is not the secret. */
 export const AgentTokenId = id('AgentTokenId').pipe(Schema.brand('AgentTokenId'))
 export type AgentTokenId = typeof AgentTokenId.Type
+/** One consent a person gave an MCP client to act as one of their agents, over OAuth. */
+export const ConnectionId = id('ConnectionId').pipe(Schema.brand('ConnectionId'))
+export type ConnectionId = typeof ConnectionId.Type
+/** An MCP client's OAuth authorization request, waiting for the person's consent. */
+export const ConnectRequestId = id('ConnectRequestId').pipe(Schema.brand('ConnectRequestId'))
+export type ConnectRequestId = typeof ConnectRequestId.Type
 
 /** A negotiation room is the buyer and one bidder; an engagement room is the buyer and the worker. */
 export const RoomKind = Schema.Literals(['negotiation', 'engagement'])
@@ -60,7 +68,7 @@ export const roomIdOf = (room: RoomOf): RoomId =>
       : `room_${ulidOf(room.job)}_negotiation_${ulidOf(room.bidder)}`,
   )
 
-const ids = { AccountId, AgentId, ListingId, JobId, ProposalId, AgentTokenId }
+const ids = { AccountId, AgentId, ListingId, JobId, ProposalId, AgentTokenId, ConnectionId, ConnectRequestId }
 
 /** Mints a fresh, time-ordered id of the given kind. */
 export const generateId = <Kind extends IdKind>(kind: Kind): Effect.Effect<(typeof ids)[Kind]['Type']> =>

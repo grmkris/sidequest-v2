@@ -14,6 +14,15 @@ export {
   TokenLifetime,
 } from './AgentToken.ts'
 export { SidequestApi, SystemApi } from './Api.ts'
+export {
+  ConnectApi,
+  ConnectClient,
+  ConnectDecision,
+  Connection,
+  ConnectRedirect,
+  ConnectRequest,
+  ConnectRequestGone,
+} from './ConnectApi.ts'
 export { AssetId, AssetRef } from './AssetRef.ts'
 export { Bytes32 } from './Bytes32.ts'
 export { findAsset, UsdcOnArcTestnet } from './AssetRegistry.ts'
@@ -35,6 +44,8 @@ export {
   AccountId,
   AgentId,
   AgentTokenId,
+  ConnectionId,
+  ConnectRequestId,
   generateId,
   JobId,
   ListingId,

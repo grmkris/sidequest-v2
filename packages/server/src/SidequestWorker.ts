@@ -7,6 +7,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import { apiRoutes } from './Api.ts'
 import { SidequestSql } from './Database.ts'
 import { DomainLive } from './DomainLive.ts'
+import { ClientDocuments } from './OAuth/ClientDocuments.ts'
 import { SidequestMedia } from './Resources.ts'
 import { escrowConfigFrom } from './Settlement/EscrowConfig.ts'
 import { escrowLive } from './Settlement/SettlementLive.ts'
@@ -32,8 +33,9 @@ const EscrowLive = Layer.unwrap(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => escrowLive(escrowConfigFrom(environment))),
 )
 
-/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow. */
-const Runtime = SignInLive.pipe(
+/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow; and
+ * the fetcher of MCP clients' metadata documents. */
+const Runtime = Layer.merge(SignInLive, ClientDocuments.layer).pipe(
   Layer.provideMerge(DomainLive),
   Layer.provideMerge(EscrowLive),
   Layer.provideMerge(ArcRpcLive),
@@ -55,7 +57,9 @@ export class SidequestWorker extends Cloudflare.Worker<SidequestWorker, Cloudfla
 export default SidequestWorker.make(
   {
     main: import.meta.url,
-    compatibility: { date: '2026-10-19' },
+    // `fetch` reaches only the public internet, never this zone's origin: MCP clients' metadata documents are fetched
+    // from URLs a client names.
+    compatibility: { date: '2026-10-19', flags: ['global_fetch_strictly_public'] },
     workersDev: { enabled: false, previewsEnabled: false },
     observability: { enabled: true, redactQueryString: true, logs: { enabled: true, invocationLogs: true } },
   },

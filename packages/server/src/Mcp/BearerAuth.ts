@@ -4,6 +4,7 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { AgentAccess, bearerOf, type DenialReason } from '../Agents/AgentAccess.ts'
+import { protectedResourceMetadataOf } from '../OAuth/Endpoints.ts'
 import { McpCaller } from './McpCaller.ts'
 import { servingRevisions } from './Revisions.ts'
 
@@ -11,7 +12,12 @@ import { servingRevisions } from './Revisions.ts'
 export const maxRequestBytes = 1024 * 1024
 const maxBody = ByteSize.bytes(maxRequestBytes)
 
-const realm = 'Bearer realm="sidequest"'
+/**
+ * The scheme and realm of every challenge, and where the client finds how to get a token: the RFC 9728 metadata of
+ * this site's MCP endpoint, which MCP clients read to start OAuth.
+ */
+const realmOf = (origin: string) =>
+  `Bearer realm="sidequest", resource_metadata="${protectedResourceMetadataOf(origin)}"`
 
 /**
  * Why each denial refuses the token, for the `error_description` an agent's developer reads. RFC 6750 allows only
@@ -19,6 +25,7 @@ const realm = 'Bearer realm="sidequest"'
  */
 const described: Readonly<Record<DenialReason, string>> = {
   unknown_token: 'The access token is unknown, expired or revoked.',
+  wrong_resource: 'The access token was issued for another resource.',
   unknown_agent: 'The access token names no registered agent.',
   agent_revoked: 'The agent was revoked by its operator.',
   no_grant: 'The agent has no grant yet.',
@@ -29,7 +36,7 @@ const described: Readonly<Record<DenialReason, string>> = {
  * A 401 with the RFC 6750 challenge: no `error` when the request carried no bearer token (§3.1), `invalid_token`
  * when it carried one the server does not accept.
  */
-const challenge = (denied?: DenialReason) =>
+const challenge = (origin: string, denied?: DenialReason) =>
   HttpServerResponse.jsonUnsafe(
     denied === undefined
       ? { error: 'unauthorized', error_description: 'Send an agent access token as `Authorization: Bearer <token>`.' }
@@ -39,7 +46,9 @@ const challenge = (denied?: DenialReason) =>
       headers: {
         'cache-control': 'no-store',
         'www-authenticate':
-          denied === undefined ? realm : `${realm}, error="invalid_token", error_description="${described[denied]}"`,
+          denied === undefined
+            ? realmOf(origin)
+            : `${realmOf(origin)}, error="invalid_token", error_description="${described[denied]}"`,
       },
     },
   )
@@ -61,16 +70,17 @@ export const BearerAuth = HttpRouter.middleware(
       Effect.gen(function* () {
         const request = yield* HttpServerRequest
         if (tooLarge(request.headers['content-length'])) return HttpServerResponse.empty({ status: 413 })
+        const url = new URL(request.originalUrl)
         const token = bearerOf(request.headers.authorization)
-        if (Option.isNone(token)) return challenge()
-        const admitted = yield* Effect.result(access.admit(token.value))
+        if (Option.isNone(token)) return challenge(url.origin)
+        const admitted = yield* Effect.result(access.admit(token.value, `${url.origin}${url.pathname}`))
         if (Result.isFailure(admitted)) {
           const { failure } = admitted
           return Predicate.isTagged(failure, 'AccessDenied')
-            ? challenge(failure.reason)
+            ? challenge(url.origin, failure.reason)
             : HttpServerResponse.empty({ status: 503 })
         }
-        const caller = { ...admitted.success, origin: new URL(request.originalUrl).origin }
+        const caller = { ...admitted.success, origin: url.origin }
         return yield* servingRevisions(httpEffect).pipe(
           Effect.provideService(McpCaller, Option.some(caller)),
           Effect.provideService(HttpIncomingMessage.MaxBodySize, maxBody),

@@ -1,6 +1,7 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { AccountApi } from './AccountApi.ts'
 import { AgentsApi } from './AgentsApi.ts'
+import { ConnectApi } from './ConnectApi.ts'
 import { SameOrigin } from './Guards.ts'
 import { InboxApi } from './InboxApi.ts'
 import { JobsApi } from './JobsApi.ts'
@@ -16,5 +17,16 @@ export class SystemApi extends HttpApiGroup.make('system').add(
 
 /** Sidequest's HTTP API. Every endpoint refuses a state-changing request from another site ({@link SameOrigin}). */
 export class SidequestApi extends HttpApi.make('sidequest')
-  .add(SystemApi, SessionApi, AccountApi, AgentsApi, ListingsApi, JobsApi, SettlementApi, RoomsApi, InboxApi)
+  .add(
+    SystemApi,
+    SessionApi,
+    AccountApi,
+    AgentsApi,
+    ListingsApi,
+    JobsApi,
+    SettlementApi,
+    RoomsApi,
+    InboxApi,
+    ConnectApi,
+  )
   .middleware(SameOrigin) {}

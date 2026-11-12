@@ -12,6 +12,9 @@ import { settlementHandlers } from './Http/SettlementHttp.ts'
 import { PeopleClients } from './Http/People.ts'
 import { SignedInLive } from './Http/SignedInLive.ts'
 import { mcpRoutes } from './Mcp/McpRoutes.ts'
+import { connectHandlers } from './OAuth/ConnectHttp.ts'
+import { ConnectRequests, Connections, OAuthClients } from './OAuth/OAuthStore.ts'
+import { oauthRoutes } from './OAuth/OAuthRoutes.ts'
 import { AccountNameReads } from './Reads/AccountNameReads.ts'
 import { AgentReads } from './Reads/AgentReads.ts'
 import { InboxReads } from './Reads/InboxReads.ts'
@@ -31,6 +34,9 @@ const Reads = Layer.mergeAll(
   InboxReads.layer,
 )
 
+/** OAuth's D1 stores: self-registered clients, requests waiting for consent, connections and their tokens. */
+const OAuthStores = Layer.mergeAll(OAuthClients.layer, ConnectRequests.layer, Connections.layer)
+
 /**
  * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` with its handlers and the `SameOrigin`
  * and `SignedIn` middleware) and the MCP endpoint, two transports over the same model and D1 reads. It needs the
@@ -49,8 +55,10 @@ export const apiRoutes = (release: string) =>
         settlementHandlers,
         roomsHandlers,
         inboxHandlers,
+        connectHandlers,
       ]),
       Layer.provide([SameOriginLive, SignedInLive]),
     ),
     mcpRoutes(release),
-  ).pipe(Layer.provide(Layer.merge(Reads, PeopleClients.layer)))
+    oauthRoutes,
+  ).pipe(Layer.provide(Layer.mergeAll(Reads, OAuthStores, PeopleClients.layer)))

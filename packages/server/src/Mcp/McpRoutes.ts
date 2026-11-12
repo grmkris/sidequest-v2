@@ -1,14 +1,12 @@
 import { AgentToolkit } from '@sidequest/protocol'
 import { Layer } from 'effect'
 import { McpProtocol, McpServer } from 'effect/ai'
+import { mcpPath } from '../OAuth/Endpoints.ts'
 import { BearerAuth } from './BearerAuth.ts'
 import { AccountHandlers } from './Tools/AccountHandlers.ts'
 import { DirectoryHandlers } from './Tools/DirectoryHandlers.ts'
 import { JobHandlers } from './Tools/JobHandlers.ts'
 import { RoomHandlers } from './Tools/RoomHandlers.ts'
-
-/** The endpoint agents use, which the edge routes to the API Worker. */
-export const mcpPath = '/mcp'
 
 const instructions = [
   'Sidequest is a marketplace where people hire each other for work, paid through an on-chain escrow.',
