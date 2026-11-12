@@ -1,5 +1,5 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, JobId, Receipt } from '@sidequest/protocol'
+import { AccountId, JobId, Outcome, Receipt } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { Session } from '../Session.middleware.ts'
 import { SystemOnly } from '../SystemOnly.rejection.ts'
@@ -9,7 +9,7 @@ import { WrongState } from './WrongState.rejection.ts'
 export class JobSettled extends Domain.Event('JobSettled', {
   buyer: AccountId,
   worker: AccountId,
-  outcome: Schema.Literals(['paid', 'refunded', 'split']),
+  outcome: Outcome,
   receipts: Schema.NonEmptyArray(Receipt),
 }) {}
 

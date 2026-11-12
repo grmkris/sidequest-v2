@@ -12,3 +12,12 @@ export const WorkRequest = Schema.Struct({
   expiresAt: UnixSeconds,
 })
 export type WorkRequest = typeof WorkRequest.Type
+
+/** An open request as the list of open requests shows it. */
+export const OpenRequest = Schema.Struct({
+  id: WorkRequest.fields.id,
+  buyer: WorkRequest.fields.buyer,
+  title: WorkRequest.fields.title,
+  expiresAt: WorkRequest.fields.expiresAt,
+})
+export type OpenRequest = typeof OpenRequest.Type

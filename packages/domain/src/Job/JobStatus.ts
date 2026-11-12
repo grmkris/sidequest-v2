@@ -1,7 +1,16 @@
-import { AccountId, Agreement, Digest, ProposalId, ProposalVersion, Terms, UnixSeconds } from '@sidequest/protocol'
+import {
+  AccountId,
+  Agreement,
+  Bps,
+  Digest,
+  type JobStage,
+  ProposalId,
+  ProposalVersion,
+  Terms,
+  UnixSeconds,
+} from '@sidequest/protocol'
 import { Effect, Match, Predicate, Schema } from 'effect'
-import { Bps } from './Bps.ts'
-import { type JobStage, WrongState } from './WrongState.rejection.ts'
+import { WrongState } from './WrongState.rejection.ts'
 
 /** A bidder's latest proposal version: the only one the buyer may accept or ask to change. */
 const Head = Schema.Struct({ proposal: ProposalId, version: ProposalVersion, terms: Terms, termsDigest: Digest })
@@ -41,7 +50,7 @@ export const JobStatus = Schema.Union([
 ])
 export type JobStatus = typeof JobStatus.Type
 
-type Stage = typeof JobStage.Type
+type Stage = JobStage
 
 /** The stage a state is in, for a rejection's evidence. */
 const stageOf = (state: JobStatus): Stage =>

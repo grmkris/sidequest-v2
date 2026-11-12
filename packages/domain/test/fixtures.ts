@@ -13,6 +13,7 @@ import {
 import { Layer, Schema } from 'effect'
 import { type Actor, system } from '../src/Actor.ts'
 import { ListingStore, memoryListingStore } from '../src/Directory/ListingStore.ts'
+import { AgentStore, memoryAgentStore } from '../src/Identity/AgentStore.ts'
 import { InboxStore, memoryInboxStore } from '../src/Inbox/InboxStore.ts'
 import { ProposalAccepted } from '../src/Job/AcceptProposal.command.ts'
 import { Job } from '../src/Job/Job.aggregate.ts'
@@ -28,15 +29,17 @@ import { Sidequest, SidequestHandlers } from '../src/Sidequest.model.ts'
 
 /** Memory stores behind the model's projections, kept so a story can read what they were given. */
 export const memoryStores = () => {
+  const agents = memoryAgentStore()
   const listings = memoryListingStore()
   const openJobs = memoryOpenJobStore()
   const inbox = memoryInboxStore()
   const layer = Layer.mergeAll(
+    Layer.succeed(AgentStore, agents),
     Layer.succeed(ListingStore, listings),
     Layer.succeed(OpenJobStore, openJobs),
     Layer.succeed(InboxStore, inbox),
   )
-  return { listings, openJobs, inbox, layer }
+  return { agents, listings, openJobs, inbox, layer }
 }
 
 /** Stories over the whole model, its policies and projections running for real against `stores`. */

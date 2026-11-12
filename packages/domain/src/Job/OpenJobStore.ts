@@ -1,15 +1,9 @@
-import { WorkRequest } from '@sidequest/protocol'
+import { OpenRequest, WorkRequest } from '@sidequest/protocol'
 import { Context, Effect, Layer, Predicate, Schema } from 'effect'
 import { RowVersion, versionedRows } from '../VersionedRows.ts'
 
 /** An open request, as the list of open jobs shows it. `version` is the job stream's sequence number it reflects. */
-export const OpenJobRow = Schema.Struct({
-  id: WorkRequest.fields.id,
-  buyer: WorkRequest.fields.buyer,
-  title: WorkRequest.fields.title,
-  expiresAt: WorkRequest.fields.expiresAt,
-  version: RowVersion,
-})
+export const OpenJobRow = Schema.Struct({ ...OpenRequest.fields, version: RowVersion })
 export type OpenJobRow = typeof OpenJobRow.Type
 
 /** A request opened (with its row), or closed: awarded, cancelled or expired. */

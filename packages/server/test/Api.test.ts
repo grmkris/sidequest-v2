@@ -1,29 +1,10 @@
 import { AccountRef, SessionView, Status } from '@sidequest/protocol'
-import { Layer, Schema } from 'effect'
-import { HttpRouter, HttpServer } from 'effect/http'
+import { Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
-import { apiRoutes } from '../src/Api.ts'
 import { releaseFromEnvironment } from '../src/Status.ts'
-import { ada, ben, fakeArc, signInWorld } from './World.ts'
+import { ada, ben, origin, withApi } from './HttpWorld.ts'
 
 // The typed HTTP API as a client sees it: requests in, responses out, over the model in memory and a local D1.
-
-const origin = 'https://sidequest.test'
-
-const withApi = async (run: (fetch: (path: string, init?: RequestInit) => Promise<Response>) => Promise<void>) => {
-  const { handler, dispose } = HttpRouter.toWebHandler(
-    apiRoutes('234a6c5').pipe(
-      Layer.provide(signInWorld(fakeArc().client).layer),
-      Layer.provide(HttpServer.layerServices),
-    ),
-    { disableLogger: true },
-  )
-  try {
-    await run((path, init) => handler(new Request(`${origin}${path}`, init)))
-  } finally {
-    await dispose()
-  }
-}
 
 const post = (body: unknown, cookie?: string): RequestInit => ({
   method: 'POST',
@@ -47,7 +28,7 @@ describe('releaseFromEnvironment', () => {
 
 describe('GET /api/status', () => {
   test('answers with the Status schema and the given release', () =>
-    withApi(async (fetch) => {
+    withApi(async ({ fetch }) => {
       const response = await fetch('/api/status')
       expect(response.status).toBe(200)
       expect(Schema.decodeUnknownSync(Status)(await response.json()).release).toBe('234a6c5')
@@ -56,7 +37,7 @@ describe('GET /api/status', () => {
 
 describe('the session API', () => {
   test('signs a wallet in with a __Host- cookie, reads the session with it, and signs out', () =>
-    withApi(async (fetch) => {
+    withApi(async ({ fetch }) => {
       expect((await fetch('/api/session')).status).toBe(401)
 
       const challenge = await fetch('/api/session/challenge', post({ address: ada.address }))
@@ -92,7 +73,7 @@ describe('the session API', () => {
     }))
 
   test('refuses a message signed by another key, and a signature that is not hex', () =>
-    withApi(async (fetch) => {
+    withApi(async ({ fetch }) => {
       const challenge = await fetch('/api/session/challenge', post({ address: ada.address }))
       const { message } = Schema.decodeUnknownSync(Challenge)(await challenge.json())
       const forged = await fetch(

@@ -1,10 +1,10 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, AgentId, Digest, JobId, RoomId } from '@sidequest/protocol'
+import { AccountId, AgentId, Digest, IdempotencyKey, JobId, MessageSeq, MessageText, RoomId } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { scopedRejections } from '../Authority.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { Session } from '../Session.middleware.ts'
-import { Count, IdempotencyKey, Members, MessageSeq, MessageText } from './Message.ts'
+import { Count, Members } from './Message.ts'
 import { RoomNotOpen } from './RoomNotOpen.rejection.ts'
 
 /** The author already used this key for a message (`seq`) that said something else. */

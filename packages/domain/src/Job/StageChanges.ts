@@ -1,6 +1,6 @@
-import type { JobStage } from './WrongState.rejection.ts'
+import type { JobStage } from '@sidequest/protocol'
 
-type Stage = typeof JobStage.Type
+type Stage = JobStage
 
 const to =
   (stage: Stage) =>

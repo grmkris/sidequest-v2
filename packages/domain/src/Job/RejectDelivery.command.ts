@@ -1,5 +1,5 @@
 import * as Domain from '@alchemy.run/domain'
-import { JobId, Text, UnixSeconds } from '@sidequest/protocol'
+import { DisputeReason, JobId, UnixSeconds } from '@sidequest/protocol'
 import { personRejections } from '../Authority.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { Session } from '../Session.middleware.ts'
@@ -14,13 +14,13 @@ export class ReviewWindowClosed extends Domain.Rejection('ReviewWindowClosed', {
   now: UnixSeconds,
 }) {}
 
-export class DeliveryRejected extends Domain.Event('DeliveryRejected', { reason: Text(2000) }) {}
+export class DeliveryRejected extends Domain.Event('DeliveryRejected', { reason: DisputeReason }) {}
 
 /** The buyer disputes the delivery within the review window. An arbitrator then rules. */
 export class RejectDelivery extends Domain.Command('RejectDelivery', {
   target: JobId,
   middleware: [Session],
-  input: { reason: Text(2000) },
+  input: { reason: DisputeReason },
   events: [DeliveryRejected],
   rejects: [...personRejections, WrongState, NotPermitted, AlreadyApproved, ReviewWindowClosed],
 }) {}

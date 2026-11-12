@@ -18,8 +18,9 @@ export default defineConfig({
     // Log events (`Sidequest.<Area> …`) are read by operators in Workers Logs, never shown to people.
     ignore: ['Sidequest', 'English', 'Slovenščina', '/^Sidequest\\.[A-Za-z]+/'],
     ignoreByFile: {
-      // The D1 stores' text is SQL.
+      // The D1 stores' and reads' text is SQL.
       'packages/server/src/Projections/**/*.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/Reads/**/*.ts': ['/[\\s\\S]*/'],
       'packages/server/src/SignIn/Nonces.ts': ['/[\\s\\S]*/'],
       'packages/server/src/SignIn/Sessions.ts': ['/[\\s\\S]*/'],
       // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for

@@ -1,10 +1,10 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, AgentId } from '@sidequest/protocol'
+import { AccountId, AgentId, MessageSeq, MessageText } from '@sidequest/protocol'
 import { Effect, Schema } from 'effect'
 import { asViewer, viewerRejections } from '../Authority.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { Session } from '../Session.middleware.ts'
-import { Members, MessageSeq, MessageText } from './Message.ts'
+import { Members } from './Message.ts'
 import { Room } from './Room.aggregate.ts'
 
 /** One message as members read it, with the room's members so each read can be judged on the latest entry. */

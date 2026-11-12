@@ -150,7 +150,6 @@ const judge = <Ref, State, E>(contract: Contract<Ref, State, E>, key: Ref, state
 const refusal = <Ref, State, E>(contract: Contract<Ref, State, E>, key: Ref, state: State, actor: Actor) =>
   Effect.flip(judge(contract, key, state, actor))
 
-const publicState = { request: posted.request, state: 'Open' as const }
 const buyerState = { ...unpostedBuyerView, request: posted.request, state: 'Open' as const }
 const bobState = { ...noBid, job: jobId, bidder: bob, proposals: [bobV1.proposal] }
 const latest = {
@@ -166,18 +165,21 @@ const latest = {
 }
 
 describe('each read', () => {
-  it.effect('lets any person or live agent read the public summary, but not the system or a dead grant', () =>
+  it('lets anyone read the public summary, signed in or not: it judges no reader', () => {
+    expect(JobSummary.definition).not.toHaveProperty('validate')
+    expect(JobSummary.definition).not.toHaveProperty('middleware')
+  })
+
+  it.effect('refuses a private summary to the system and to an agent whose grant is revoked or ended', () =>
     Effect.gen(function* () {
-      const read = JobSummary.definition
-      yield* judge(read, job, publicState, person(carol))
-      yield* judge(read, job, publicState, agentOf(carol, bobAgent, ['propose']))
-      expect(yield* refusal(read, job, publicState, settlement)).toEqual(new PartyRequired({ system: 'settlement' }))
-      expect(yield* refusal(read, job, publicState, agentOf(bob, bobAgent, ['discuss'], { revoked: true }))).toEqual(
-        new AgentRevoked({ agent: bobAgent }),
+      const read = BuyerJobSummary.definition
+      expect(yield* refusal(read, job, buyerState, settlement)).toEqual(new PartyRequired({ system: 'settlement' }))
+      expect(yield* refusal(read, job, buyerState, agentOf(alice, aliceAgent, ['accept'], { revoked: true }))).toEqual(
+        new AgentRevoked({ agent: aliceAgent }),
       )
       yield* TestClock.setTime(at.grantExpiry * 1000)
-      expect(yield* refusal(read, job, publicState, agentOf(bob, bobAgent, ['discuss']))).toEqual(
-        new GrantExpired({ agent: bobAgent, expiresAt: at.grantExpiry, now: at.grantExpiry }),
+      expect(yield* refusal(read, job, buyerState, agentOf(alice, aliceAgent, ['accept']))).toEqual(
+        new GrantExpired({ agent: aliceAgent, expiresAt: at.grantExpiry, now: at.grantExpiry }),
       )
     }),
   )

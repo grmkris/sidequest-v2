@@ -4,21 +4,56 @@ export { Actor } from './Actor.ts'
 export { Agent } from './Agent.ts'
 export { Agreement } from './Agreement.ts'
 export { Amount } from './Amount.ts'
+export { AgentsApi } from './AgentsApi.ts'
 export { SidequestApi, SystemApi } from './Api.ts'
 export { AssetId, AssetRef } from './AssetRef.ts'
 export { findAsset, UsdcOnArcTestnet } from './AssetRegistry.ts'
 export { Delivery } from './Delivery.ts'
 export { Digest, textDigest } from './Digest.ts'
 export { Grant, GrantScope } from './Grant.ts'
+export { CrossSiteRequest, SameOrigin, SignedIn, SignedInAccount } from './Guards.ts'
 export { AccountId, AgentId, generateId, JobId, ListingId, ProposalId, RoomId, roomIdOf, RoomKind } from './Id.ts'
+export { InboxEntry, InboxKind } from './Inbox.ts'
+export { InboxApi } from './InboxApi.ts'
+export { JobsApi } from './JobsApi.ts'
 export { JobState } from './JobState.ts'
-export { Listing } from './Listing.ts'
+export {
+  BidderJobView,
+  BidOutcome,
+  Bps,
+  BuyerJobView,
+  DisputeReason,
+  JobStage,
+  JobView,
+  Outcome,
+  ProposalRef,
+  PublicJobView,
+  Ruling,
+} from './JobView.ts'
+export { Listing, ListingDetails, PriceHint } from './Listing.ts'
+export { ListingsApi, SearchText } from './ListingsApi.ts'
 export { NetworkRef } from './NetworkRef.ts'
+export { Cursor, defaultPageSize, maxPageSize, Page, PageQuery, PageSize } from './Page.ts'
 export { PaymentIntent } from './PaymentIntent.ts'
 export { PaymentRail } from './PaymentRail.ts'
 export { Proposal, ProposalVersion } from './Proposal.ts'
 export { Receipt } from './Receipt.ts'
+export {
+  BadCursor,
+  refusals,
+  Conflict,
+  ConflictReason,
+  Evidence,
+  Forbidden,
+  ForbiddenReason,
+  NotFound,
+  NotFoundReason,
+  Unprocessable,
+  UnprocessableReason,
+} from './Refusals.ts'
 export { Review } from './Review.ts'
+export { IdempotencyKey, Message, MessageSeq, MessageText, RoomRef } from './Room.ts'
+export { RoomsApi } from './RoomsApi.ts'
 export {
   NotSignedIn,
   SessionApi,
@@ -38,4 +73,4 @@ export { termsDigest } from './TermsDigest.ts'
 export { Text } from './Text.ts'
 export { UnixSeconds } from './UnixSeconds.ts'
 export { webCrypto } from './WebCrypto.ts'
-export { WorkRequest } from './WorkRequest.ts'
+export { OpenRequest, WorkRequest } from './WorkRequest.ts'

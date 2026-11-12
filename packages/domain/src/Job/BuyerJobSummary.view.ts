@@ -1,50 +1,14 @@
 import * as Domain from '@alchemy.run/domain'
-import { Agreement, Delivery, Proposal, Receipt, Review, UnixSeconds, WorkRequest } from '@sidequest/protocol'
-import { Effect, Schema } from 'effect'
+import { BuyerJobView } from '@sidequest/protocol'
+import { Effect } from 'effect'
 import { asViewer, viewerRejections } from '../Authority.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { Session } from '../Session.middleware.ts'
-import { Bps } from './Bps.ts'
 import { Job } from './Job.aggregate.ts'
-import { NamedProposal } from './NamedProposal.ts'
-import { DeliveryRejected } from './RejectDelivery.command.ts'
-import { JobSettled } from './RecordSettlement.command.ts'
-import { RulingRecorded } from './RecordRuling.command.ts'
 import { stageChanges } from './StageChanges.ts'
-import { JobStage } from './WrongState.rejection.ts'
-
-/** The window the buyer has to approve or reject a delivery observed on chain. */
-const ReviewWindow = Schema.Struct({
-  deliveredAt: UnixSeconds,
-  reviewEndsAt: UnixSeconds,
-  approvedAt: Schema.NullOr(UnixSeconds),
-})
-
-const Dispute = Schema.Struct({
-  reason: DeliveryRejected.fields.reason,
-  workerShareBps: Schema.NullOr(Bps),
-  ruling: Schema.NullOr(RulingRecorded.fields.ruling),
-})
-
-const BuyerView = Schema.Struct({
-  request: Schema.NullOr(WorkRequest),
-  state: JobStage,
-  /** Every version of every bidder's proposals, in the order they arrived. */
-  proposals: Schema.Array(Proposal),
-  changesRequested: Schema.Array(Schema.Struct(NamedProposal)),
-  agreement: Schema.NullOr(Agreement),
-  funding: Schema.NullOr(Receipt),
-  delivery: Schema.NullOr(Delivery),
-  review: Schema.NullOr(ReviewWindow),
-  dispute: Schema.NullOr(Dispute),
-  outcome: Schema.NullOr(JobSettled.fields.outcome),
-  settlement: Schema.Array(Receipt),
-  reviews: Schema.Array(Review),
-})
-export type BuyerView = typeof BuyerView.Type
 
 /** The buyer's view before the request is posted. */
-export const unpostedBuyerView: BuyerView = {
+export const unpostedBuyerView: BuyerJobView = {
   request: null,
   state: 'Unposted',
   proposals: [],
@@ -65,7 +29,7 @@ export class BuyerJobSummary extends Domain.View('BuyerJobSummary', {
   key: Job,
   middleware: [Session],
   rejects: [...viewerRejections, NotPermitted],
-  state: BuyerView,
+  state: BuyerJobView,
   initial: unpostedBuyerView,
   evolve: {
     RequestPosted: (view, { request }) => ({ ...view, request, state: 'Open' as const }),

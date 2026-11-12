@@ -1,4 +1,4 @@
-import { AccountId, Digest, ProposalVersion } from '@sidequest/protocol'
+import { type AccountId, type Digest, ProposalRef } from '@sidequest/protocol'
 import { Effect } from 'effect'
 import { DigestMismatch } from './DigestMismatch.rejection.ts'
 import type { Open } from './JobStatus.ts'
@@ -6,7 +6,7 @@ import { NoProposal } from './NoProposal.rejection.ts'
 import { SupersededVersion } from './SupersededVersion.rejection.ts'
 
 /** How the buyer names one exact proposal version: the bidder, its version and its terms digest. */
-export const NamedProposal = { bidder: AccountId, version: ProposalVersion, termsDigest: Digest }
+export const NamedProposal = ProposalRef.fields
 
 /** Every rejection {@link headNamed} can return. */
 export const namedRejections = [NoProposal, SupersededVersion, DigestMismatch] as const

@@ -1,26 +1,14 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, JobId, Proposal, ProposalVersion, roomIdOf } from '@sidequest/protocol'
-import { Effect, Schema } from 'effect'
+import { type AccountId, BidderJobView, type JobId, roomIdOf } from '@sidequest/protocol'
+import { Effect } from 'effect'
 import { asViewer, viewerRejections } from '../Authority.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { Room } from '../Rooms/Room.aggregate.ts'
 import { Session } from '../Session.middleware.ts'
 import { Job } from './Job.aggregate.ts'
 
-/** Where a bid stands: open, or once the job is awarded, won or lost. */
-const BidOutcome = Schema.Literals(['pending', 'won', 'lost'])
-
-const BidderView = Schema.Struct({
-  job: Schema.NullOr(JobId),
-  bidder: Schema.NullOr(AccountId),
-  proposals: Schema.Array(Proposal),
-  changesRequested: Schema.Array(ProposalVersion),
-  outcome: BidOutcome,
-})
-export type BidderView = typeof BidderView.Type
-
 /** A bidder's view before their first proposal. */
-export const noBid: BidderView = { job: null, bidder: null, proposals: [], changesRequested: [], outcome: 'pending' }
+export const noBid: BidderJobView = { job: null, bidder: null, proposals: [], changesRequested: [], outcome: 'pending' }
 
 /** The negotiation room of one bidder on a job: the key of that bidder's view. */
 const negotiation = (job: JobId, bidder: AccountId) => Room.ref(roomIdOf({ job, kind: 'negotiation', bidder }))
@@ -35,7 +23,7 @@ export class BidderJobSummary extends Domain.View('BidderJobSummary', {
   key: Room,
   middleware: [Session],
   rejects: [...viewerRejections, NotPermitted],
-  state: BidderView,
+  state: BidderJobView,
   initial: noBid,
   keyOf: {
     ProposalSubmitted: ({ event }) => negotiation(event.proposal.job, event.proposal.bidder),

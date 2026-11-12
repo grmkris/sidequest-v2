@@ -1,33 +1,15 @@
-import { AccountId, Listing, ListingId } from '@sidequest/protocol'
+import { AccountId, Listing, ListingDetails, ListingId } from '@sidequest/protocol'
 import { Context, Effect, Layer, Match, Option, Schema } from 'effect'
 import { RowVersion, versionedRows } from '../VersionedRows.ts'
 
-/** A listing as search sees it. `version` is the listing stream's sequence number it reflects. */
-export const ListingRow = Schema.Struct({
-  id: ListingId,
-  owner: AccountId,
-  title: Listing.fields.title,
-  tags: Listing.fields.tags,
-  state: Listing.fields.state,
-  version: RowVersion,
-})
+/** A listing as search and readers see it. `version` is the listing stream's sequence number it reflects. */
+export const ListingRow = Schema.Struct({ ...Listing.fields, version: RowVersion })
 export type ListingRow = typeof ListingRow.Type
 
 /** One change to a listing row, at the listing's version. */
 export const ListingChange = Schema.Union([
-  Schema.TaggedStruct('Published', {
-    id: ListingId,
-    owner: AccountId,
-    title: Listing.fields.title,
-    tags: Listing.fields.tags,
-    version: RowVersion,
-  }),
-  Schema.TaggedStruct('Updated', {
-    id: ListingId,
-    title: Listing.fields.title,
-    tags: Listing.fields.tags,
-    version: RowVersion,
-  }),
+  Schema.TaggedStruct('Published', { id: ListingId, owner: AccountId, ...ListingDetails.fields, version: RowVersion }),
+  Schema.TaggedStruct('Updated', { id: ListingId, ...ListingDetails.fields, version: RowVersion }),
   Schema.TaggedStruct('Withdrawn', { id: ListingId, version: RowVersion }),
 ])
 export type ListingChange = typeof ListingChange.Type
@@ -54,7 +36,8 @@ export const memoryListingStore = () => {
           rows.change(change.id, change.version, (row) =>
             Match.valueTags(change, {
               Published: ({ _tag, ...published }) => ({ ...published, state: 'published' as const }),
-              Updated: ({ title, tags, version }) => (row === undefined ? row : { ...row, title, tags, version }),
+              Updated: ({ _tag, id, ...details }) =>
+                row === undefined ? row : { id, owner: row.owner, ...details, state: row.state },
               Withdrawn: ({ version }) => (row === undefined ? row : { ...row, state: 'withdrawn' as const, version }),
             }),
           )

@@ -1,10 +1,10 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, RoomId } from '@sidequest/protocol'
+import { type AccountId, type BuyerJobView, type InboxKind, RoomId } from '@sidequest/protocol'
 import { Effect, Match, Predicate, Schema } from 'effect'
 import { unixSeconds } from '../Authority.ts'
 import { Account } from '../Identity/Account.aggregate.ts'
 import { ProposalAccepted } from '../Job/AcceptProposal.command.ts'
-import { BuyerJobSummary, type BuyerView } from '../Job/BuyerJobSummary.view.ts'
+import { BuyerJobSummary } from '../Job/BuyerJobSummary.view.ts'
 import { DeliveryRecorded } from '../Job/RecordDelivery.command.ts'
 import { FundingRecorded } from '../Job/RecordFunding.command.ts'
 import { JobSettled } from '../Job/RecordSettlement.command.ts'
@@ -12,7 +12,7 @@ import { ChangeRequested } from '../Job/RequestChange.command.ts'
 import { ProposalSubmitted } from '../Job/SubmitProposal.command.ts'
 import { MessagePosted } from '../Rooms/PostMessage.command.ts'
 import { Room } from '../Rooms/Room.aggregate.ts'
-import { InboxStore, type InboxKind } from './InboxStore.ts'
+import { InboxStore } from './InboxStore.ts'
 
 type InboxEvent =
   | ProposalSubmitted
@@ -38,8 +38,8 @@ const inbox = (account: AccountId | undefined) => (account === undefined ? undef
 
 /** The buyer and the worker of an awarded job, from the buyer's view of it. */
 const parties = {
-  buyer: ({ state }: { readonly state: BuyerView | null }) => inbox(state?.agreement?.buyer),
-  worker: ({ state }: { readonly state: BuyerView | null }) => inbox(state?.agreement?.worker),
+  buyer: ({ state }: { readonly state: BuyerJobView | null }) => inbox(state?.agreement?.buyer),
+  worker: ({ state }: { readonly state: BuyerJobView | null }) => inbox(state?.agreement?.worker),
 }
 
 /** Every room member but the author. */

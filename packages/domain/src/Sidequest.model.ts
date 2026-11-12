@@ -4,6 +4,7 @@ import { Listing } from './Directory/Listing.aggregate.ts'
 import { Listings, ListingsLive } from './Directory/Listings.projection.ts'
 import { Account } from './Identity/Account.aggregate.ts'
 import { Agent } from './Identity/Agent.aggregate.ts'
+import { Agents, AgentsLive } from './Identity/Agents.projection.ts'
 import { WalletClaim } from './Identity/WalletClaim.aggregate.ts'
 import { Inbox, InboxLive } from './Inbox/Inbox.projection.ts'
 import { BidderJobSummary } from './Job/BidderJobSummary.view.ts'
@@ -22,17 +23,18 @@ export class Sidequest extends Domain.Model('Sidequest', {
   aggregates: [Account, WalletClaim, Agent, Listing, Job, Room],
   views: [JobSummary, BuyerJobSummary, BidderJobSummary],
   policies: [RoomOpening, RequestExpiry],
-  projections: [Listings, OpenJobs, Inbox, RoomMessageLog],
+  projections: [Agents, Listings, OpenJobs, Inbox, RoomMessageLog],
   streams: [RoomMessages],
 }) {}
 
 /**
- * Every policy and projection implementation, as one Layer. It needs the store ports (`ListingStore`,
+ * Every policy and projection implementation, as one Layer. It needs the store ports (`AgentStore`, `ListingStore`,
  * `OpenJobStore`, `InboxStore`): D1 on the server, memory in stories.
  */
 export const SidequestHandlers = Layer.mergeAll(
   RoomOpeningLive,
   RequestExpiryLive,
+  AgentsLive,
   ListingsLive,
   OpenJobsLive,
   InboxLive,

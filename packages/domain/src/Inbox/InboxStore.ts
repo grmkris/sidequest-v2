@@ -1,17 +1,5 @@
-import { AccountId, JobId, RoomId, UnixSeconds } from '@sidequest/protocol'
+import { AccountId, InboxEntry } from '@sidequest/protocol'
 import { Context, Effect, Layer, Schema } from 'effect'
-
-/** What happened that concerns the account. */
-export const InboxKind = Schema.Literals([
-  'proposal_submitted',
-  'change_requested',
-  'proposal_accepted',
-  'funding_recorded',
-  'delivery_recorded',
-  'job_settled',
-  'message_posted',
-])
-export type InboxKind = typeof InboxKind.Type
 
 /**
  * One item in an account's inbox. `cursor` counts up per account, from 1, in the order the items reached it: a reader
@@ -21,11 +9,7 @@ export type InboxKind = typeof InboxKind.Type
 export const InboxItem = Schema.Struct({
   account: AccountId,
   cursor: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })),
-  id: Schema.String,
-  kind: InboxKind,
-  job: JobId,
-  room: Schema.NullOr(RoomId),
-  at: UnixSeconds,
+  ...InboxEntry.fields,
 })
 export type InboxItem = typeof InboxItem.Type
 

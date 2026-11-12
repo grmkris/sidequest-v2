@@ -1,10 +1,12 @@
 import { it } from '@effect/vitest'
 import { ListingStore, memoryListingStore, type ListingChange } from '@sidequest/domain/Directory/ListingStore'
+import { AgentStore, memoryAgentStore, type AgentChange } from '@sidequest/domain/Identity/AgentStore'
 import { InboxStore, memoryInboxStore, type InboxItem } from '@sidequest/domain/Inbox/InboxStore'
 import { memoryOpenJobStore, OpenJobStore, type OpenJobChange } from '@sidequest/domain/Job/OpenJobStore'
-import { AccountId, JobId, ListingId, RoomId } from '@sidequest/protocol'
+import { AccountId, AgentId, Amount, AssetId, JobId, ListingId, RoomId } from '@sidequest/protocol'
 import { Effect, Layer, Option, Schema } from 'effect'
 import { describe, expect } from 'vitest'
+import { D1AgentStore } from '../src/Projections/D1AgentStore.ts'
 import { D1InboxStore } from '../src/Projections/D1InboxStore.ts'
 import { D1ListingStore } from '../src/Projections/D1ListingStore.ts'
 import { D1OpenJobStore } from '../src/Projections/D1OpenJobStore.ts'
@@ -23,6 +25,10 @@ const accounts = [
   AccountId.make('account_01JCXZ4Q6N8M2V7T3R5W9Y0B1B'),
 ] as const
 const room = RoomId.make('room_01JCXZ4Q6N8M2V7T3R5W9Y0B1A_engagement')
+const agents = [
+  AgentId.make('agent_01JCXZ4Q6N8M2V7T3R5W9Y0B1A'),
+  AgentId.make('agent_01JCXZ4Q6N8M2V7T3R5W9Y0B1B'),
+] as const
 
 const Which = Schema.Literals([0, 1])
 const Version = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 6 }))
@@ -34,10 +40,29 @@ const ListingStep = Schema.Struct({
   version: Version,
   title: Title,
 })
+const priceHint = {
+  amount: Amount.make('250000000'),
+  asset: AssetId.make('eip155:5042002/erc20:0x3600000000000000000000000000000000000000'),
+}
 const listingChange = ({ kind, which, version, title }: typeof ListingStep.Type): ListingChange => {
   const id = listings[which]
-  if (kind === 'Published') return { _tag: kind, id, owner: accounts[0], title, tags: [title.toLowerCase()], version }
-  if (kind === 'Updated') return { _tag: kind, id, title, tags: ['revised', title.toLowerCase()], version }
+  const description = `${title}, by hand.`
+  if (kind === 'Published')
+    return { _tag: kind, id, owner: accounts[0], title, description, tags: [title.toLowerCase()], priceHint, version }
+  if (kind === 'Updated') return { _tag: kind, id, title, description, tags: ['revised', title.toLowerCase()], version }
+  return { _tag: kind, id, version }
+}
+
+const AgentStep = Schema.Struct({
+  kind: Schema.Literals(['Registered', 'Granted', 'Revoked']),
+  which: Which,
+  version: Version,
+})
+const agentChange = ({ kind, which, version }: typeof AgentStep.Type): AgentChange => {
+  const id = agents[which]
+  if (kind === 'Registered') return { _tag: kind, id, operator: accounts[which], name: `Scout ${which}`, version }
+  if (kind === 'Granted')
+    return { _tag: kind, id, grant: { scopes: ['discuss'], expiresAt: 1796083200 + version }, version }
   return { _tag: kind, id, version }
 }
 
@@ -89,26 +114,33 @@ describe('D1ListingStore', () => {
       }).pipe(Effect.provide(D1ListingStore.pipe(Layer.provide(localSql().layer)))),
   )
 
-  it.effect('keeps a withdrawn listing with its tags, and ignores an older publication of it', () =>
+  it.effect('keeps a withdrawn listing with what it said, and ignores an older publication of it', () =>
     Effect.gen(function* () {
       const store = yield* ListingStore
       const id = listings[0]
+      const offer = { owner: accounts[0], title: 'Logo design', description: 'SVG', tags: ['logo', 'svg'], priceHint }
       yield* store.apply([
-        { _tag: 'Published', id, owner: accounts[0], title: 'Logo design', tags: ['logo', 'svg'], version: 1 },
+        { _tag: 'Published', id, ...offer, version: 1 },
         { _tag: 'Withdrawn', id, version: 2 },
-        { _tag: 'Published', id, owner: accounts[0], title: 'Logo design', tags: ['logo', 'svg'], version: 1 },
+        { _tag: 'Published', id, ...offer, version: 1 },
       ])
-      expect(yield* store.get(id)).toEqual(
-        Option.some({
-          id,
-          owner: accounts[0],
-          title: 'Logo design',
-          tags: ['logo', 'svg'],
-          state: 'withdrawn',
-          version: 2,
-        }),
-      )
+      expect(yield* store.get(id)).toEqual(Option.some({ id, ...offer, state: 'withdrawn', version: 2 }))
     }).pipe(Effect.provide(D1ListingStore.pipe(Layer.provide(localSql().layer)))),
+  )
+})
+
+describe('D1AgentStore', () => {
+  it.effect.prop(
+    'holds the agent rows the memory store holds, whatever order registrations, grants and revocations arrive in',
+    [Schema.Array(AgentStep)],
+    ([steps]) =>
+      Effect.gen(function* () {
+        const d1 = yield* AgentStore
+        const model = memoryAgentStore()
+        for (const changes of deliveries(steps.map(agentChange)))
+          yield* Effect.all([d1.apply(changes), model.apply(changes)])
+        for (const id of agents) expect(yield* d1.get(id)).toEqual(yield* model.get(id))
+      }).pipe(Effect.provide(D1AgentStore.pipe(Layer.provide(localSql().layer)))),
   )
 })
 

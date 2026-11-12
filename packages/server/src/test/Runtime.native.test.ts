@@ -1,12 +1,30 @@
 import { expect } from 'bun:test'
 import * as Cloudflare from '@alchemy.run/cloudflare'
-import { AccountRef, SessionView, SignInChallenge, Status } from '@sidequest/protocol'
+import {
+  type AccountId,
+  AccountRef,
+  Cursor,
+  InboxEntry,
+  JobId,
+  JobView,
+  ListingId,
+  Message,
+  ProposalId,
+  type ProposalRef,
+  RoomRef,
+  SessionView,
+  SignInChallenge,
+  Status,
+  UsdcOnArcTestnet,
+} from '@sidequest/protocol'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
-import { Effect, Schema } from 'effect'
+import { DateTime, Effect, Schedule, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
+import type * as HttpClientError from 'effect/http/HttpClientError'
 import * as HttpClientRequest from 'effect/http/HttpClientRequest'
+import type * as HttpClientResponse from 'effect/http/HttpClientResponse'
 import { chromium } from 'playwright'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
@@ -194,7 +212,10 @@ test(
       account: session.account,
     })
 
-    expect((yield* HttpClient.post(`${url}/api/session/sign-out`, { headers: { cookie } })).status).toBe(204)
+    // A request with no body proves where it comes from with `Origin`, as a browser on the site sends it.
+    expect((yield* HttpClient.post(`${url}/api/session/sign-out`, { headers: { cookie, origin: url } })).status).toBe(
+      204,
+    )
     expect((yield* HttpClient.get(`${url}/api/session`, { headers: { cookie } })).status).toBe(401)
 
     const replayed = yield* postJson(`${url}/api/session/verify`, { message, signature })
@@ -202,4 +223,144 @@ test(
     expect(yield* replayed.json).toEqual({ _tag: 'SignInRefused', reason: 'unknown_nonce' })
   }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
+)
+
+/** One person's requests through the edge: JSON, from the site's origin, with their session cookie. */
+const browserOf = (url: string, cookie: string) => {
+  const send = (request: HttpClientRequest.HttpClientRequest, body?: unknown) =>
+    HttpClient.execute(
+      (body === undefined ? request : HttpClientRequest.bodyJsonUnsafe(request, body)).pipe(
+        HttpClientRequest.setHeaders({ cookie, origin: url }),
+      ),
+    )
+  return {
+    get: (path: string) => send(HttpClientRequest.get(`${url}${path}`)),
+    post: (path: string, body?: unknown) => send(HttpClientRequest.post(`${url}${path}`), body),
+  }
+}
+type Browser = ReturnType<typeof browserOf> & { readonly account: AccountId }
+
+/** Sign a fresh wallet in and keep its session cookie. */
+const signedIn = (url: string) =>
+  Effect.gen(function* () {
+    const { response } = yield* signIn(url, privateKeyToAccount(generatePrivateKey()))
+    const cookie = (response.headers['set-cookie'] ?? '').split('; ')[0] ?? ''
+    const { account } = yield* Effect.flatMap(response.json, Schema.decodeUnknownEffect(SessionView))
+    const browser: Browser = { ...browserOf(url, cookie), account }
+    return browser
+  })
+
+class NotYet extends Schema.TaggedError<NotYet>()('NotYet', {}) {}
+
+/**
+ * Read until the answer decodes and `done` holds: Durable Objects commit at once, but views and D1 projections follow
+ * eventually. A bounded retry, every 100 ms for at most 20 seconds, never a fixed sleep.
+ */
+const until = <A>(
+  read: Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError, HttpClient.HttpClient>,
+  schema: Schema.Decoder<A>,
+  done: (value: A) => boolean = () => true,
+) =>
+  read.pipe(
+    Effect.flatMap((response) => response.json),
+    Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+    Effect.flatMap((value) => (done(value) ? Effect.succeed(value) : Effect.fail(new NotYet()))),
+    Effect.retry({ schedule: Schedule.spaced('100 millis'), times: 200 }),
+  )
+
+/** The id a command that creates something answered with; a command is sent once, never retried. */
+const createdBy = <A>(
+  send: Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError, HttpClient.HttpClient>,
+  id: Schema.Decoder<A>,
+) =>
+  send.pipe(
+    Effect.flatMap((response) => response.json),
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ id }))),
+    Effect.map((created) => created.id),
+  )
+const day = 86_400
+const offer = (amount: string) => ({
+  title: 'A logo',
+  deliverables: ['SVG logo'],
+  amount,
+  asset: UsdcOnArcTestnet.id,
+  network: UsdcOnArcTestnet.network,
+  deliveryDeadline: Math.floor(Date.now() / 1000) + 30 * day,
+  reviewWindowSeconds: 3 * day,
+  disputeWindowSeconds: 2 * day,
+  arbitrationWindowSeconds: 7 * day,
+  rail: 'escrow',
+})
+
+/** The versions the buyer's view of `job` names, once it holds `count`. */
+const proposalsFor = (buyer: Browser, job: string, count: number) =>
+  until(
+    buyer.get(`/api/jobs/${job}`),
+    JobView,
+    (shown) => shown.audience === 'buyer' && shown.view.proposals.length === count,
+  ).pipe(
+    Effect.map((shown): ReadonlyArray<ProposalRef> =>
+      shown.audience === 'buyer'
+        ? shown.view.proposals.map(({ bidder, version, termsDigest }) => ({ bidder, version, termsDigest }))
+        : [],
+    ),
+  )
+
+const Rooms = Schema.Struct({ rooms: Schema.Array(RoomRef) })
+const Messages = Schema.Struct({ messages: Schema.Array(Message) })
+const Inbox = Schema.Struct({ items: Schema.Array(InboxEntry), next: Cursor })
+const kindsIn = (inbox: typeof Inbox.Type) => inbox.items.map(({ kind }) => kind)
+
+/** Ben offers logos, Ada posts a request; Ben proposes, Ada asks for a change, Ben proposes again. */
+const negotiate = (ada: Browser, ben: Browser) =>
+  Effect.gen(function* () {
+    const listing = yield* createdBy(
+      ben.post('/api/listings', { title: 'Logos', description: 'By hand.', tags: ['logo'] }),
+      ListingId,
+    )
+    const now = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000)
+    const posted = { title: 'A logo for my café', description: 'Warm.', expiresAt: now + 7 * day }
+    const job = yield* createdBy(ada.post('/api/jobs', posted), JobId)
+    yield* createdBy(ben.post(`/api/jobs/${job}/proposals`, { terms: offer('250000000') }), ProposalId)
+    const [v1] = yield* proposalsFor(ada, job, 1)
+    expect((yield* ada.post(`/api/jobs/${job}/change-requests`, v1)).status).toBe(204)
+    yield* createdBy(ben.post(`/api/jobs/${job}/proposals`, { previous: 1, terms: offer('300000000') }), ProposalId)
+    const [first, second] = yield* proposalsFor(ada, job, 2)
+    return { listing, job, first, second }
+  })
+
+test(
+  'runs the off-chain hire for two wallets through the edge: Durable Objects, D1 projections and policies together',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const ada = yield* signedIn(url)
+    const ben = yield* signedIn(url)
+    const { listing, job, first, second } = yield* negotiate(ada, ben)
+    expect((yield* ada.post(`/api/jobs/${job}/acceptance`, first)).status).toBe(409)
+    expect((yield* ada.post(`/api/jobs/${job}/acceptance`, second)).status).toBe(204)
+    // RoomOpening opened the negotiation room on the first proposal and the engagement room on the award.
+    const { rooms } = yield* until(ben.get(`/api/jobs/${job}/rooms`), Rooms, (shown) => shown.rooms.length === 2)
+    const [negotiation] = rooms
+    expect(rooms.map(({ kind }) => kind)).toEqual(['negotiation', 'engagement'])
+    expect(
+      (yield* ada.post(`/api/rooms/${negotiation?.id}/messages`, { text: 'Thank you!', key: 'ada-1' })).status,
+    ).toBe(204)
+    const { messages } = yield* until(
+      ben.get(`/api/rooms/${negotiation?.id}/messages`),
+      Messages,
+      (read) => read.messages.length === 1,
+    )
+    expect(messages).toEqual([{ seq: 1, author: ada.account, text: 'Thank you!' }])
+    const searched = yield* until(
+      ada.get('/api/listings?q=logo'),
+      Schema.Struct({ items: Schema.Array(Schema.Struct({ id: ListingId })) }),
+      (page) => page.items.length > 0,
+    )
+    expect(searched.items.map(({ id }) => id)).toContain(listing)
+    const adas = yield* until(ada.get('/api/inbox'), Inbox, (inbox) => inbox.items.length === 2)
+    expect(kindsIn(adas)).toEqual(['proposal_submitted', 'proposal_submitted'])
+    const bens = yield* until(ben.get('/api/inbox'), Inbox, (inbox) => inbox.items.length === 3)
+    expect(kindsIn(bens).toSorted()).toEqual(['change_requested', 'message_posted', 'proposal_accepted'])
+  }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 90000 },
 )

@@ -6,7 +6,7 @@ import { ListingPublished } from './PublishListing.command.ts'
 import { ListingUpdated } from './UpdateListing.command.ts'
 import { ListingWithdrawn } from './WithdrawListing.command.ts'
 
-/** Search rows for listings: id, owner, title, tags and state, through the {@link ListingStore} port. */
+/** A row per listing, for search and for reading one: what it says and its state, through the {@link ListingStore} port. */
 export class Listings extends Domain.Projection('Listings', {
   from: [Listing],
   key: Listing,
@@ -20,15 +20,13 @@ export const ListingsLive = Listings.toLayer(
       store.apply(
         batch.map(({ key, event, envelope: { seq: version } }) =>
           Match.valueTags(event, {
-            ListingPublished: ({ owner, title, tags }) => ({
+            ListingPublished: ({ _tag, ...published }) => ({
               _tag: 'Published' as const,
               id: key.id,
-              owner,
-              title,
-              tags,
+              ...published,
               version,
             }),
-            ListingUpdated: ({ title, tags }) => ({ _tag: 'Updated' as const, id: key.id, title, tags, version }),
+            ListingUpdated: ({ _tag, ...details }) => ({ _tag: 'Updated' as const, id: key.id, ...details, version }),
             ListingWithdrawn: () => ({ _tag: 'Withdrawn' as const, id: key.id, version }),
           }),
         ),
