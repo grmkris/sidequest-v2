@@ -23,6 +23,8 @@ export const unpostedBuyerView: BuyerJobView = {
   reviews: [],
 }
 
+const noRuling = { arbitrationEndsAt: null, workerShareBps: null, ruling: null }
+
 /** Everything about a job, for its buyer and the buyer's agents: every proposal, the agreement, money and reviews. */
 export class BuyerJobSummary extends Domain.View('BuyerJobSummary', {
   from: [Job],
@@ -45,15 +47,13 @@ export class BuyerJobSummary extends Domain.View('BuyerJobSummary', {
     DeliverySubmitted: (view, { delivery }) => ({ ...view, delivery }),
     DeliveryRecorded: (view, { deliveredAt, reviewEndsAt }) => ({
       ...stageChanges.DeliveryRecorded(view),
-      review: { deliveredAt, reviewEndsAt, approvedAt: null },
+      review: { deliveredAt, reviewEndsAt },
     }),
-    DeliveryApproved: (view, { approvedAt }) => ({
-      ...view,
-      review: view.review === null ? null : { ...view.review, approvedAt },
-    }),
-    DeliveryRejected: (view, { reason }) => ({
-      ...stageChanges.DeliveryRejected(view),
-      dispute: { reason, workerShareBps: null, ruling: null },
+    // The reason may arrive before or after the chain's rejection: whichever comes first opens the dispute's record.
+    DeliveryRejected: (view, { reason }) => ({ ...view, dispute: { ...(view.dispute ?? noRuling), reason } }),
+    RejectionRecorded: (view, { arbitrationEndsAt }) => ({
+      ...stageChanges.RejectionRecorded(view),
+      dispute: { ...(view.dispute ?? { ...noRuling, reason: null }), arbitrationEndsAt },
     }),
     RulingRecorded: (view, { workerShareBps, ruling }) => ({
       ...view,

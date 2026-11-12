@@ -12,6 +12,7 @@
     "@effect/sql-d1": "catalog:",
     "@sidequest/domain": "workspace:*",
     "@sidequest/protocol": "workspace:*",
+    "@sidequest/settlement": "workspace:*",
     "alchemy": "catalog:",
     "effect": "catalog:",
     "viem": "2.57.12"

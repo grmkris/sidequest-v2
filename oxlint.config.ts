@@ -83,6 +83,8 @@ export default defineConfig({
     })),
     // Catalog data and types are regenerated and compared byte-for-byte by i18n:check.
     { files: ['packages/i18n/src/generated.ts', 'packages/i18n/src/catalog-*.ts'], rules: { 'max-lines': 'off' } },
+    // Contract ABIs are generated from the Foundry build and compared with it by tools/settlement-bindings.ts.
+    { files: ['packages/settlement/src/abi/*.ts'], rules: { 'max-lines': 'off' } },
     { files: ['tools/**'], rules: { 'no-console': 'off' } },
     { files: ['**/*.test.ts'], rules: { 'max-lines-per-function': 'off' } },
   ],

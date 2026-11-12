@@ -8,6 +8,8 @@ import { apiRoutes } from './Api.ts'
 import { SidequestSql } from './Database.ts'
 import { DomainLive } from './DomainLive.ts'
 import { SidequestMedia } from './Resources.ts'
+import { escrowConfigFrom } from './Settlement/EscrowConfig.ts'
+import { escrowLive } from './Settlement/SettlementLive.ts'
 import { ArcRpc, arcRpcUrlFrom } from './SignIn/ArcRpc.ts'
 import { SignInLive } from './SignIn/SignInLive.ts'
 import { releaseFromEnvironment } from './Status.ts'
@@ -25,10 +27,16 @@ const ArcRpcLive = Layer.unwrap(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => ArcRpc.layer(arcRpcUrlFrom(environment))),
 )
 
-/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1. */
+/** Settlement on Arc testnet, if the Worker's configuration names the deployed operator and holds the relayer key. */
+const EscrowLive = Layer.unwrap(
+  Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => escrowLive(escrowConfigFrom(environment))),
+)
+
+/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow. */
 const Runtime = SignInLive.pipe(
-  Layer.provide(ArcRpcLive),
   Layer.provideMerge(DomainLive),
+  Layer.provideMerge(EscrowLive),
+  Layer.provideMerge(ArcRpcLive),
   Layer.provideMerge(SidequestSql),
   Layer.provideMerge(Platform),
 )

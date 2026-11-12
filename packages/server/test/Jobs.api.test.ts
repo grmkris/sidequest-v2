@@ -9,6 +9,7 @@ import {
   propose,
   recordDelivery,
   recordFunding,
+  recordRejection,
   recordSettlement,
 } from './Hire.ts'
 import { ada, ben, bodyOf, cy, eventually, inSeconds, type Reply, request, terms, withApi } from './HttpWorld.ts'
@@ -18,6 +19,8 @@ import { ada, ben, bodyOf, cy, eventually, inSeconds, type Reply, request, terms
 
 const openPage = (reply: Reply) => bodyOf(Page(OpenRequest), reply)
 const delivery = { artifactHash, url: 'https://files.example/logo.zip' }
+/** A wallet signature's shape; these tests never reach a chain that would check it. */
+const signature = `0x${'11'.repeat(65)}`
 
 describe('the jobs API', () => {
   test('lists an open request to anyone, and shows a job to its buyer, a bidder and anyone else as theirs', () =>
@@ -159,7 +162,7 @@ describe('the jobs API', () => {
       expect(rest.next).toBeNull()
     }))
 
-  test('lets the worker deliver and the buyer approve once the chain reports funding, and both review after', () =>
+  test('lets the worker deliver once the chain reports funding, the buyer approve on chain, and both review after', () =>
     withApi(async (api) => {
       const buyer = await api.signIn(ada)
       const worker = await api.signIn(ben)
@@ -182,15 +185,13 @@ describe('the jobs API', () => {
       })
       expect((await worker.post(`/api/jobs/${job}/delivery`, delivery)).status).toBe(204)
       await recordDelivery(api, job)
-      expect(await worker.post(`/api/jobs/${job}/approval`)).toMatchObject({
+      // An approval is the buyer's signature for the chain. Only the buyer may post one, and with no escrow
+      // configured there is no chain to relay it to.
+      expect(await worker.post(`/api/jobs/${job}/approval`, { signature })).toMatchObject({
         status: 403,
         body: { reason: 'NotPermitted' },
       })
-      expect((await buyer.post(`/api/jobs/${job}/approval`)).status).toBe(204)
-      expect(await buyer.post(`/api/jobs/${job}/rejection`, { reason: 'Too late.' })).toMatchObject({
-        status: 409,
-        body: { reason: 'AlreadyApproved' },
-      })
+      expect((await buyer.post(`/api/jobs/${job}/approval`, { signature })).status).toBe(503)
       expect(await buyer.post(`/api/jobs/${job}/reviews`, { rating: 5 })).toMatchObject({
         status: 409,
         body: { reason: 'WrongState' },
@@ -210,7 +211,7 @@ describe('the jobs API', () => {
       expect(settled).toMatchObject({ state: 'Settled', outcome: 'paid', delivery: { ...delivery, job } })
     }))
 
-  test('lets the buyer reject a delivery inside its review window, which opens a dispute', () =>
+  test('opens a dispute only when the chain reports the rejection, whatever a client posts', () =>
     withApi(async (api) => {
       const buyer = await api.signIn(ada)
       const worker = await api.signIn(ben)
@@ -223,10 +224,11 @@ describe('the jobs API', () => {
       if (agreement === null) throw new Error('No agreement')
       await recordFunding(api, agreement)
       await recordDelivery(api, job)
-      expect((await buyer.post(`/api/jobs/${job}/rejection`, { reason: 'The favicon set is missing.' })).status).toBe(
-        204,
-      )
+      const reason = 'The favicon set is missing.'
+      expect((await buyer.post(`/api/jobs/${job}/rejection`, { signature, reason })).status).toBe(503)
+      expect((await buyerViewOf(buyer, job)).state).toBe('Delivered')
+      await recordRejection(api, job)
       const disputed = await buyerViewOf(buyer, job, (view) => view.state === 'Disputed')
-      expect(disputed.dispute).toEqual({ reason: 'The favicon set is missing.', workerShareBps: null, ruling: null })
+      expect(disputed.dispute).toMatchObject({ reason: null, workerShareBps: null, ruling: null })
     }))
 })

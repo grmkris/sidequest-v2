@@ -79,10 +79,9 @@ const signInWith = (fetch: Api['fetch']) => async (signer: Signer) => {
   return { ...clientOf(fetch, cookie), account, cookie }
 }
 
-/** Run `test` against a fresh API: a new model, a new database and a fake chain. */
-export const withApi = async (test: (api: Api) => Promise<void>) => {
+/** Run `test` against a fresh API: a new model, a new database and, unless `world` names another, a fake chain. */
+export const withApi = async (test: (api: Api) => Promise<void>, world = signInWorld(fakeArc().client).layer) => {
   const memoMap = Layer.makeMemoMapUnsafe()
-  const world = signInWorld(fakeArc().client).layer
   const runtime = ManagedRuntime.make(world, { memoMap })
   const { handler, dispose } = HttpRouter.toWebHandler(
     apiRoutes(release).pipe(Layer.provide(world), Layer.provide(HttpServer.layerServices)),

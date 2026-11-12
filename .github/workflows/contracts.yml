@@ -3,10 +3,16 @@ on:
   push:
     paths:
       - 'contracts/**'
+      - 'packages/settlement/src/abi/**'
+      - 'packages/settlement/test/fixtures/**'
+      - 'tools/settlement-bindings.ts'
       - '.github/workflows/contracts.yml'
   pull_request:
     paths:
       - 'contracts/**'
+      - 'packages/settlement/src/abi/**'
+      - 'packages/settlement/test/fixtures/**'
+      - 'tools/settlement-bindings.ts'
       - '.github/workflows/contracts.yml'
 permissions:
   contents: read
@@ -38,5 +44,12 @@ jobs:
       - name: Arc testnet fork tests
         if: env.ARC_TESTNET_RPC_URL != ''
         run: forge test --match-path 'test/fork/*'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      # Regenerates packages/settlement's ABI bindings and test vectors from this build and fails on any difference.
+      - name: Settlement bindings and vectors match the build
+        working-directory: .
+        run: bun install --frozen-lockfile && bun tools/settlement-bindings.ts --check
       - name: Coverage
         run: forge coverage --ir-minimum --report summary --no-match-coverage '(test|script|dependencies)/' --no-match-path 'test/fork/*'

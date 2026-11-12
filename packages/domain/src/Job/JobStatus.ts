@@ -3,6 +3,7 @@ import {
   Agreement,
   Bps,
   Digest,
+  DisputeReason,
   type JobStage,
   ProposalId,
   ProposalVersion,
@@ -22,15 +23,30 @@ export const Open = Schema.TaggedStruct('Open', {
   heads: Schema.Record(AccountId, Head),
 })
 export const Awarded = Schema.TaggedStruct('Awarded', { agreement: Agreement })
-export const Funded = Schema.TaggedStruct('Funded', { agreement: Agreement })
+export const Funded = Schema.TaggedStruct('Funded', {
+  agreement: Agreement,
+  /** The artifact the worker handed over, which they sign to post on chain; null until they do. */
+  artifactHash: Schema.NullOr(Digest),
+})
+/** Why the buyer rejected, once they said so: the first reason stands. */
+const Reason = Schema.NullOr(DisputeReason)
+
 export const Delivered = Schema.TaggedStruct('Delivered', {
   agreement: Agreement,
+  /** The delivery's hash as the chain recorded it: what the buyer's approval or rejection names. */
+  artifactHash: Digest,
   /** From the chain-observed delivery time plus the agreed review window. */
   reviewEndsAt: UnixSeconds,
-  approvedAt: Schema.NullOr(UnixSeconds),
+  reason: Reason,
 })
-export const Disputed = Schema.TaggedStruct('Disputed', { agreement: Agreement, workerShareBps: Schema.NullOr(Bps) })
+export const Disputed = Schema.TaggedStruct('Disputed', {
+  agreement: Agreement,
+  workerShareBps: Schema.NullOr(Bps),
+  reason: Reason,
+})
 export const Settled = Schema.TaggedStruct('Settled', {
+  /** The agreement the escrow settled; its payment stays readable on chain. */
+  agreement: Schema.NullOr(Agreement),
   buyer: AccountId,
   worker: AccountId,
   reviewed: Schema.Array(AccountId),
@@ -53,7 +69,7 @@ export type JobStatus = typeof JobStatus.Type
 type Stage = JobStage
 
 /** The stage a state is in, for a rejection's evidence. */
-const stageOf = (state: JobStatus): Stage =>
+export const stageOf = (state: JobStatus): Stage =>
   Match.valueTags(state, {
     Unposted: (): Stage => 'Unposted',
     Open: (): Stage => 'Open',
@@ -83,6 +99,12 @@ export const inDisputed = (state: JobStatus) =>
   Predicate.isTagged(state, 'Disputed') ? Effect.succeed(state) : wrong(state, ['Disputed'])
 export const inSettled = (state: JobStatus) =>
   Predicate.isTagged(state, 'Settled') ? Effect.succeed(state) : wrong(state, ['Settled'])
+
+/** Where the buyer may say why they rejected: delivered (the chain has yet to report the rejection) or disputed. */
+export const inReview = (state: JobStatus) =>
+  Predicate.isTagged(state, 'Delivered') || Predicate.isTagged(state, 'Disputed')
+    ? Effect.succeed(state)
+    : wrong(state, ['Delivered', 'Disputed'])
 
 /** Where escrowed money can still move: funded, delivered or disputed. */
 export const inEscrow = (state: JobStatus) =>

@@ -10,6 +10,7 @@ import { SubmitProposal } from '../src/Job/SubmitProposal.command.ts'
 import { RoomOpened } from '../src/Rooms/OpenRoom.command.ts'
 import { RoomOpening, RoomOpeningLive } from '../src/Rooms/RoomOpening.policy.ts'
 import { Sidequest, SidequestHandlers } from '../src/Sidequest.model.ts'
+import { Settlement } from '../src/Job/Settlement.external.ts'
 import {
   alice,
   at,
@@ -49,6 +50,7 @@ const RedeliveredRoomOpening = Layer.effect(
 ).pipe(Layer.provide(RoomOpeningLive))
 const redelivered = Story.make(Sidequest, {
   layer: Layer.mergeAll(SidequestHandlers, RedeliveredRoomOpening).pipe(Layer.provide(memoryStores().layer)),
+  externalSystems: [Settlement],
 })
 
 describe('rooms open by themselves', () => {

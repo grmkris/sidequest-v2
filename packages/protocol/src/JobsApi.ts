@@ -3,7 +3,7 @@ import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { Delivery } from './Delivery.ts'
 import { SignedIn } from './Guards.ts'
 import { JobId, ProposalId } from './Id.ts'
-import { DisputeReason, JobView, ProposalRef } from './JobView.ts'
+import { JobView, ProposalRef } from './JobView.ts'
 import { Page, PageQuery } from './Page.ts'
 import { ProposalVersion } from './Proposal.ts'
 import { BadCursor, refusals } from './Refusals.ts'
@@ -19,8 +19,9 @@ const jobCommand = { params: onJob, error: refusals }
 
 /**
  * The hire, up to what happens on chain: post a request, list the open ones, read a job as its buyer, a bidder or
- * anyone, propose, ask for a change, accept one exact version, cancel, deliver, approve or reject, and review. The
- * server mints job and proposal ids.
+ * anyone, propose, ask for a change, accept one exact version, cancel, hand over the delivered artifact, and review.
+ * The server mints job and proposal ids. Funding, the delivery's hash on chain, approval, rejection and rulings are
+ * signatures, in `SettlementApi`.
  */
 export class JobsApi extends HttpApiGroup.make('jobs').add(
   HttpApiEndpoint.post('post', '/api/jobs', {
@@ -55,11 +56,6 @@ export class JobsApi extends HttpApiGroup.make('jobs').add(
   HttpApiEndpoint.post('deliver', '/api/jobs/:job/delivery', {
     ...jobCommand,
     payload: Schema.Struct({ artifactHash: Delivery.fields.artifactHash, url: Delivery.fields.url }),
-  }).middleware(SignedIn),
-  HttpApiEndpoint.post('approve', '/api/jobs/:job/approval', jobCommand).middleware(SignedIn),
-  HttpApiEndpoint.post('reject', '/api/jobs/:job/rejection', {
-    ...jobCommand,
-    payload: Schema.Struct({ reason: DisputeReason }),
   }).middleware(SignedIn),
   HttpApiEndpoint.post('review', '/api/jobs/:job/reviews', {
     ...jobCommand,

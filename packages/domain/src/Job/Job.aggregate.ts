@@ -5,7 +5,6 @@ import { asPerson, asSystem, requireRole, sentBySystem, unixSeconds, withScope }
 import { ExpiryNotInFuture } from '../ExpiryNotInFuture.rejection.ts'
 import { NotPermitted } from '../NotPermitted.rejection.ts'
 import { AcceptProposal, ProposalAccepted, ProposalDeclined } from './AcceptProposal.command.ts'
-import { ApproveDelivery, DeliveryApproved } from './ApproveDelivery.command.ts'
 import { CancelRequest, RequestCancelled } from './CancelRequest.command.ts'
 import { ExpireRequest, RequestExpired } from './ExpireRequest.command.ts'
 import {
@@ -19,6 +18,7 @@ import {
   inEscrow,
   inFunded,
   inOpen,
+  inReview,
   inSettled,
   inUnposted,
   JobStatus,
@@ -30,9 +30,10 @@ import { headNamed } from './NamedProposal.ts'
 import { matchReceipt } from './Receipts.ts'
 import { DeliveryRecorded, RecordDelivery } from './RecordDelivery.command.ts'
 import { FundingRecorded, RecordFunding } from './RecordFunding.command.ts'
+import { RecordRejection, RejectionRecorded } from './RecordRejection.command.ts'
 import { AlreadyRuled, RecordRuling, RulingRecorded } from './RecordRuling.command.ts'
 import { JobSettled, RecordSettlement } from './RecordSettlement.command.ts'
-import { AlreadyApproved, DeliveryRejected, RejectDelivery, ReviewWindowClosed } from './RejectDelivery.command.ts'
+import { DeliveryRejected, RejectDelivery } from './RejectDelivery.command.ts'
 import { PostRequest, RequestPosted } from './PostRequest.command.ts'
 import { ChangeRequested, RequestChange } from './RequestChange.command.ts'
 import { DeliveryLate, DeliverySubmitted, SubmitDelivery } from './SubmitDelivery.command.ts'
@@ -43,8 +44,10 @@ const rulingOf = (workerShareBps: number) =>
 
 /**
  * The lifecycle of one work request: `Open → Awarded → Funded → Delivered → Settled`, with `Disputed` between
- * `Delivered` and `Settled`, and the terminal `Cancelled` and `Expired`. People and agents propose, agree and
- * deliver; only the system moves money stages, from what the chain reader verified.
+ * `Delivered` and `Settled`, and the terminal `Cancelled` and `Expired`. People and agents propose, agree, hand over
+ * the artifact and say why they reject; only the system moves money stages, from what the chain reader verified. The
+ * chain is the single source of truth for funding, delivery, approval, rejection, ruling and settlement: a person's
+ * signature reaches it through the relayer, and the job follows when the settlement saga records what the chain did.
  */
 export class Job extends Domain.Aggregate('Job', {
   id: JobId,
@@ -60,8 +63,8 @@ export class Job extends Domain.Aggregate('Job', {
     RecordFunding,
     SubmitDelivery,
     RecordDelivery,
-    ApproveDelivery,
     RejectDelivery,
+    RecordRejection,
     RecordRuling,
     RecordSettlement,
     LeaveReview,
@@ -150,20 +153,22 @@ export class Job extends Domain.Aggregate('Job', {
       const reviewEndsAt = deliveredAt + agreement.terms.reviewWindowSeconds
       return [new DeliveryRecorded({ artifactHash, deliveredAt, reviewEndsAt })]
     }),
-    ApproveDelivery: Effect.fn(function* (state, _, { now }) {
+    RejectDelivery: Effect.fn(function* (state, { reason }) {
       const account = yield* asPerson()
-      const delivered = yield* inDelivered(state)
-      yield* requireRole(account, delivered.agreement.buyer, 'buyer')
-      return delivered.approvedAt === null ? [new DeliveryApproved({ approvedAt: unixSeconds(now) })] : []
+      const review = yield* inReview(state)
+      yield* requireRole(account, review.agreement.buyer, 'buyer')
+      return review.reason === null ? [new DeliveryRejected({ reason })] : []
     }),
-    RejectDelivery: Effect.fn(function* (state, { reason }, { now }) {
-      const account = yield* asPerson()
-      const delivered = yield* inDelivered(state)
-      yield* requireRole(account, delivered.agreement.buyer, 'buyer')
-      if (delivered.approvedAt !== null) return yield* new AlreadyApproved({ approvedAt: delivered.approvedAt })
-      const at = unixSeconds(now)
-      if (at > delivered.reviewEndsAt) return yield* new ReviewWindowClosed({ endsAt: delivered.reviewEndsAt, now: at })
-      return [new DeliveryRejected({ reason })]
+    RecordRejection: Effect.fn(function* (state, { rejectedAt }) {
+      yield* asSystem()
+      const { agreement } = yield* inDelivered(state)
+      const { disputeWindowSeconds, arbitrationWindowSeconds } = agreement.terms
+      return [
+        new RejectionRecorded({
+          rejectedAt,
+          arbitrationEndsAt: rejectedAt + disputeWindowSeconds + arbitrationWindowSeconds,
+        }),
+      ]
     }),
     RecordRuling: Effect.fn(function* (state, { workerShareBps }) {
       yield* asSystem()
@@ -211,21 +216,23 @@ export class Job extends Domain.Aggregate('Job', {
     RequestCancelled: () => ({ _tag: 'Cancelled' as const }),
     RequestExpired: () => ({ _tag: 'Expired' as const }),
     FundingRecorded: (state) =>
-      Predicate.isTagged(state, 'Awarded') ? Funded.make({ agreement: state.agreement }) : state,
-    DeliverySubmitted: (state) => state,
-    DeliveryRecorded: (state, { reviewEndsAt }) =>
+      Predicate.isTagged(state, 'Awarded') ? Funded.make({ agreement: state.agreement, artifactHash: null }) : state,
+    DeliverySubmitted: (state, { delivery }) =>
+      Predicate.isTagged(state, 'Funded') ? { ...state, artifactHash: delivery.artifactHash } : state,
+    DeliveryRecorded: (state, { artifactHash, reviewEndsAt }) =>
       Predicate.isTagged(state, 'Funded')
-        ? Delivered.make({ agreement: state.agreement, reviewEndsAt, approvedAt: null })
+        ? Delivered.make({ agreement: state.agreement, artifactHash, reviewEndsAt, reason: null })
         : state,
-    DeliveryApproved: (state, { approvedAt }) =>
-      Predicate.isTagged(state, 'Delivered') ? { ...state, approvedAt } : state,
-    DeliveryRejected: (state) =>
+    DeliveryRejected: (state, { reason }) =>
+      Predicate.isTagged(state, 'Delivered') || Predicate.isTagged(state, 'Disputed') ? { ...state, reason } : state,
+    RejectionRecorded: (state) =>
       Predicate.isTagged(state, 'Delivered')
-        ? Disputed.make({ agreement: state.agreement, workerShareBps: null })
+        ? Disputed.make({ agreement: state.agreement, workerShareBps: null, reason: state.reason })
         : state,
     RulingRecorded: (state, { workerShareBps }) =>
       Predicate.isTagged(state, 'Disputed') ? { ...state, workerShareBps } : state,
-    JobSettled: (_, { buyer, worker }) => Settled.make({ buyer, worker, reviewed: [] }),
+    JobSettled: (state, { buyer, worker }) =>
+      Settled.make({ agreement: 'agreement' in state ? state.agreement : null, buyer, worker, reviewed: [] }),
     ReviewLeft: (state, { review }) =>
       Predicate.isTagged(state, 'Settled') ? { ...state, reviewed: [...state.reviewed, review.author] } : state,
   },

@@ -1,6 +1,8 @@
 import * as Domain from '@alchemy.run/domain'
-import { Sidequest, SidequestHandlers } from '@sidequest/domain'
-import { Effect, Layer, Schema } from 'effect'
+import { Sidequest } from '@sidequest/domain'
+import type { Timing } from '@sidequest/domain/Job/SettlementPlan'
+import { SettlementTiming } from '@sidequest/domain/Job/SettlementTiming'
+import { Effect, Layer, Option, Schema } from 'effect'
 import {
   createPublicClient,
   custom,
@@ -15,7 +17,9 @@ import {
   recoverAddress,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { D1Stores } from '../src/DomainLive.ts'
+import { DomainHandlers } from '../src/DomainLive.ts'
+import type { EscrowConfig } from '../src/Settlement/EscrowConfig.ts'
+import { escrowLive } from '../src/Settlement/SettlementLive.ts'
 import { ArcRpc } from '../src/SignIn/ArcRpc.ts'
 import { SignInLive } from '../src/SignIn/SignInLive.ts'
 import { siteOf } from '../src/SignIn/Siwe.ts'
@@ -66,16 +70,27 @@ export const fakeArc = (): { readonly client: PublicClient; readonly asked: Aske
   return { client: createPublicClient({ transport: custom({ request }) }), asked }
 }
 
+/** How a test world settles: no escrow (the default), or one on a test chain, with the sagas' timing. */
+export interface Settling {
+  readonly escrow: Option.Option<EscrowConfig>
+  readonly timing?: Timing
+}
+
 /**
- * Sign-in over the model in memory, its projections and the sign-in stores on a fresh local D1, and `rpc` as the
- * chain. `sqlite` reads the database directly.
+ * Sign-in over the model in memory, its projections and the sign-in and settlement stores on a fresh local D1, and
+ * `rpc` as the chain. `sqlite` reads the database directly.
  */
-export const signInWorld = (rpc: PublicClient) => {
+export const signInWorld = (rpc: PublicClient, settling: Settling = { escrow: Option.none() }) => {
   const { sqlite, layer: sql } = localSql()
-  const model = Sidequest.layer(SidequestHandlers.pipe(Layer.provide(D1Stores))).pipe(Layer.provide(Domain.InMemory))
+  const handlers =
+    settling.timing === undefined
+      ? DomainHandlers
+      : DomainHandlers.pipe(Layer.provide(Layer.succeed(SettlementTiming, settling.timing)))
+  const model = Sidequest.layer(handlers).pipe(Layer.provide(Domain.InMemory))
   const layer = SignInLive.pipe(
-    Layer.provide(Layer.succeed(ArcRpc, rpc)),
     Layer.provideMerge(model),
+    Layer.provideMerge(escrowLive(settling.escrow)),
+    Layer.provideMerge(Layer.succeed(ArcRpc, rpc)),
     Layer.provideMerge(sql),
   )
   return { sqlite, layer }

@@ -21,6 +21,11 @@ export default defineConfig({
       // The D1 stores' and reads' text is SQL.
       'packages/server/src/Projections/**/*.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Reads/**/*.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/Settlement/D1SettlementStores.ts': ['/[\\s\\S]*/'],
+      // The EIP-712 type strings the operator and the escrow hash: part of the signed protocol, not text.
+      'packages/settlement/src/Payment.ts': ['/^(JobParams|PaymentInfo)\\(/'],
+      // Contract ABIs generated from the Foundry build: Solidity type names, not text.
+      'packages/settlement/src/abi/*.ts': ['/[\\s\\S]*/'],
       'packages/server/src/SignIn/Nonces.ts': ['/[\\s\\S]*/'],
       'packages/server/src/SignIn/Sessions.ts': ['/[\\s\\S]*/'],
       // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for

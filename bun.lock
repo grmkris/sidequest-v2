@@ -89,12 +89,21 @@
         "@effect/sql-d1": "catalog:",
         "@sidequest/domain": "workspace:*",
         "@sidequest/protocol": "workspace:*",
+        "@sidequest/settlement": "workspace:*",
         "alchemy": "catalog:",
         "effect": "catalog:",
         "viem": "2.57.12",
       },
       "devDependencies": {
         "@types/node": "catalog:",
+      },
+    },
+    "packages/settlement": {
+      "name": "@sidequest/settlement",
+      "dependencies": {
+        "@sidequest/protocol": "workspace:*",
+        "effect": "catalog:",
+        "viem": "2.57.12",
       },
     },
   },
@@ -568,6 +577,8 @@
     "@sidequest/protocol": ["@sidequest/protocol@workspace:packages/protocol"],
 
     "@sidequest/server": ["@sidequest/server@workspace:packages/server"],
+
+    "@sidequest/settlement": ["@sidequest/settlement@workspace:packages/settlement"],
 
     "@sidequest/web": ["@sidequest/web@workspace:apps/web"],
 

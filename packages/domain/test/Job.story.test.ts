@@ -3,13 +3,13 @@ import { describe, it } from '@effect/vitest'
 import { expect } from 'vitest'
 import { CurrentActor } from '../src/CurrentActor.context.ts'
 import { AcceptProposal } from '../src/Job/AcceptProposal.command.ts'
-import { ApproveDelivery, DeliveryApproved } from '../src/Job/ApproveDelivery.command.ts'
 import { CancelRequest, RequestCancelled } from '../src/Job/CancelRequest.command.ts'
 import { ExpireRequest, RequestExpired } from '../src/Job/ExpireRequest.command.ts'
 import { LeaveReview, ReviewLeft } from '../src/Job/LeaveReview.command.ts'
 import { PostRequest } from '../src/Job/PostRequest.command.ts'
 import { RecordDelivery } from '../src/Job/RecordDelivery.command.ts'
 import { RecordFunding } from '../src/Job/RecordFunding.command.ts'
+import { RecordRejection, RejectionRecorded } from '../src/Job/RecordRejection.command.ts'
 import { RecordRuling, RulingRecorded } from '../src/Job/RecordRuling.command.ts'
 import { JobSettled, RecordSettlement } from '../src/Job/RecordSettlement.command.ts'
 import { DeliveryRejected, RejectDelivery } from '../src/Job/RejectDelivery.command.ts'
@@ -80,14 +80,7 @@ describe('a job', () => {
       Story.provide(CurrentActor, settlement),
       Story.when(job, new RecordDelivery({ artifactHash, deliveredAt: at.deliveredOnChain })),
       Story.then(job, deliveredOnChain),
-      Story.clock(iso(at.deliveredOnChain + 3600)),
-      Story.provide(CurrentActor, person(alice)),
-      Story.when(job, new ApproveDelivery()),
-      Story.then(job, new DeliveryApproved({ approvedAt: at.deliveredOnChain + 3600 })),
-      // Approving again changes nothing.
-      Story.when(job, new ApproveDelivery()),
-      Story.then(job),
-      Story.provide(CurrentActor, settlement),
+      // The buyer's approval is a signature the chain acts on: the job learns of it as the capture.
       Story.when(job, new RecordSettlement({ receipts: [receipt('capture')] })),
       Story.then(job, new JobSettled({ buyer: alice, worker: bob, outcome: 'paid', receipts: [receipt('capture')] })),
       Story.provide(CurrentActor, person(alice)),
@@ -100,19 +93,27 @@ describe('a job', () => {
         new ReviewLeft({ review: { job: jobId, author: bob, subject: alice, rating: 4, comment: 'Clear brief.' } }),
       ),
       Story.state(job, (state) =>
-        expect(state).toEqual({ _tag: 'Settled', buyer: alice, worker: bob, reviewed: [alice, bob] }),
+        expect(state).toMatchObject({ _tag: 'Settled', buyer: alice, worker: bob, reviewed: [alice, bob] }),
       ),
     ),
   )
 
-  it.effect('goes to dispute when the buyer rejects in the review window, and settles as the arbitrator split it', () =>
+  it.effect('goes to dispute when the chain records the rejection, and settles as the arbitrator split it', () =>
     story(
       Story.given(job, ...history.delivered),
       Story.clock(iso(at.reviewEnds - 60)),
       Story.provide(CurrentActor, person(alice)),
       Story.when(job, new RejectDelivery({ reason: 'The favicon set is missing.' })),
       Story.then(job, new DeliveryRejected({ reason: 'The favicon set is missing.' })),
+      Story.state(job, (state) =>
+        expect(state).toMatchObject({ _tag: 'Delivered', reason: 'The favicon set is missing.' }),
+      ),
       Story.provide(CurrentActor, settlement),
+      Story.when(job, new RecordRejection({ rejectedAt: at.reviewEnds - 50 })),
+      Story.then(
+        job,
+        new RejectionRecorded({ rejectedAt: at.reviewEnds - 50, arbitrationEndsAt: at.reviewEnds - 50 + 9 * 86_400 }),
+      ),
       Story.when(job, new RecordRuling({ workerShareBps: 6000 })),
       Story.then(job, new RulingRecorded({ workerShareBps: 6000, ruling: 'split' })),
       Story.when(

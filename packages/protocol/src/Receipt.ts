@@ -2,11 +2,10 @@ import { Schema } from 'effect'
 import { AccountRef } from './AccountRef.ts'
 import { Amount } from './Amount.ts'
 import { AssetId } from './AssetRef.ts'
+import { Bytes32 } from './Bytes32.ts'
 import { JobId } from './Id.ts'
 import { NetworkRef } from './NetworkRef.ts'
 import { PaymentRail } from './PaymentRail.ts'
-
-const Bytes32 = Schema.String.check(Schema.isPattern(/^0x[0-9a-f]{64}$/))
 
 /** An escrow operation the chain reader observed, with every field it verifies before a `Record*` command. */
 export const Receipt = Schema.Struct({

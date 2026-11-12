@@ -13,6 +13,6 @@ export const stageChanges = {
   RequestExpired: to('Expired'),
   FundingRecorded: to('Funded'),
   DeliveryRecorded: to('Delivered'),
-  DeliveryRejected: to('Disputed'),
+  RejectionRecorded: to('Disputed'),
   JobSettled: to('Settled'),
 }

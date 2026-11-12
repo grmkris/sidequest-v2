@@ -25,6 +25,7 @@ import { ProposalSubmitted } from '../src/Job/SubmitProposal.command.ts'
 import { RoomOpened } from '../src/Rooms/OpenRoom.command.ts'
 import { MessagePosted } from '../src/Rooms/PostMessage.command.ts'
 import { Room } from '../src/Rooms/Room.aggregate.ts'
+import { Settlement } from '../src/Job/Settlement.external.ts'
 import { Sidequest, SidequestHandlers } from '../src/Sidequest.model.ts'
 
 /** Memory stores behind the model's projections, kept so a story can read what they were given. */
@@ -44,7 +45,7 @@ export const memoryStores = () => {
 
 /** Stories over the whole model, its policies and projections running for real against `stores`. */
 export const storyOver = (stores: ReturnType<typeof memoryStores>) =>
-  Story.make(Sidequest, { layer: SidequestHandlers.pipe(Layer.provide(stores.layer)) })
+  Story.make(Sidequest, { layer: SidequestHandlers.pipe(Layer.provide(stores.layer)), externalSystems: [Settlement] })
 
 /** Stories that do not read the stores: each test gets fresh ones. */
 export const story = (...steps: ReadonlyArray<Step>) => storyOver(memoryStores())(...steps)

@@ -7,6 +7,7 @@ import { jobsHandlers } from './Http/JobsHttp.ts'
 import { listingsHandlers } from './Http/ListingsHttp.ts'
 import { roomsHandlers } from './Http/RoomsHttp.ts'
 import { SameOriginLive } from './Http/SameOriginLive.ts'
+import { settlementHandlers } from './Http/SettlementHttp.ts'
 import { PeopleClients } from './Http/People.ts'
 import { SignedInLive } from './Http/SignedInLive.ts'
 import { AgentReads } from './Reads/AgentReads.ts'
@@ -21,7 +22,8 @@ const Reads = Layer.mergeAll(AgentReads.layer, ListingReads.layer, OpenRequestRe
 
 /**
  * The typed HTTP API's routes: every group of `SidequestApi` with its handlers, the `SameOrigin` and `SignedIn`
- * middleware, and the D1 reads. It needs the hosted model, sign-in's `Sessions` and the database's `SqlClient`.
+ * middleware, and the D1 reads. It needs the hosted model, sign-in's `Sessions`, the database's `SqlClient` and the
+ * `Escrow`.
  */
 export const apiRoutes = (release: string) =>
   HttpApiBuilder.layer(SidequestApi).pipe(
@@ -31,6 +33,7 @@ export const apiRoutes = (release: string) =>
       agentsHandlers,
       listingsHandlers,
       jobsHandlers,
+      settlementHandlers,
       roomsHandlers,
       inboxHandlers,
     ]),

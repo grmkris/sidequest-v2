@@ -10,6 +10,7 @@ import { ada, ben, createdId, cy, origin, request, terms, withApi } from './Http
 const systemCommands = [
   'RecordFunding',
   'RecordDelivery',
+  'RecordRejection',
   'RecordRuling',
   'RecordSettlement',
   'ExpireRequest',
@@ -26,8 +27,19 @@ describe('what the HTTP API cannot reach', () => {
       expect(reachable).toContain('AcceptProposal')
       const buyer = await signIn(ada)
       const job = await postJob(buyer)
-      for (const path of ['funding', 'delivery-recorded', 'ruling', 'settlement', 'expiry'])
+      for (const path of ['funded', 'delivery-recorded', 'rejected', 'settlement', 'expiry'])
         expect((await buyer.post(`/api/jobs/${job}/${path}`, {})).status).toBe(404)
+      // What a person may post is a signature for the chain, and only in the stage it belongs to; a ruling only from
+      // the configured arbitration operator.
+      const signature = `0x${'11'.repeat(65)}`
+      expect(await buyer.post(`/api/jobs/${job}/funding`, { signature })).toMatchObject({
+        status: 409,
+        body: { reason: 'WrongState' },
+      })
+      expect(await buyer.post(`/api/jobs/${job}/ruling`, { workerShareBps: 10_000 })).toMatchObject({
+        status: 403,
+        body: { reason: 'NotPermitted' },
+      })
       expect((await buyer.post('/rpc', { _tag: 'Request', tag: 'RecordFunding' })).status).toBe(404)
     }))
 

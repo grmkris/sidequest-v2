@@ -6,7 +6,6 @@ import { GrantAgent } from './Identity/GrantAgent.command.ts'
 import { RegisterAgent } from './Identity/RegisterAgent.command.ts'
 import { RevokeGrant } from './Identity/RevokeGrant.command.ts'
 import { AcceptProposal } from './Job/AcceptProposal.command.ts'
-import { ApproveDelivery } from './Job/ApproveDelivery.command.ts'
 import { BidderJobSummary } from './Job/BidderJobSummary.view.ts'
 import { BuyerJobSummary } from './Job/BuyerJobSummary.view.ts'
 import { CancelRequest } from './Job/CancelRequest.command.ts'
@@ -42,7 +41,6 @@ export class PeopleApi extends Domain.Api(
   AcceptProposal,
   CancelRequest,
   SubmitDelivery,
-  ApproveDelivery,
   RejectDelivery,
   LeaveReview,
   PostMessage,

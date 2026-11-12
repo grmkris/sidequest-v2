@@ -12,28 +12,39 @@ import { BuyerJobSummary } from './Job/BuyerJobSummary.view.ts'
 import { Job } from './Job/Job.aggregate.ts'
 import { JobSummary } from './Job/JobSummary.view.ts'
 import { OpenJobs, OpenJobsLive } from './Job/OpenJobs.projection.ts'
+import { ConfirmSubmission, ConfirmSubmissionLive } from './Job/ConfirmSubmission.saga.ts'
 import { RequestExpiry, RequestExpiryLive } from './Job/RequestExpiry.policy.ts'
+import { SettleJob, SettleJobLive } from './Job/SettleJob.saga.ts'
+import { SettlementStart, SettlementStartLive } from './Job/SettlementStart.policy.ts'
 import { Room } from './Rooms/Room.aggregate.ts'
 import { RoomMessageLog, RoomMessageLogLive } from './Rooms/RoomMessageLog.projection.ts'
 import { RoomMessages } from './Rooms/RoomMessages.stream.ts'
 import { RoomOpening, RoomOpeningLive } from './Rooms/RoomOpening.policy.ts'
 
-/** Phase 1's model: identity, the directory, the job lifecycle and its rooms, with their views and projections. */
+/**
+ * Phase 1's model: identity, the directory, the job lifecycle and its rooms, with their views and projections, and
+ * the saga that settles each awarded job through its escrow.
+ */
 export class Sidequest extends Domain.Model('Sidequest', {
   aggregates: [Account, WalletClaim, Agent, Listing, Job, Room],
   views: [JobSummary, BuyerJobSummary, BidderJobSummary],
-  policies: [RoomOpening, RequestExpiry],
+  policies: [RoomOpening, RequestExpiry, SettlementStart],
   projections: [Agents, Listings, OpenJobs, Inbox, RoomMessageLog],
   streams: [RoomMessages],
+  sagas: [SettleJob, ConfirmSubmission],
 }) {}
 
 /**
- * Every policy and projection implementation, as one Layer. It needs the store ports (`AgentStore`, `ListingStore`,
- * `OpenJobStore`, `InboxStore`): D1 on the server, memory in stories.
+ * Every policy, saga and projection implementation, as one Layer. It needs the store ports (`AgentStore`,
+ * `ListingStore`, `OpenJobStore`, `InboxStore`) and the `Settlement` external system: D1 and the chain on the server,
+ * memory and answered calls in stories.
  */
 export const SidequestHandlers = Layer.mergeAll(
   RoomOpeningLive,
   RequestExpiryLive,
+  SettlementStartLive,
+  SettleJobLive,
+  ConfirmSubmissionLive,
   AgentsLive,
   ListingsLive,
   OpenJobsLive,

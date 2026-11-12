@@ -9,13 +9,13 @@ import { AgentRevoked } from '../src/AgentRevoked.rejection.ts'
 import { CurrentActor } from '../src/CurrentActor.context.ts'
 import { GrantExpired } from '../src/GrantExpired.rejection.ts'
 import { ProposalDeclined } from '../src/Job/AcceptProposal.command.ts'
-import { DeliveryApproved } from '../src/Job/ApproveDelivery.command.ts'
 import { BidderJobSummary, noBid } from '../src/Job/BidderJobSummary.view.ts'
 import { BuyerJobSummary, unpostedBuyerView } from '../src/Job/BuyerJobSummary.view.ts'
 import { RequestCancelled } from '../src/Job/CancelRequest.command.ts'
 import { JobSummary } from '../src/Job/JobSummary.view.ts'
 import { RulingRecorded } from '../src/Job/RecordRuling.command.ts'
 import { JobSettled } from '../src/Job/RecordSettlement.command.ts'
+import { RejectionRecorded } from '../src/Job/RecordRejection.command.ts'
 import { DeliveryRejected } from '../src/Job/RejectDelivery.command.ts'
 import { ChangeRequested } from '../src/Job/RequestChange.command.ts'
 import { ReviewLeft } from '../src/Job/LeaveReview.command.ts'
@@ -74,6 +74,7 @@ describe('the job summaries', () => {
         new DeliverySubmitted({ delivery }),
         deliveredOnChain,
         new DeliveryRejected({ reason }),
+        new RejectionRecorded({ rejectedAt: at.reviewEnds - 60, arbitrationEndsAt: at.reviewEnds + 777_540 }),
         new RulingRecorded({ workerShareBps: 6000, ruling: 'split' }),
         new JobSettled({ buyer: alice, worker: bob, outcome: 'split', receipts: [...split] }),
         new ReviewLeft({ review }),
@@ -88,8 +89,8 @@ describe('the job summaries', () => {
           agreement,
           funding: receipt('authorize'),
           delivery,
-          review: { deliveredAt: at.deliveredOnChain, reviewEndsAt: at.reviewEnds, approvedAt: null },
-          dispute: { reason, workerShareBps: 6000, ruling: 'split' },
+          review: { deliveredAt: at.deliveredOnChain, reviewEndsAt: at.reviewEnds },
+          dispute: { reason, arbitrationEndsAt: at.reviewEnds + 777_540, workerShareBps: 6000, ruling: 'split' },
           outcome: 'split',
           settlement: [...split],
           reviews: [review],
@@ -128,12 +129,32 @@ describe('the job summaries', () => {
     ),
   )
 
-  it.effect('show the buyer when they approved a delivery', () =>
+  it.effect("show the buyer a dispute from the chain's rejection, with the reason whenever it arrives", () =>
     story(
-      Story.given(job, ...history.delivered, new DeliveryApproved({ approvedAt: at.reviewEnds - 60 })),
+      Story.given(job, ...history.delivered),
+      Story.given(
+        job,
+        new RejectionRecorded({ rejectedAt: at.reviewEnds - 60, arbitrationEndsAt: at.reviewEnds + 777_540 }),
+      ),
+      Story.view(JobSummary, job, { state: 'Disputed' }),
+      Story.view(BuyerJobSummary, job, {
+        state: 'Disputed',
+        dispute: { reason: null, arbitrationEndsAt: at.reviewEnds + 777_540, workerShareBps: null, ruling: null },
+      }),
+      Story.given(job, new DeliveryRejected({ reason })),
+      Story.view(BuyerJobSummary, job, {
+        dispute: { reason, arbitrationEndsAt: at.reviewEnds + 777_540, workerShareBps: null, ruling: null },
+      }),
+    ),
+  )
+
+  it.effect("keep a delivery under review when the buyer gives a reason before the chain's rejection", () =>
+    story(
+      Story.given(job, ...history.delivered, new DeliveryRejected({ reason })),
+      Story.view(JobSummary, job, { state: 'Delivered' }),
       Story.view(BuyerJobSummary, job, {
         state: 'Delivered',
-        review: { deliveredAt: at.deliveredOnChain, reviewEndsAt: at.reviewEnds, approvedAt: at.reviewEnds - 60 },
+        dispute: { reason, arbitrationEndsAt: null, workerShareBps: null, ruling: null },
       }),
     ),
   )

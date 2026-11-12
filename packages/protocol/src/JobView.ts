@@ -31,15 +31,19 @@ export const DisputeReason = Text(2000)
 export const ProposalRef = Schema.Struct({ bidder: AccountId, version: ProposalVersion, termsDigest: Digest })
 export type ProposalRef = typeof ProposalRef.Type
 
-/** The window the buyer has to approve or reject a delivery observed on chain. */
+/** The window the buyer has to approve or reject a delivery observed on chain; silence after it is acceptance. */
 const ReviewWindow = Schema.Struct({
   deliveredAt: UnixSeconds,
   reviewEndsAt: UnixSeconds,
-  approvedAt: Schema.NullOr(UnixSeconds),
 })
 
+/**
+ * A rejection: the buyer's stated reason (null until they give one), when the arbitrator's time ends (null until the
+ * chain recorded the rejection), and the ruling once made.
+ */
 const Dispute = Schema.Struct({
-  reason: DisputeReason,
+  reason: Schema.NullOr(DisputeReason),
+  arbitrationEndsAt: Schema.NullOr(UnixSeconds),
   workerShareBps: Schema.NullOr(Bps),
   ruling: Schema.NullOr(Ruling),
 })

@@ -53,24 +53,24 @@ Grant scopes: `discuss`, `propose`, `accept`, `deliver`. There is no `pay` scope
 
 States: `Open → Awarded → Funded → Delivered → Settled`, with `Disputed` between `Delivered` and `Settled`, and the terminal states `Cancelled` and `Expired`.
 
-| Command            | Who                                 | Rule                                                                                                                                   |
-| :----------------- | :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-| `PostRequest`      | buyer                               | Creates the job in `Open` with an expiry.                                                                                              |
-| `SubmitProposal`   | bidder with `propose`               | Version 1, or `previous + 1` naming the bidder's own head. Not the buyer.                                                              |
-| `RequestChange`    | buyer                               | Names the bidder's head proposal and digest.                                                                                           |
-| `AcceptProposal`   | buyer, or their agent with `accept` | Must name the bidder's head version and its exact `termsDigest`; a superseded version or wrong digest is rejected. Moves to `Awarded`. |
-| `CancelRequest`    | buyer                               | Only while `Open`.                                                                                                                     |
-| `ExpireRequest`    | system                              | Scheduled at the request's expiry; only while `Open`.                                                                                  |
-| `RecordFunding`    | system                              | From the chain reader: the escrow authorization for this job's payment hash, with the verified receipt. Moves to `Funded`.             |
-| `SubmitDelivery`   | worker with `deliver`               | Artifact hash and URL; only while `Funded` and before the delivery deadline.                                                           |
-| `RecordDelivery`   | system                              | From the chain reader: the delivery hash posted on chain. Moves to `Delivered` and starts the review window.                           |
-| `ApproveDelivery`  | buyer                               | Only while `Delivered`.                                                                                                                |
-| `RejectDelivery`   | buyer                               | Within the review window; moves to `Disputed`.                                                                                         |
-| `RecordRuling`     | system                              | The arbitrator's verified ruling: pay, refund or split in basis points.                                                                |
-| `RecordSettlement` | system                              | From the chain reader: capture, void or reclaim observed on chain. Moves to `Settled` with the outcome.                                |
-| `LeaveReview`      | buyer or worker                     | Once each, only after `Settled`.                                                                                                       |
+| Command            | Who                                 | Rule                                                                                                                                     |
+| :----------------- | :---------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+| `PostRequest`      | buyer                               | Creates the job in `Open` with an expiry.                                                                                                |
+| `SubmitProposal`   | bidder with `propose`               | Version 1, or `previous + 1` naming the bidder's own head. Not the buyer.                                                                |
+| `RequestChange`    | buyer                               | Names the bidder's head proposal and digest.                                                                                             |
+| `AcceptProposal`   | buyer, or their agent with `accept` | Must name the bidder's head version and its exact `termsDigest`; a superseded version or wrong digest is rejected. Moves to `Awarded`.   |
+| `CancelRequest`    | buyer                               | Only while `Open`.                                                                                                                       |
+| `ExpireRequest`    | system                              | Scheduled at the request's expiry; only while `Open`.                                                                                    |
+| `RecordFunding`    | system                              | From the chain reader: the escrow authorization for this job's payment hash, with the verified receipt. Moves to `Funded`.               |
+| `SubmitDelivery`   | worker with `deliver`               | Records the artifact hash and URL; only while `Funded` and before the delivery deadline. The worker then signs that hash onto the chain. |
+| `RecordDelivery`   | system                              | From the chain reader: the delivery hash posted on chain. Moves to `Delivered` and starts the review window.                             |
+| `RejectDelivery`   | buyer                               | Records the buyer's reason only. The rejection itself is the buyer's signature, relayed to the chain.                                    |
+| `RecordRejection`  | system                              | From the chain reader: the rejection observed on chain. Moves to `Disputed`.                                                             |
+| `RecordRuling`     | system                              | The arbitrator's verified ruling: pay, refund or split in basis points.                                                                  |
+| `RecordSettlement` | system                              | From the chain reader: capture, void or reclaim observed on chain. Moves to `Settled` with the outcome.                                  |
+| `LeaveReview`      | buyer or worker                     | Once each, only after `Settled`.                                                                                                         |
 
-The chain is the authority for money. `Record*` commands are sent only by the settlement saga after the chain reader has verified a receipt; nothing a client sends can mark a job funded or settled.
+The chain is the authority for money. `Record*` commands are sent only by the settlement saga after the chain reader has verified a receipt; nothing a client sends can mark a job funded or settled. An approval is not a command: the buyer signs it, the server relays it, and it reaches the job as the settlement the reader observes.
 
 ### Rooms
 

@@ -8,7 +8,6 @@ import type { NotRegistered } from '@sidequest/domain/Identity/NotRegistered.rej
 import type { DigestMismatch } from '@sidequest/domain/Job/DigestMismatch.rejection'
 import type { AlreadyReviewed } from '@sidequest/domain/Job/LeaveReview.command'
 import type { NoProposal } from '@sidequest/domain/Job/NoProposal.rejection'
-import type { AlreadyApproved, ReviewWindowClosed } from '@sidequest/domain/Job/RejectDelivery.command'
 import type { DeliveryLate } from '@sidequest/domain/Job/SubmitDelivery.command'
 import type { SelfBid, StaleHead } from '@sidequest/domain/Job/SubmitProposal.command'
 import type { SupersededVersion } from '@sidequest/domain/Job/SupersededVersion.rejection'
@@ -56,9 +55,7 @@ export type Refusal = (
   | typeof SupersededVersion
   | typeof DigestMismatch
   | typeof AlreadyReviewed
-  | typeof AlreadyApproved
   | typeof DeliveryLate
-  | typeof ReviewWindowClosed
   | typeof IdempotencyConflict
   | typeof AgentTurnLimit
   | typeof ExpiryNotInFuture
@@ -113,9 +110,7 @@ const apiErrorOf = (refusal: Refusal) =>
     SupersededVersion: conflict,
     DigestMismatch: conflict,
     AlreadyReviewed: conflict,
-    AlreadyApproved: conflict,
     DeliveryLate: conflict,
-    ReviewWindowClosed: conflict,
     IdempotencyConflict: conflict,
     AgentTurnLimit: conflict,
     ExpiryNotInFuture: unprocessable,

@@ -9,7 +9,8 @@
     "**/dist/**",
     "tools/oxlint/anti-slop/**",
     "packages/i18n/src/catalogs.ts",
-    "packages/i18n/src/generated.ts"
+    "packages/i18n/src/generated.ts",
+    "packages/settlement/src/abi/**"
   ],
   "reporters": ["console"]
 }

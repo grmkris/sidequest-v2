@@ -1,0 +1,14 @@
+{
+  "name": "@sidequest/settlement",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@sidequest/protocol": "workspace:*",
+    "effect": "catalog:",
+    "viem": "2.57.12"
+  }
+}

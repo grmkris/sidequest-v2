@@ -3,6 +3,7 @@ import { CurrentActor } from '@sidequest/domain/CurrentActor.context'
 import { Job } from '@sidequest/domain/Job/Job.aggregate'
 import { RecordDelivery } from '@sidequest/domain/Job/RecordDelivery.command'
 import { RecordFunding } from '@sidequest/domain/Job/RecordFunding.command'
+import { RecordRejection } from '@sidequest/domain/Job/RecordRejection.command'
 import { RecordSettlement } from '@sidequest/domain/Job/RecordSettlement.command'
 import {
   type Agreement,
@@ -102,6 +103,14 @@ export const recordDelivery = (api: Api, job: JobId) =>
   api.run(
     Effect.gen(function* () {
       return yield* (yield* Job).send(job, new RecordDelivery({ artifactHash, deliveredAt: inSeconds(-60) }))
+    }).pipe(asSettlement),
+  )
+
+/** The chain reports the buyer rejected the delivery a minute ago. */
+export const recordRejection = (api: Api, job: JobId) =>
+  api.run(
+    Effect.gen(function* () {
+      return yield* (yield* Job).send(job, new RecordRejection({ rejectedAt: inSeconds(-60) }))
     }).pipe(asSettlement),
   )
 

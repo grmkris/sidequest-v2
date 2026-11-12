@@ -46,10 +46,6 @@ export const jobsHandlers = HttpApiBuilder.group(SidequestApi, 'jobs', (handlers
       .handle('deliver', ({ params, payload }) =>
         asPerson.send((people) => people.SubmitDelivery({ target: params.job, ...payload })),
       )
-      .handle('approve', ({ params }) => asPerson.send((people) => people.ApproveDelivery({ target: params.job })))
-      .handle('reject', ({ params, payload }) =>
-        asPerson.send((people) => people.RejectDelivery({ target: params.job, ...payload })),
-      )
       .handle('review', ({ params, payload }) =>
         asPerson.send((people) => people.LeaveReview({ target: params.job, ...payload })),
       )

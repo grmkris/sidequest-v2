@@ -47,7 +47,8 @@ export class NotFound extends Schema.TaggedError<NotFound>()(
 
 /**
  * The request does not fit the state it met: done already, the wrong stage, a superseded version or a digest that
- * does not match, too late, or a room that waits for a person.
+ * does not match, too late, or a room that waits for a person. For a payment: nothing to sign yet, a request already
+ * asked for with other parties or already submitted, none asked for, or a call the chain would refuse.
  */
 export const ConflictReason = Schema.Literals([
   'AlreadyRegistered',
@@ -58,9 +59,12 @@ export const ConflictReason = Schema.Literals([
   'SupersededVersion',
   'DigestMismatch',
   'AlreadyReviewed',
-  'AlreadyApproved',
   'DeliveryLate',
-  'ReviewWindowClosed',
+  'NothingToSign',
+  'PaymentChanged',
+  'PaymentSubmitted',
+  'PaymentNotBegun',
+  'ChainRefused',
   'IdempotencyConflict',
   'AgentTurnLimit',
 ])
@@ -71,8 +75,12 @@ export class Conflict extends Schema.TaggedError<Conflict>()(
   { httpApiStatus: 409 },
 ) {}
 
-/** The request is well formed but asks for something no state allows: an expiry that is not in the future. */
-export const UnprocessableReason = Schema.Literals(['ExpiryNotInFuture'])
+/**
+ * The request is well formed but asks for something no state allows: an expiry that is not in the future, an
+ * agreement the escrow cannot pay, a payer wallet the buyer did not sign in with, or a party with no wallet on the
+ * job's network.
+ */
+export const UnprocessableReason = Schema.Literals(['ExpiryNotInFuture', 'Unpayable', 'NotYourWallet', 'NoWallet'])
 
 export class Unprocessable extends Schema.TaggedError<Unprocessable>()(
   'Unprocessable',

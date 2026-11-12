@@ -1,11 +1,11 @@
 import { Story } from '@alchemy.run/domain/Story'
 import { describe, it } from '@effect/vitest'
+import { expect } from 'vitest'
 import { AgentRevoked } from '../src/AgentRevoked.rejection.ts'
 import { CurrentActor } from '../src/CurrentActor.context.ts'
 import { ExpiryNotInFuture } from '../src/ExpiryNotInFuture.rejection.ts'
 import { GrantExpired } from '../src/GrantExpired.rejection.ts'
 import { AcceptProposal } from '../src/Job/AcceptProposal.command.ts'
-import { ApproveDelivery, DeliveryApproved } from '../src/Job/ApproveDelivery.command.ts'
 import { DigestMismatch } from '../src/Job/DigestMismatch.rejection.ts'
 import { AlreadyReviewed, LeaveReview, ReviewLeft } from '../src/Job/LeaveReview.command.ts'
 import { NoProposal } from '../src/Job/NoProposal.rejection.ts'
@@ -15,12 +15,8 @@ import { RecordDelivery } from '../src/Job/RecordDelivery.command.ts'
 import { RecordFunding } from '../src/Job/RecordFunding.command.ts'
 import { AlreadyRuled, RecordRuling, RulingRecorded } from '../src/Job/RecordRuling.command.ts'
 import { JobSettled, RecordSettlement } from '../src/Job/RecordSettlement.command.ts'
-import {
-  AlreadyApproved,
-  DeliveryRejected,
-  RejectDelivery,
-  ReviewWindowClosed,
-} from '../src/Job/RejectDelivery.command.ts'
+import { RecordRejection, RejectionRecorded } from '../src/Job/RecordRejection.command.ts'
+import { DeliveryRejected, RejectDelivery } from '../src/Job/RejectDelivery.command.ts'
 import { RequestChange } from '../src/Job/RequestChange.command.ts'
 import { DeliveryLate, SubmitDelivery } from '../src/Job/SubmitDelivery.command.ts'
 import { SelfBid, StaleHead, SubmitProposal } from '../src/Job/SubmitProposal.command.ts'
@@ -40,6 +36,7 @@ import {
   bob,
   bobAgent,
   carol,
+  deliveredOnChain,
   digestV1,
   digestV2,
   history,
@@ -165,20 +162,44 @@ describe('a job refuses', () => {
     ),
   )
 
-  it.effect('approval by an agent, and rejection after approval or after the review window', () =>
+  it.effect("a rejection's reason from an agent, from the worker, before delivery, and a second one", () =>
     story(
-      Story.given(job, ...history.delivered),
-      Story.provide(CurrentActor, agentOf(alice, aliceAgent, ['discuss', 'accept'])),
-      Story.when(job, new ApproveDelivery()),
-      Story.rejected(new PersonRequired({ agent: aliceAgent })),
-      Story.clock(iso(at.reviewEnds + 1)),
+      Story.given(job, ...history.funded),
       Story.provide(CurrentActor, person(alice)),
-      Story.when(job, new RejectDelivery({ reason: 'Too late to say so.' })),
-      Story.rejected(new ReviewWindowClosed({ endsAt: at.reviewEnds, now: at.reviewEnds + 1 })),
-      Story.when(job, new ApproveDelivery()),
-      Story.then(job, new DeliveryApproved({ approvedAt: at.reviewEnds + 1 })),
+      Story.when(job, new RejectDelivery({ reason: 'Nothing yet.' })),
+      Story.rejected(new WrongState({ state: 'Funded', expected: ['Delivered', 'Disputed'] })),
+      Story.given(job, deliveredOnChain),
+      Story.provide(CurrentActor, agentOf(alice, aliceAgent, ['discuss', 'accept'])),
+      Story.when(job, new RejectDelivery({ reason: 'Missing files.' })),
+      Story.rejected(new PersonRequired({ agent: aliceAgent })),
+      Story.provide(CurrentActor, person(bob)),
+      Story.when(job, new RejectDelivery({ reason: 'Missing files.' })),
+      Story.rejected(new NotPermitted({ account: bob, required: 'buyer' })),
+      // The chain recorded the rejection before the buyer said why: the reason may still follow, once.
+      Story.provide(CurrentActor, settlement),
+      Story.when(job, new RecordRejection({ rejectedAt: at.reviewEnds - 60 })),
+      Story.then(
+        job,
+        new RejectionRecorded({ rejectedAt: at.reviewEnds - 60, arbitrationEndsAt: at.reviewEnds - 60 + 9 * 86_400 }),
+      ),
+      Story.provide(CurrentActor, person(alice)),
+      Story.when(job, new RejectDelivery({ reason: 'Missing files.' })),
+      Story.then(job, new DeliveryRejected({ reason: 'Missing files.' })),
       Story.when(job, new RejectDelivery({ reason: 'Changed my mind.' })),
-      Story.rejected(new AlreadyApproved({ approvedAt: at.reviewEnds + 1 })),
+      Story.then(job),
+      Story.state(job, (state) => expect(state).toMatchObject({ _tag: 'Disputed', reason: 'Missing files.' })),
+    ),
+  )
+
+  it.effect('a rejection the chain reports for a job not delivered, and one from a person', () =>
+    story(
+      Story.given(job, ...history.funded),
+      Story.provide(CurrentActor, settlement),
+      Story.when(job, new RecordRejection({ rejectedAt: at.reviewEnds })),
+      Story.rejected(new WrongState({ state: 'Funded', expected: ['Delivered'] })),
+      Story.provide(CurrentActor, person(alice)),
+      Story.when(job, new RecordRejection({ rejectedAt: at.reviewEnds })),
+      Story.rejected(new SystemOnly({ account: alice })),
     ),
   )
 
@@ -188,10 +209,11 @@ describe('a job refuses', () => {
       Story.provide(CurrentActor, settlement),
       Story.when(job, new RecordRuling({ workerShareBps: 10_000 })),
       Story.rejected(new WrongState({ state: 'Delivered', expected: ['Disputed'] })),
-      Story.provide(CurrentActor, person(alice)),
-      Story.when(job, new RejectDelivery({ reason: 'Missing files.' })),
-      Story.then(job, new DeliveryRejected({ reason: 'Missing files.' })),
-      Story.provide(CurrentActor, settlement),
+      Story.when(job, new RecordRejection({ rejectedAt: at.reviewEnds - 60 })),
+      Story.then(
+        job,
+        new RejectionRecorded({ rejectedAt: at.reviewEnds - 60, arbitrationEndsAt: at.reviewEnds - 60 + 9 * 86_400 }),
+      ),
       Story.when(job, new RecordRuling({ workerShareBps: 0 })),
       Story.then(job, new RulingRecorded({ workerShareBps: 0, ruling: 'refund' })),
       Story.when(job, new RecordRuling({ workerShareBps: 10_000 })),

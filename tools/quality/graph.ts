@@ -13,11 +13,19 @@ type Workspace = { readonly directory: string; readonly manifest: typeof Manifes
 
 const directions: Readonly<Record<string, readonly string[]>> = {
   '@sidequest/web': ['@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
-  '@sidequest/server': ['@sidequest/domain', '@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
+  '@sidequest/server': [
+    '@sidequest/domain',
+    '@sidequest/i18n',
+    '@sidequest/observability',
+    '@sidequest/protocol',
+    '@sidequest/settlement',
+  ],
   // Browser-safe contracts: the typed API and the schemas assistants and the website share.
   '@sidequest/protocol': [],
   // The model: aggregates over the shared protocol schemas, never server or browser code.
   '@sidequest/domain': ['@sidequest/protocol'],
+  // Server-only: the chain adapters (keys, RPC, the relayer). Only the server may depend on it.
+  '@sidequest/settlement': ['@sidequest/protocol'],
   '@sidequest/i18n': [],
   '@sidequest/observability': [],
 }
@@ -35,8 +43,10 @@ export const checkDirection = (from: string, to: string) => {
 export const assertBrowserSafe = (file: string, specifier: string) => {
   if (
     isBuiltin(specifier) ||
-    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@effect\/sql-|viem(\/|$))/.test(specifier) ||
-    /\/server\//.test(file)
+    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@effect\/sql-|@sidequest\/settlement|viem(\/|$))/.test(
+      specifier,
+    ) ||
+    /\/(server|settlement)\//.test(file)
   ) {
     throw new Error(`Server adapter in browser graph: ${file} -> ${specifier}`)
   }
