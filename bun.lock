@@ -57,6 +57,7 @@
       "name": "@sidequest/domain",
       "dependencies": {
         "@alchemy.run/domain": "catalog:",
+        "@sidequest/protocol": "workspace:*",
         "alchemy": "catalog:",
         "effect": "catalog:",
       },

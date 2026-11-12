@@ -16,7 +16,8 @@ const directions: Readonly<Record<string, readonly string[]>> = {
   '@sidequest/server': ['@sidequest/domain', '@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
   // Browser-safe contracts: the typed API and the schemas assistants and the website share.
   '@sidequest/protocol': [],
-  '@sidequest/domain': [],
+  // The model: aggregates over the shared protocol schemas, never server or browser code.
+  '@sidequest/domain': ['@sidequest/protocol'],
   '@sidequest/i18n': [],
   '@sidequest/observability': [],
 }

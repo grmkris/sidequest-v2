@@ -39,6 +39,8 @@ test('domain cannot depend on the server and browser cannot reach adapters throu
   expect(() => checkDirection('@sidequest/domain', '@sidequest/server')).toThrow('Forbidden dependency')
   expect(() => checkDirection('@sidequest/server', '@sidequest/domain')).not.toThrow()
   expect(() => checkDirection('@sidequest/server', '@sidequest/i18n')).not.toThrow()
+  expect(() => checkDirection('@sidequest/domain', '@sidequest/protocol')).not.toThrow()
+  expect(() => checkDirection('@sidequest/domain', '@sidequest/i18n')).toThrow('Forbidden dependency')
   expect(() => checkDirection('@sidequest/i18n', '@sidequest/server')).toThrow('Forbidden dependency')
   // The shared contracts stay browser-safe: they never reach domain or server code.
   expect(() => checkDirection('@sidequest/protocol', '@sidequest/domain')).toThrow('Forbidden dependency')
