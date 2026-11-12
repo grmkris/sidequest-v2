@@ -1,0 +1,9 @@
+# Soldeer installs these from soldeer.lock; never commit them.
+/dependencies/
+# Build output, caches, coverage and script runs (broadcast files can hold addresses and calldata).
+/out/
+/cache/
+/broadcast/
+/lcov.info
+/coverage/
+.env

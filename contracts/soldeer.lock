@@ -1,0 +1,36 @@
+version = 2
+
+[[dependencies]]
+name = "commerce-payments"
+version = "1.1.0"
+url = "https://codeload.github.com/base/commerce-payments/zip/6b0a5ef3f0df973857f558e2d6b5dd645b5e97f9"
+checksum = "004b1cd40ba67cf39dae169facabb992dcec808d9c5a1db1b764e75d1b3eb0ad"
+integrity = "4e64a5533c183b71239d2b07b546190e34fa42fc3a29b17198d6fedfcea15371"
+
+[[dependencies]]
+name = "forge-std"
+version = "1.17.0"
+url = "https://codeload.github.com/foundry-rs/forge-std/zip/f3dae6e6ee381f25eb6a246f7da9b85c91a68219"
+checksum = "636e4a46de26c55e054d53277550e638699a6cf44594255fe5ac85ab7350e39d"
+integrity = "13969fd4de918713d8fea11afbc26a10e209595d232c32545309c92c7afa8cf3"
+
+[[dependencies]]
+name = "openzeppelin-contracts"
+version = "5.7.0"
+url = "https://codeload.github.com/OpenZeppelin/openzeppelin-contracts/zip/cab19933c33c2ad1d4c7a84864a3601dddfd16f3"
+checksum = "43deaa3268a2a7aadcaeec1b23840fac70eda5fd4990554d6671c06b335aafd8"
+integrity = "92d908e0262e71716d30c3226d3baa4b1d9c6f01293b95d997c14ce3d44b6fe2"
+
+[[dependencies]]
+name = "openzeppelin-contracts-commerce"
+version = "5.0.2"
+url = "https://codeload.github.com/OpenZeppelin/openzeppelin-contracts/zip/1edc2ae004974ebf053f4eba26b45469937b9381"
+checksum = "c8f236985e2e2771ddd0aeeeb3371ef68349eaa1130dd76a4b98188dd7578f1a"
+integrity = "0e7a0e446951eecfb4ceeef3bb0c64db2f8c8cb1016428f0a08c1c1c56fbb23f"
+
+[[dependencies]]
+name = "solady"
+version = "0.1.1"
+url = "https://codeload.github.com/Vectorized/solady/zip/5ea5d9f57ed6d24a27d00934f4a3448def931415"
+checksum = "a26e71bff9f6e1be5ca2af64918f55b70f2f22c0d6490f0893688f85053b53aa"
+integrity = "f174dfd3ebcca4fda0cb13cfd605e863b79b41c89f8eb66633cc028be482a510"
