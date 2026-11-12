@@ -17,4 +17,4 @@ bun run --cwd apps/web dev
 bun run dev:preview
 ```
 
-The foundation is intentionally small: the browser shell, typed runtime boundaries, health endpoint, persistence seam, observability seam, agent skills and quality gates come first.
+The foundation is intentionally small: the browser shell, typed runtime boundaries, status endpoint, persistence seam, observability seam, agent skills and quality gates come first.

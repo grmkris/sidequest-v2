@@ -3,7 +3,7 @@ import * as AlchemyHttp from 'alchemy/Http'
 import { Effect, Layer, Logger } from 'effect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpRouter from 'effect/http/HttpRouter'
-import { health, releaseFromEnvironment } from './Health.ts'
+import { apiRoutes, releaseFromEnvironment } from './Status.ts'
 import { SidequestDatabase, SidequestMedia } from './Resources.ts'
 import { DomainLive } from './DomainLive.ts'
 
@@ -22,7 +22,7 @@ const declareBindings = Effect.gen(function* () {
 
 const makeApplication = (release: string) =>
   Effect.gen(function* () {
-    const routes = HttpRouter.add('GET', '/api/health', health(release)).pipe(Layer.provide(AlchemyHttp.Platform))
+    const routes = apiRoutes(release).pipe(Layer.provide(AlchemyHttp.Platform))
     const handle = yield* HttpRouter.toHttpEffect(routes).pipe(Effect.orDie)
     return { handle }
   })

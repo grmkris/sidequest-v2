@@ -10,6 +10,7 @@
     "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/domain": "catalog:",
     "@sidequest/domain": "workspace:*",
+    "@sidequest/protocol": "workspace:*",
     "alchemy": "catalog:",
     "effect": "catalog:"
   },
