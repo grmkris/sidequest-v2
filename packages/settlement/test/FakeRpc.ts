@@ -8,6 +8,7 @@ import {
   isHex,
   keccak256,
   numberToHex,
+  parseTransaction,
   type PublicClient,
   toEventSelector,
 } from 'viem'
@@ -60,10 +61,16 @@ export const operatorLog = (eventName: string, args: Readonly<Record<string, unk
 export const escrowLog = (eventName: string, args: Readonly<Record<string, unknown>>) =>
   encodeLog(authCaptureEscrowAbi, eventName, args)
 
-/** A transaction the fake chain holds: pending until mined, then with a receipt. */
-interface Transaction {
+/** A transaction the fake chain holds: pending until mined, then with a receipt (whose status is `reverted` or not). */
+export interface Transaction {
   readonly raw: Hex
+  /** The recipient, lowercase: the operator for a call, the relayer itself for a release. */
+  readonly to: string
+  readonly nonce: number
+  readonly maxFeePerGas: bigint
+  readonly maxPriorityFeePerGas: bigint
   readonly mined: boolean
+  readonly reverted: boolean
 }
 
 export interface FakeRpc {
@@ -76,12 +83,22 @@ export interface FakeRpc {
   /** The operator's stored `Job.status` (0 None … 4 Settled) from each block on. */
   readonly statuses: Map<bigint, number>
   readonly transactions: Map<Hex, Transaction>
-  /** The signer's next nonce, as `eth_getTransactionCount` reports it. */
+  /** The signer's next nonce counting pending transactions, as `eth_getTransactionCount` at `pending` reports it. */
   nonce: number
+  /** Nonces used by transactions this chain never saw (the key signing elsewhere): `latest` counts at least this. */
+  usedElsewhere: number
   /** When set, `eth_estimateGas` reverts with it. */
   revert: string | undefined
   /** Fail the next `eth_sendRawTransaction` after accepting it, as a lost response does. */
   dropNextResponse: boolean
+  /** Fail the next `eth_sendRawTransaction` before it arrives, as a broken connection does. */
+  failNextSend: boolean
+  /** When it answers a message for a transaction, the node refuses that transaction with it (a JSON-RPC error). */
+  refuse: (transaction: Transaction) => string | undefined
+  /** Mine every transaction as it arrives, as Anvil does. */
+  autoMine: boolean
+  /** Mine a pending transaction (reverted or not); the other transactions at its nonce leave the mempool. */
+  readonly mine: (hash: Hex, options?: { readonly reverted?: boolean }) => void
   /** Fail every call with a transport error. */
   down: boolean
   /** Record a log at `block`, from `address`, in transaction `transactionHash` (null as some RPCs answer). */
@@ -137,11 +154,47 @@ const jobAt = (rpc: FakeRpc, tag: string) => {
   })
 }
 
+/** The signer's mined nonce count: one above the highest mined nonce, or what was used elsewhere. */
+const latestNonce = (rpc: FakeRpc) =>
+  [...rpc.transactions.values()]
+    .filter(({ mined }) => mined)
+    .reduce((next, { nonce }) => Math.max(next, nonce + 1), rpc.usedElsewhere)
+
+/** A refusal as a node answers it: a JSON-RPC error, which viem reports with its code. */
+const refusal = (message: string) => Object.assign(new Error(message), { code: -32000 })
+
+/** Whether `transaction` may replace `pending` at its nonce: both fees at least a tenth higher, as geth requires. */
+const outbids = (transaction: Transaction, pending: Transaction) =>
+  transaction.maxFeePerGas * 10n >= pending.maxFeePerGas * 11n &&
+  transaction.maxPriorityFeePerGas * 10n >= pending.maxPriorityFeePerGas * 11n
+
 const sendRaw = (rpc: FakeRpc, raw: string) => {
   if (!isHex(raw)) throw new Error('A raw transaction is hex')
+  if (rpc.failNextSend) {
+    rpc.failNextSend = false
+    throw new Error('socket hang up')
+  }
+  const parsed = parseTransaction(raw)
+  const transaction: Transaction = {
+    raw,
+    to: (parsed.to ?? '').toLowerCase(),
+    nonce: parsed.nonce ?? 0,
+    maxFeePerGas: parsed.maxFeePerGas ?? 0n,
+    maxPriorityFeePerGas: parsed.maxPriorityFeePerGas ?? 0n,
+    mined: false,
+    reverted: false,
+  }
   const hash = keccak256(raw)
-  rpc.transactions.set(hash, { raw, mined: false })
-  rpc.nonce += 1
+  if (rpc.transactions.has(hash)) throw refusal('already known')
+  if (transaction.nonce < latestNonce(rpc)) throw refusal('nonce too low')
+  const rival = [...rpc.transactions.entries()].find(([, held]) => !held.mined && held.nonce === transaction.nonce)
+  if (rival !== undefined && !outbids(transaction, rival[1])) throw refusal('replacement transaction underpriced')
+  const refused = rpc.refuse(transaction)
+  if (refused !== undefined) throw refusal(refused)
+  if (rival !== undefined) rpc.transactions.delete(rival[0])
+  rpc.transactions.set(hash, transaction)
+  rpc.nonce = Math.max(rpc.nonce, transaction.nonce + 1)
+  if (rpc.autoMine) rpc.mine(hash)
   if (rpc.dropNextResponse) {
     rpc.dropNextResponse = false
     throw new Error('socket hang up')
@@ -153,7 +206,13 @@ const sendRaw = (rpc: FakeRpc, raw: string) => {
 const lookup = (rpc: FakeRpc, hash: string, receipt: boolean) => {
   const transaction = isHex(hash) ? rpc.transactions.get(hash) : undefined
   if (transaction === undefined || (receipt && !transaction.mined)) return null
-  return { transactionHash: hash, hash, blockNumber: transaction.mined ? '0x1' : null, status: '0x1', logs: [] }
+  return {
+    transactionHash: hash,
+    hash,
+    blockNumber: transaction.mined ? '0x1' : null,
+    status: transaction.reverted ? '0x0' : '0x1',
+    logs: [],
+  }
 }
 
 const methods: Readonly<Record<string, (rpc: FakeRpc, params: ReadonlyArray<unknown>) => unknown>> = {
@@ -169,7 +228,8 @@ const methods: Readonly<Record<string, (rpc: FakeRpc, params: ReadonlyArray<unkn
     if (rpc.revert !== undefined) throw Object.assign(new Error(`execution reverted: ${rpc.revert}`), { code: 3 })
     return '0x30d40'
   },
-  eth_getTransactionCount: (rpc) => numberToHex(rpc.nonce),
+  eth_getTransactionCount: (rpc, params) =>
+    numberToHex(params[1] === 'pending' ? Math.max(rpc.nonce, latestNonce(rpc)) : latestNonce(rpc)),
   eth_maxPriorityFeePerGas: () => '0x3b9aca00',
   eth_sendRawTransaction: (rpc, params) => sendRaw(rpc, Schema.decodeUnknownSync(HashParams)(params)[0]),
   eth_getTransactionReceipt: (rpc, params) => lookup(rpc, Schema.decodeUnknownSync(HashParams)(params)[0], true),
@@ -193,9 +253,20 @@ export const fakeRpc = (): FakeRpc => {
     statuses: new Map(),
     transactions: new Map(),
     nonce: 0,
+    usedElsewhere: 0,
     revert: undefined,
     dropNextResponse: false,
+    failNextSend: false,
+    refuse: () => undefined,
+    autoMine: false,
     down: false,
+    mine: (hash, { reverted = false } = {}) => {
+      const transaction = rpc.transactions.get(hash)
+      if (transaction === undefined || transaction.mined) throw new Error(`No pending transaction ${hash}`)
+      for (const [other, held] of rpc.transactions)
+        if (other !== hash && !held.mined && held.nonce === transaction.nonce) rpc.transactions.delete(other)
+      rpc.transactions.set(hash, { ...transaction, mined: true, reverted })
+    },
     emit: (block, address, log, transactionHash = keccak256(numberToHex(block * 1000n + BigInt(rpc.asked.length)))) => {
       const entry = rpc.blocks.get(block) ?? { timestamp: start + Number(block), logs: [] }
       entry.logs.push({
