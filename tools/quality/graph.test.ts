@@ -23,38 +23,34 @@ const withSources = async <A>(sources: Record<string, string>, run: (root: strin
 }
 
 test('import auditing sees re-exports, type imports and dynamic imports without matching strings', () => {
-  const source = `export * from '@sidequest/auth/storage'; import type { A } from './a.ts';
-    const text = "import('ignored')"; import('@sidequest/db'); require('node:fs'); import fs = require('fs');`
+  const source = `export * from '@sidequest/server/Resources'; import type { A } from './a.ts';
+    const text = "import('ignored')"; import('@sidequest/domain'); require('node:fs'); import fs = require('fs');`
   expect(importsOf('fixture.ts', source)).toEqual([
-    '@sidequest/auth/storage',
+    '@sidequest/server/Resources',
     './a.ts',
-    '@sidequest/db',
+    '@sidequest/domain',
     'node:fs',
     'fs',
   ])
   expect(() => importsOf('fixture.ts', 'import(userInput)')).toThrow('Computed module import')
 })
 
-test('domain cannot depend on persistence and browser cannot reach adapters through re-exports', () => {
-  expect(() => checkDirection('@sidequest/domain', '@sidequest/db')).toThrow('Forbidden dependency')
-  expect(() => checkDirection('@sidequest/auth', '@sidequest/server')).toThrow('Forbidden dependency')
-  expect(() => checkDirection('@sidequest/server', '@sidequest/auth')).not.toThrow()
-  expect(() => checkDirection('@sidequest/auth', '@sidequest/i18n')).not.toThrow()
-  expect(() => checkDirection('@sidequest/i18n', '@sidequest/auth')).toThrow('Forbidden dependency')
-  // The shared contracts stay browser-safe: they may use auth's contract, never server code.
-  expect(() => checkDirection('@sidequest/protocol', '@sidequest/auth')).not.toThrow()
+test('domain cannot depend on the server and browser cannot reach adapters through re-exports', () => {
+  expect(() => checkDirection('@sidequest/domain', '@sidequest/server')).toThrow('Forbidden dependency')
+  expect(() => checkDirection('@sidequest/server', '@sidequest/domain')).not.toThrow()
+  expect(() => checkDirection('@sidequest/server', '@sidequest/i18n')).not.toThrow()
+  expect(() => checkDirection('@sidequest/i18n', '@sidequest/server')).toThrow('Forbidden dependency')
+  // The shared contracts stay browser-safe: they never reach domain or server code.
+  expect(() => checkDirection('@sidequest/protocol', '@sidequest/domain')).toThrow('Forbidden dependency')
   expect(() => checkDirection('@sidequest/protocol', '@sidequest/server')).toThrow('Forbidden dependency')
   expect(() => checkDirection('@sidequest/web', '@sidequest/protocol')).not.toThrow()
-  for (const file of [
-    'packages/auth/src/storage.ts',
-    'packages/auth/src/EmailEntry.ts',
-    'packages/db/src/index.ts',
-    'apps/web/src/server/Secret.ts',
-  ])
+  expect(() => checkDirection('@sidequest/web', '@sidequest/domain')).toThrow('Forbidden dependency')
+  for (const file of ['packages/server/src/Resources.ts', 'apps/web/src/server/Secret.ts'])
     expect(() => assertBrowserSafe(file, '')).toThrow('Server adapter')
-  expect(() => assertBrowserSafe('apps/web/src/entry.ts', 'node:fs')).toThrow('Server adapter')
-  expect(() => assertBrowserSafe('packages/auth/src/client.ts', '@yielded/auth/Client')).not.toThrow()
-  expect(() => assertBrowserSafe('packages/auth/src/EmailEntryContract.ts', '@yielded/auth')).not.toThrow()
+  for (const specifier of ['node:fs', 'cloudflare:workers', '@alchemy.run/cloudflare', '@effect/sql-d1'])
+    expect(() => assertBrowserSafe('apps/web/src/entry.ts', specifier)).toThrow('Server adapter')
+  expect(() => assertBrowserSafe('apps/web/src/App.ts', 'foldkit')).not.toThrow()
+  expect(() => assertBrowserSafe('packages/protocol/src/index.ts', 'effect')).not.toThrow()
 })
 
 test.each(['ts', 'tsx', 'mts', 'cts', 'js', 'jsx', 'mjs', 'cjs'])(

@@ -12,21 +12,11 @@ const Manifest = Schema.Struct({
 type Workspace = { readonly directory: string; readonly manifest: typeof Manifest.Type }
 
 const directions: Readonly<Record<string, readonly string[]>> = {
-  '@sidequest/web': ['@sidequest/auth', '@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
-  '@sidequest/server': [
-    '@sidequest/auth',
-    '@sidequest/db',
-    '@sidequest/domain',
-    '@sidequest/i18n',
-    '@sidequest/observability',
-    '@sidequest/protocol',
-  ],
-  // Auth writes the code email, in the person's language.
-  '@sidequest/auth': ['@sidequest/db', '@sidequest/i18n'],
+  '@sidequest/web': ['@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
+  '@sidequest/server': ['@sidequest/domain', '@sidequest/i18n', '@sidequest/observability', '@sidequest/protocol'],
   // Browser-safe contracts: the typed API and the schemas assistants and the website share.
-  '@sidequest/protocol': ['@sidequest/auth'],
+  '@sidequest/protocol': [],
   '@sidequest/domain': [],
-  '@sidequest/db': [],
   '@sidequest/i18n': [],
   '@sidequest/observability': [],
 }
@@ -44,13 +34,8 @@ export const checkDirection = (from: string, to: string) => {
 export const assertBrowserSafe = (file: string, specifier: string) => {
   if (
     isBuiltin(specifier) ||
-    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@yielded\/auth-persistence|@effect\/sql-|drizzle-orm)/.test(
-      specifier,
-    ) ||
-    /^packages\/(server|db)\//.test(file) ||
-    /\/server\//.test(file) ||
-    (file.startsWith('packages/auth/src/') &&
-      !/^packages\/auth\/src\/(client|config|EmailEntryContract)\.ts$/.test(file))
+    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@effect\/sql-)/.test(specifier) ||
+    /\/server\//.test(file)
   ) {
     throw new Error(`Server adapter in browser graph: ${file} -> ${specifier}`)
   }

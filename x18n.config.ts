@@ -7,7 +7,7 @@ export default defineConfig({
   resources: [{ pattern: 'packages/i18n/catalogs/{locale}.json' }],
   usage: {
     include: ['apps/*/src/**/*.ts', 'packages/*/src/**/*.ts'],
-    exclude: ['packages/i18n/src/**', 'packages/db/**'],
+    exclude: ['packages/i18n/src/**'],
     calls: [
       { callee: 'format', key: 1 },
       { callee: 'formatRich', key: 1 },
@@ -17,9 +17,6 @@ export default defineConfig({
     autoDetect: true,
     ignore: ['Sidequest', 'English', 'Slovenščina'],
     ignoreByFile: {
-      'packages/auth/src/AttemptLimiter.ts': ['/[\\s\\S]*/'],
-      'packages/auth/src/EmailPersistence.ts': ['/[\\s\\S]*/'],
-      'apps/web/src/App.ts': ['/[\\s\\S]*/'],
       'apps/web/src/**/*.styles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/GlobalStyles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/zyzz.config.ts': ['/[\\s\\S]*/'],

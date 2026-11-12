@@ -9,9 +9,8 @@ export default {
     },
     'apps/web': { entry: ['src/entry.ts!', 'src/entry.server.ts!'], project: ['src/**/*.ts!'] },
     ...Object.fromEntries(
-      ['auth', 'domain', 'observability', 'server'].map((name) => [`packages/${name}`, { project: ['src/**/*.ts!'] }]),
+      ['domain', 'observability', 'server'].map((name) => [`packages/${name}`, { project: ['src/**/*.ts!'] }]),
     ),
-    'packages/db': { project: ['src/**/*.ts!'] },
     'packages/i18n': { project: ['src/**/*.ts!'] },
     'packages/protocol': { project: ['src/**/*.ts!'] },
   },
