@@ -1,0 +1,84 @@
+{
+  "chain": "arc-testnet (eip155:5042002)",
+  "operator": "0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99",
+  "cases": [
+    {
+      "case": "a",
+      "title": "approved and paid with the exact fee",
+      "status": "passed"
+    },
+    {
+      "case": "b",
+      "title": "rejected, then split by a ruling",
+      "status": "passed"
+    },
+    {
+      "case": "c",
+      "title": "funded, never delivered, refunded by the saga",
+      "status": "passed"
+    },
+    {
+      "case": "d",
+      "title": "settlement withheld until expiry, reclaimed by the buyer",
+      "status": "not run"
+    }
+  ],
+  "relayer": {
+    "address": "0x4137102268A2B4489BbE4313AE5Cf949343646d7",
+    "transactions": 9,
+    "calls": 9,
+    "releases": 0,
+    "withheld": 0,
+    "intents": {
+      "mined": 8,
+      "open, mined on chain": 1
+    },
+    "sent": [
+      {
+        "hash": "0xf134f604ea958884a6af31c8ec40334662de90ad8e99b30fbcfea9cd6790c64f",
+        "function": "fund",
+        "nonce": 8
+      },
+      {
+        "hash": "0x20edac7b84096ca584b1347bc9feffc353cbfc6eaf206e1616fa0a50fae3c36f",
+        "function": "deliver",
+        "nonce": 9
+      },
+      {
+        "hash": "0x2a6943f203930a19c1950b0d35e6fd73e4916d2341eee5e854320a4c6b60a316",
+        "function": "approve",
+        "nonce": 10
+      },
+      {
+        "hash": "0x7b546f65187f216179a676746f0154b4b1e4e377e13982a9ce4e989359802b1b",
+        "function": "fund",
+        "nonce": 11
+      },
+      {
+        "hash": "0xf78781f3ce041e6cf2fc748c908f1af0332db3fda9f0d645d917b7156deed701",
+        "function": "deliver",
+        "nonce": 12
+      },
+      {
+        "hash": "0x75ea676095b359477a95c74b7dd2c89971be834a4444eb771fc1a3cd4cbd3875",
+        "function": "reject",
+        "nonce": 13
+      },
+      {
+        "hash": "0x43e16e0e5a8d8c29d14e4dc369605ea83764ee7d0e31aa0272a548cea2a1f2ee",
+        "function": "rule",
+        "nonce": 14
+      },
+      {
+        "hash": "0xb3b337bebcb9bc20287760b2bdd2095fd6905a288458c95afd67df8b0e18efaf",
+        "function": "fund",
+        "nonce": 15
+      },
+      {
+        "hash": "0x3a506acd91c28bce8c9e43db1c5d253f219924d760d96a3016240d76b195b98e",
+        "function": "refundUndelivered",
+        "nonce": 16
+      }
+    ]
+  }
+}

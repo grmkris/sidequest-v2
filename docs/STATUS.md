@@ -1,29 +1,36 @@
 # Status
 
-- **Phase:** 1, slices 1–8 of 9 are built ([roadmap](ROADMAP.md), [phase 1 spec](PHASE-1.md)). Slice 9, the live Arc testnet journey and the technical gate, has not started.
+- **Phase:** 1. All nine slices are built. The technical gate has passed on Arc testnet for three of its four cases; the fourth (buyer reclaim after expiry) has passed only on a local chain. The market gate (an outside agent completes a hire) is open ([roadmap](ROADMAP.md), [phase 1 spec](PHASE-1.md)).
 - **Source:** bootstrapped from Styld v2 commit `d0663c3` on 2026-10-29. No Sidequest V1 or Nod code has been ported.
-- **Preview (2026-11-12):** Alchemy stage `preview`, deployed from the build box at release `b5d711e`, at `https://sidequestv2-sidequestedge-preview-xfwdaimchbooajzk.kristjan-grm11775.workers.dev`. Checked live: `GET /api/status` returned release `b5d711e` and protocol `0.2-phase1`; the home page rendered; `GET /api/listings` and `GET /api/jobs` returned 200; a sign-in challenge was issued; `POST /mcp` without a token returned 401. Preview evidence says nothing about production.
-- **Acceptance:** `bun run check` runs the built stack in workerd and drives headless Chromium, including a wallet-backed sign-in and posting a request.
-- **Contracts:** `SidequestOperator` has unit, fuzz, invariant and Arc testnet fork tests. It is not deployed anywhere.
+- **Contract:** `SidequestOperator` is deployed on Arc testnet (chain 5042002) at `0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99`, with a 500 bps fee to a throwaway test treasury. It is unaudited and exists on no other chain.
+- **Preview:** Alchemy stage `preview`, deployed from the build box, at `https://sidequestv2-sidequestedge-preview-xfwdaimchbooajzk.kristjan-grm11775.workers.dev`. Settlement is not enabled on it. Preview evidence says nothing about production.
 
-## What is proven, and at which level
+## Gate evidence (2026-11-12)
 
-| Part                                                                              | Level                               |
-| :-------------------------------------------------------------------------------- | :---------------------------------- |
-| Domain rules, HTTP API, MCP tools, website flows                                  | local tests                         |
-| Sign-in, the off-chain hire through the edge, Durable Objects with D1 projections | workerd (local)                     |
-| A full hire with funding, delivery, approval, ruling and silent settlement        | local Anvil with the real contracts |
-| `SidequestOperator` against the deployed escrow                                   | Arc testnet fork                    |
-| Anything on a live chain, a real wallet, a third-party MCP client                 | not proven                          |
+`bun run gate:rehearse` drives hires over the public HTTP and MCP surfaces of the built stack in workerd, against real contracts.
+
+| Case                                                                                         | Local chain (Anvil) | Arc testnet                                                 |
+| :------------------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
+| a) An agent proposes over MCP; the buyer funds; delivered; approved; paid with the exact fee | passed              | passed                                                      |
+| b) Rejected, then split by an arbitrator's ruling                                            | passed              | passed                                                      |
+| c) Funded, never delivered; the saga refunds after the deadline                              | passed              | passed                                                      |
+| d) Settlement withheld until expiry; the buyer reclaims from the escrow                      | passed              | not run: the escrow expires at least 38 hours after funding |
+
+The Arc testnet run's transactions are in [evidence/2026-11-12-arc-testnet-gate.json](evidence/2026-11-12-arc-testnet-gate.json). In that run the stack ran in local workerd, not on Cloudflare, and the wallets were test keys, not a browser wallet.
+
+## Not proven
+
+- A real wallet (MetaMask, Rabby) in a browser, and the money steps on the deployed preview.
+- A third-party MCP client (claude.ai, ChatGPT, Cursor, Claude Code) connecting over OAuth.
+- The saga wake-up fix running on Cloudflare itself (it is proven in local workerd).
+- The buyer's reclaim on a live chain.
 
 ## Known gaps
 
-- Settlement is not configured on the preview (no operator address, relayer key or arbitrator key), so its endpoints answer 503.
-- The MCP endpoint speaks only revision 2026-07-28; clients on older revisions are refused. There is no OAuth flow: agents use a token their person issues.
-- Pages render their shell on the server and read data after hydration; the website Worker has no binding to the API.
-- Missing reads: a bidder's view of the request and stage, a newest-first inbox, my listings, account names.
-- The Anvil journeys do not run in CI, which has no Foundry in the checks job.
-- The relayer does not repair a nonce gap left by a permanently refused transaction.
-- Deploy state is local to the build box, so only the build box can deploy.
+- The workflow-engine fix is a local patch to `@alchemy.run/cloudflare` 2.0.0-beta.84 and has not been reported upstream.
 - Disputes are settled by an arbitrator key Sidequest holds; they are not trustless until staked arbitrators exist.
+- No rate limiting on the OAuth, registration or sign-in endpoints.
+- The website has no pages for renaming an account, my listings or my jobs (the API has them).
+- A job funded by the first live run (`0x1546…`, 0.1 test USDC) stays in the escrow on Arc testnet until the test buyer reclaims it after expiry.
+- Deploy state is local to the build box, so only the build box can deploy.
 - The Slovenian copy has not been reviewed by a native speaker.
