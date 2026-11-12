@@ -24,9 +24,10 @@ const ToolHandlers = Layer.mergeAll(AccountHandlers, DirectoryHandlers, JobHandl
 /**
  * The MCP endpoint: stateless Streamable HTTP, as MCP revision 2026-07-28 defines it (no `initialize`, no session;
  * every request carries its own protocol version and client capabilities), so each POST runs its own server in the
- * request's scope and any Worker isolate can answer any request. Requests from a browser page (with `Origin`) are
- * refused, and every request must carry an agent's bearer token ({@link BearerAuth}). The tools are
- * {@link AgentToolkit}, registered once and shared by every request.
+ * request's scope and any Worker isolate can answer any request. Clients on the older revisions 2025-11-25 and
+ * 2025-06-18 are served in front of it without sessions (`Revisions.ts`), by the same toolkit and handlers.
+ * Requests from a browser page (with `Origin`) are refused, and every request must carry an agent's bearer token
+ * ({@link BearerAuth}). The tools are {@link AgentToolkit}, registered once and shared by every request.
  */
 export const mcpRoutes = (release: string) =>
   Layer.mergeAll(

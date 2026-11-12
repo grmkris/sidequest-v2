@@ -140,22 +140,12 @@ describe('the MCP endpoint', () => {
       })
       expect(huge.status).toBe(413)
       expect((await rpc(api, token, 'tools/list', {}, { origin: 'https://evil.example' })).status).toBe(403)
-      expect((await rpc(api, token, 'tools/list', {}, { 'mcp-protocol-version': '2025-11-25' })).status).toBe(400)
-      const legacy = await api.fetch('/mcp', {
+      // Without the MCP headers, a request names no revision the endpoint serves (`Mcp.revisions.api.test.ts`).
+      const bare = await api.fetch('/mcp', {
         method: 'POST',
-        headers: {
-          authorization: `Bearer ${token}`,
-          'content-type': 'application/json',
-          accept: 'application/json, text/event-stream',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'initialize',
-          params: { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'old', version: '1' } },
-        }),
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
       })
-      // Only the stateless revision is served: a sessionful `initialize` is refused at the transport.
-      expect(legacy.status).toBe(400)
+      expect(bare.status).toBe(400)
     }))
 })

@@ -139,7 +139,7 @@ const pathOf = (input: RequestInfo | URL) => {
 }
 
 /** `fetch` that serves every request from the API's in-process handler, never the network. */
-const inProcessFetch = (api: Api): typeof globalThis.fetch =>
+export const inProcessFetch = (api: Api): typeof globalThis.fetch =>
   Object.assign((input: RequestInfo | URL, init?: RequestInit) => api.fetch(pathOf(input), init), {
     preconnect: () => undefined,
   })

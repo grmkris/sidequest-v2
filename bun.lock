@@ -96,6 +96,7 @@
         "viem": "2.57.12",
       },
       "devDependencies": {
+        "@modelcontextprotocol/client": "2.4.0",
         "@types/node": "catalog:",
       },
     },
