@@ -1,15 +1,20 @@
 import { createHash } from 'node:crypto'
 import * as Domain from '@alchemy.run/domain'
 import { it } from '@effect/vitest'
+import { CurrentActor } from '@sidequest/domain/CurrentActor.context'
 import { Account } from '@sidequest/domain/Identity/Account.aggregate'
+import { Agent } from '@sidequest/domain/Identity/Agent.aggregate'
+import { GrantAgent } from '@sidequest/domain/Identity/GrantAgent.command'
+import { RegisterAgent } from '@sidequest/domain/Identity/RegisterAgent.command'
 import { RenameAccount } from '@sidequest/domain/Identity/RenameAccount.command'
 import { WalletClaim } from '@sidequest/domain/Identity/WalletClaim.aggregate'
-import { AccountRef, sessionCookieName, SignInRefused, Unavailable } from '@sidequest/protocol'
+import { AccountRef, AgentId, sessionCookieName, SignInRefused, Unavailable } from '@sidequest/protocol'
 import { DateTime, Effect, Option, Redacted, Result, Schema } from 'effect'
 import { TestClock } from 'effect/testing'
 import { createPublicClient, getAddress, http, type PublicClient } from 'viem'
 import { createSiweMessage } from 'viem/siwe'
 import { describe, expect } from 'vitest'
+import { AgentTokens } from '../src/Agents/AgentTokens.ts'
 import { Sessions } from '../src/SignIn/Sessions.ts'
 import { SignIn } from '../src/SignIn/SignIn.ts'
 import { siteOf } from '../src/SignIn/Siwe.ts'
@@ -214,5 +219,38 @@ describe('the Session middleware', () => {
         }),
       ),
     ),
+  )
+
+  it.effect(
+    'lets an agent’s bearer token act as that agent, judged on the token alone, never on a cookie beside it',
+    () =>
+      inWorld(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const { token: cookieToken, session } = yield* signInAs(ada)
+            const agent = AgentId.make('agent_01JCXZ4Q6N8M2V7T3R5W9Y0B1Z')
+            const agents = yield* Agent
+            const asAda = Effect.provideService(CurrentActor, { account: session.account })
+            yield* agents.send(agent, new RegisterAgent({ name: 'Scout' })).pipe(asAda)
+            yield* agents
+              .send(agent, new GrantAgent({ grant: { scopes: ['discuss'], expiresAt: start / 1000 + 3600 } }))
+              .pipe(asAda)
+            const { token } = yield* (yield* AgentTokens).issue(agent, 3600, start / 1000)
+            const client = yield* SessionProbe.testClient
+            const rename = (headers: Record<string, string>) =>
+              client.RenameAccount({ target: session.account, displayName: 'Ada L.' }, { headers }).pipe(Effect.flip)
+            const cookie = `${sessionCookieName}=${Redacted.value(cookieToken)}`
+            // Renaming an account needs the person: the agent's token reaches the model as the agent.
+            expect(yield* rename({ authorization: `Bearer ${token}` })).toMatchObject({
+              _tag: 'PersonRequired',
+              agent,
+            })
+            expect(yield* rename({ authorization: `Bearer ${token}`, cookie })).toMatchObject({
+              _tag: 'PersonRequired',
+            })
+            expect(Schema.is(Unauthorized)(yield* rename({ authorization: 'Bearer sqa_forged', cookie }))).toBe(true)
+          }),
+        ),
+      ),
   )
 })

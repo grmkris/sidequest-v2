@@ -1,5 +1,5 @@
 import * as Domain from '@alchemy.run/domain'
-import { AccountId, AgentId } from '@sidequest/protocol'
+import { AccountId, AgentId, Grant } from '@sidequest/protocol'
 import { Effect, Predicate, Schema } from 'effect'
 import { AgentRevoked } from '../AgentRevoked.rejection.ts'
 import { asPerson, unixSeconds } from '../Authority.ts'
@@ -11,7 +11,12 @@ import { NotRegistered } from './NotRegistered.rejection.ts'
 import { AgentRegistered, RegisterAgent } from './RegisterAgent.command.ts'
 import { GrantRevoked, RevokeGrant } from './RevokeGrant.command.ts'
 
-const Registered = Schema.TaggedStruct('Registered', { operator: AccountId, revoked: Schema.Boolean })
+/** A registered agent: who operates it, its current grant (none until the first), and whether it was revoked. */
+const Registered = Schema.TaggedStruct('Registered', {
+  operator: AccountId,
+  grant: Schema.optionalKey(Grant),
+  revoked: Schema.Boolean,
+})
 const AgentState = Schema.Union([Schema.TaggedStruct('Unregistered', {}), Registered])
 type AgentState = typeof AgentState.Type
 
@@ -24,8 +29,9 @@ const operated = Effect.fnUntraced(function* (state: AgentState) {
 })
 
 /**
- * An agent a person operates. Its grant (scopes and expiry) travels with its requests in the `CurrentActor`, so each
- * command judges it on arrival; this aggregate only decides who may change it.
+ * An agent a person operates. It holds the agent's current grant, which the server reads when an agent's access token
+ * arrives; the grant (scopes and expiry) then travels with the request in the `CurrentActor`, so each command judges it
+ * on arrival. This aggregate decides who may change it.
  */
 export class Agent extends Domain.Aggregate('Agent', {
   id: AgentId,
@@ -53,7 +59,8 @@ export class Agent extends Domain.Aggregate('Agent', {
   },
   evolve: {
     AgentRegistered: (_, event) => Registered.make({ operator: event.operator, revoked: false }),
-    AgentGranted: (state) => state,
+    AgentGranted: (state, event) =>
+      Predicate.isTagged(state, 'Registered') ? { ...state, grant: event.grant } : state,
     GrantRevoked: (state) => (Predicate.isTagged(state, 'Registered') ? { ...state, revoked: true } : state),
   },
 }) {}

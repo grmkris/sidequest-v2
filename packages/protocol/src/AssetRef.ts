@@ -4,7 +4,7 @@ import { Text } from './Text.ts'
 
 /** A CAIP-19 asset id: `<CAIP-2 chain id>/<namespace>:<reference>`, with an optional `/<token id>`. */
 export const AssetId = Schema.String.check(
-  Schema.isPattern(new RegExp(`^${networkPattern}/[-a-z0-9]{3,8}:[-.%a-zA-Z0-9]{1,128}(/[-.%a-zA-Z0-9]{1,78})?$`)),
+  Schema.isPattern(new RegExp(`^${networkPattern}/[-a-z0-9]{3,8}:[-.%a-zA-Z0-9]{1,128}(/[-.%a-zA-Z0-9]{1,78})?$`, 'u')),
 ).pipe(Schema.brand('AssetId'))
 export type AssetId = typeof AssetId.Type
 

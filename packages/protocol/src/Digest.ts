@@ -2,7 +2,7 @@ import { Effect, Schema } from 'effect'
 import { webCrypto } from './WebCrypto.ts'
 
 /** A SHA-256 digest as 64 lowercase hex characters. */
-export const Digest = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)).pipe(Schema.brand('Digest'))
+export const Digest = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u)).pipe(Schema.brand('Digest'))
 export type Digest = typeof Digest.Type
 
 /** `sha256(UTF-8 text)` as lowercase hex. */

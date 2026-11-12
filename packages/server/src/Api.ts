@@ -10,6 +10,7 @@ import { SameOriginLive } from './Http/SameOriginLive.ts'
 import { settlementHandlers } from './Http/SettlementHttp.ts'
 import { PeopleClients } from './Http/People.ts'
 import { SignedInLive } from './Http/SignedInLive.ts'
+import { mcpRoutes } from './Mcp/McpRoutes.ts'
 import { AgentReads } from './Reads/AgentReads.ts'
 import { InboxReads } from './Reads/InboxReads.ts'
 import { ListingReads } from './Reads/ListingReads.ts'
@@ -21,22 +22,24 @@ import { systemHandlers } from './Status.ts'
 const Reads = Layer.mergeAll(AgentReads.layer, ListingReads.layer, OpenRequestReads.layer, InboxReads.layer)
 
 /**
- * The typed HTTP API's routes: every group of `SidequestApi` with its handlers, the `SameOrigin` and `SignedIn`
- * middleware, and the D1 reads. It needs the hosted model, sign-in's `Sessions`, the database's `SqlClient` and the
- * `Escrow`.
+ * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` with its handlers and the `SameOrigin`
+ * and `SignedIn` middleware) and the MCP endpoint, two transports over the same model and D1 reads. It needs the
+ * hosted model, sign-in's `Sessions` and `AgentAccess`, the database's `SqlClient` and the `Escrow`.
  */
 export const apiRoutes = (release: string) =>
-  HttpApiBuilder.layer(SidequestApi).pipe(
-    Layer.provide([
-      systemHandlers(release),
-      sessionHandlers,
-      agentsHandlers,
-      listingsHandlers,
-      jobsHandlers,
-      settlementHandlers,
-      roomsHandlers,
-      inboxHandlers,
-    ]),
-    Layer.provide([SameOriginLive, SignedInLive]),
-    Layer.provide(Layer.merge(Reads, PeopleClients.layer)),
-  )
+  Layer.mergeAll(
+    HttpApiBuilder.layer(SidequestApi).pipe(
+      Layer.provide([
+        systemHandlers(release),
+        sessionHandlers,
+        agentsHandlers,
+        listingsHandlers,
+        jobsHandlers,
+        settlementHandlers,
+        roomsHandlers,
+        inboxHandlers,
+      ]),
+      Layer.provide([SameOriginLive, SignedInLive]),
+    ),
+    mcpRoutes(release),
+  ).pipe(Layer.provide(Layer.merge(Reads, PeopleClients.layer)))

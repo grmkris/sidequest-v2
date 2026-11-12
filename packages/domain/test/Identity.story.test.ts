@@ -1,6 +1,6 @@
 import { Story } from '@alchemy.run/domain/Story'
 import { AccountRef } from '@sidequest/protocol'
-import { describe, it } from '@effect/vitest'
+import { describe, expect, it } from '@effect/vitest'
 import { AgentRevoked } from '../src/AgentRevoked.rejection.ts'
 import { CurrentActor } from '../src/CurrentActor.context.ts'
 import { ExpiryNotInFuture } from '../src/ExpiryNotInFuture.rejection.ts'
@@ -73,8 +73,15 @@ describe('an agent', () => {
       Story.then(agent, new AgentRegistered({ operator: alice, name: 'Alice’s scout' })),
       Story.when(agent, new GrantAgent({ grant })),
       Story.then(agent, new AgentGranted({ grant })),
+      // The current grant is what an agent's access token resolves to on each request.
+      Story.state(agent, (state) =>
+        expect(state).toEqual({ _tag: 'Registered', operator: alice, grant, revoked: false }),
+      ),
       Story.when(agent, new RevokeGrant()),
       Story.then(agent, new GrantRevoked()),
+      Story.state(agent, (state) =>
+        expect(state).toEqual({ _tag: 'Registered', operator: alice, grant, revoked: true }),
+      ),
       Story.when(agent, new RevokeGrant()),
       Story.then(agent),
       Story.when(agent, new GrantAgent({ grant })),

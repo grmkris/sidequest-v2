@@ -2,7 +2,6 @@ import { ConfirmSubmission } from '@sidequest/domain/Job/ConfirmSubmission.saga'
 import { FundingSubmitted, SettleJob } from '@sidequest/domain/Job/SettleJob.saga'
 import {
   type Agreement,
-  Conflict,
   type EscrowStage,
   Forbidden,
   type JobId,
@@ -23,15 +22,13 @@ import { Effect, Option } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { type Hex, isHex } from 'viem'
 import { Escrow, type EscrowService } from '../Settlement/Escrow.ts'
+import { nothingToSign, paymentStatus } from './PaymentStatus.ts'
 import { PeopleClients, signedIn } from './People.ts'
 import { settlementParties } from './SettlementParties.ts'
 import { settlementRefused } from './SettlementRefusals.ts'
 
 // `WalletSignature` admits only hex, so the fallback never applies; an empty signature would only fail on chain.
 const hexOf = (signature: string): Hex => (isHex(signature) ? signature : '0x')
-
-/** The party has not handed over an artifact to sign for, or no agreement is recorded to read. */
-const nothingToSign = (job: JobId) => new Conflict({ reason: 'NothingToSign', evidence: { job } })
 
 /** The agreement's escrow payment, once the buyer asked to fund it. */
 const paymentOf = (service: EscrowService, agreement: Agreement) =>
@@ -55,6 +52,7 @@ const endpoints = Effect.gen(function* () {
   const settlements = yield* SettleJob
   const confirmations = yield* ConfirmSubmission
   const asPerson = signedIn(yield* PeopleClients)
+  const statusFor = yield* paymentStatus
   const escrow = Option.match(configured, {
     onNone: () => Effect.fail(new Unavailable()),
     onSome: (service) => Effect.succeed(service),
@@ -97,7 +95,7 @@ const endpoints = Effect.gen(function* () {
     return agreement
   })
 
-  return { configured, escrow, parties, settlements, asPerson, relaySigned, typedFor, asBuyerOfDelivered }
+  return { configured, escrow, parties, settlements, asPerson, statusFor, relaySigned, typedFor, asBuyerOfDelivered }
 })
 
 type Endpoints = Effect.Success<typeof endpoints>
@@ -123,18 +121,6 @@ const fund = (on: Endpoints, job: JobId, signature: string) =>
     const relayed = yield* settlementRefused(service.submit(agreement, hexOf(signature)))
     yield* on.settlements.get(job).signal(FundingSubmitted, undefined)
     return { transactionHash: relayed.transactionHash }
-  })
-
-/** The chain reader's view of the payment, for the buyer or the worker. */
-const payment = (on: Endpoints, job: JobId) =>
-  Effect.gen(function* () {
-    const state = yield* on.parties.jobIn(job, ['Awarded', 'Funded', 'Delivered', 'Disputed', 'Settled'])
-    const agreement = state.agreement
-    if (agreement === null) return yield* nothingToSign(job)
-    const account = yield* SignedInAccount
-    if (account !== agreement.worker) yield* on.parties.requireParty(account, agreement.buyer, 'party')
-    const service = yield* on.escrow
-    return yield* settlementRefused(service.status(agreement))
   })
 
 /** The worker's signed delivery of the artifact they handed over goes to the chain. */
@@ -210,7 +196,11 @@ export const settlementHandlers = HttpApiBuilder.group(SidequestApi, 'settlement
     handlers
       .handle('funding', ({ params, query }) => funding(on, params.job, query.payer))
       .handle('fund', ({ params, payload }) => fund(on, params.job, payload.signature))
-      .handle('payment', ({ params }) => payment(on, params.job))
+      .handle('payment', ({ params }) =>
+        Effect.flatMap(SignedInAccount, (account) =>
+          Effect.map(on.statusFor(params.job, account), ({ status }) => status),
+        ),
+      )
       .handle('deliveryToSign', ({ params }) => on.typedFor(params.job, 'worker', 'Funded', deliveryTypedData))
       .handle('signDelivery', ({ params, payload }) => signDelivery(on, params.job, payload.signature))
       .handle('approvalToSign', ({ params }) => on.typedFor(params.job, 'buyer', 'Delivered', approvalTypedData))

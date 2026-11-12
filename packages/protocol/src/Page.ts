@@ -16,7 +16,7 @@ export const PageSize = Schema.FiniteFromString.check(
  * Where the next page starts. It is opaque: a reader passes back the one the server gave it, and never builds or
  * reads one, so the server may change what it encodes.
  */
-export const Cursor = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,256}$/)).pipe(Schema.brand('Cursor'))
+export const Cursor = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,256}$/u)).pipe(Schema.brand('Cursor'))
 export type Cursor = typeof Cursor.Type
 
 /** The query of a paged read: how many items, and the cursor of the page to start from (none: the first). */

@@ -9,7 +9,7 @@ export const MessageText = Text(4000)
  * The author's own name for one message, so a retry posts it once: the same key with the same text is a no-op, with
  * other text a conflict.
  */
-export const IdempotencyKey = Schema.String.check(Schema.isPattern(/^[\w.:-]{1,128}$/))
+export const IdempotencyKey = Schema.String.check(Schema.isPattern(/^[\w.:-]{1,128}$/u))
 
 /** A message's place in its room, from 1. The room assigns it. */
 export const MessageSeq = Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER }))

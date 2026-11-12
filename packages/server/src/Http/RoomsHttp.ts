@@ -1,12 +1,26 @@
-import { defaultPageSize, type Message, SidequestApi, SignedInAccount } from '@sidequest/protocol'
+import { defaultPageSize, type Message, type RoomId, SidequestApi, SignedInAccount } from '@sidequest/protocol'
 import { Effect } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { jobViewFor, roomsIn } from './JobAudience.ts'
-import { PeopleClients, signedIn } from './People.ts'
+import { type People, PeopleClients, signedIn } from './People.ts'
 
 /** A message as members read it, from the `RoomMessages` stream's entry. */
 const messageOf = ({ seq, author, agent, text }: Message & { readonly members: unknown }): Message =>
   agent === undefined ? { seq, author, text } : { seq, author, agent, text }
+
+/**
+ * A page of a room's messages after the sequence number `after`, from its `RoomMessages` stream, whose `validate`
+ * admits only members. The stream holds one entry per message, appended in order, so an entry's place is its
+ * message's `seq`; `next` is the one to read after for the next page, `null` after the last.
+ */
+export const messagesIn = (people: People, room: RoomId, after: number | undefined, limit = defaultPageSize) =>
+  Effect.map(
+    people.RoomMessages.list(room, after === undefined ? { take: limit } : { take: limit, after: `${after}` }),
+    ({ entries, cursor }) => ({
+      messages: entries.map(({ event }) => messageOf(event)),
+      next: cursor === null ? null : Number(cursor),
+    }),
+  )
 
 /**
  * The `rooms` group: the rooms of a job, from the signed-in person's view of it, and in a room the messages, read from
@@ -19,24 +33,12 @@ export const roomsHandlers = HttpApiBuilder.group(SidequestApi, 'rooms', (handle
     return handlers
       .handle('list', ({ params }) =>
         Effect.gen(function* () {
-          const view = yield* jobViewFor(clients, params.job, yield* SignedInAccount)
+          const view = yield* jobViewFor(clients, params.job, { account: yield* SignedInAccount })
           return { rooms: roomsIn(params.job, view) }
         }),
       )
-      .handle('messages', ({ params, query: { after, limit = defaultPageSize } }) =>
-        Effect.map(
-          asPerson.ask((people) =>
-            people.RoomMessages.list(
-              params.room,
-              after === undefined ? { take: limit } : { take: limit, after: `${after}` },
-            ),
-          ),
-          // A room's stream holds one entry per message, appended in order, so an entry's place is its message's `seq`.
-          ({ entries, cursor }) => ({
-            messages: entries.map(({ event }) => messageOf(event)),
-            next: cursor === null ? null : Number(cursor),
-          }),
-        ),
+      .handle('messages', ({ params, query: { after, limit } }) =>
+        asPerson.ask((people) => messagesIn(people, params.room, after, limit)),
       )
       .handle('post', ({ params, payload }) =>
         asPerson.send((people) => people.PostMessage({ target: params.room, ...payload })),

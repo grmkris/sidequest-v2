@@ -29,7 +29,10 @@ export class Forbidden extends Schema.TaggedError<Forbidden>()(
   { httpApiStatus: 403 },
 ) {}
 
-/** What the request names does not exist (yet): an agent, a listing, a job, a bidder's proposal or a room. */
+/**
+ * What the request names does not exist (yet): an agent, a listing, a job, a bidder's proposal, a room, or an agent's
+ * access token.
+ */
 export const NotFoundReason = Schema.Literals([
   'NotRegistered',
   'ListingNotPublished',
@@ -37,6 +40,7 @@ export const NotFoundReason = Schema.Literals([
   'RoomNotOpen',
   'UnknownListing',
   'UnknownJob',
+  'UnknownToken',
 ])
 
 export class NotFound extends Schema.TaggedError<NotFound>()(

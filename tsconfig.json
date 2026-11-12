@@ -57,6 +57,8 @@
           "@effect/platform-bun",
           "@effect/platform-node",
           "@effect/vitest",
+          "effect/ai",
+          "effect/ByteSize",
           "effect/http",
           "effect/http-api",
           "effect/rpc",
@@ -67,6 +69,10 @@
           "@effect/sql-d1"
         ],
         "overrides": [
+          {
+            "include": ["packages/*/test/**/*", "packages/*/src/test/**/*"],
+            "options": { "allowedExperimentalApis": ["effect/ai"] }
+          },
           {
             "include": ["tools/**/*", "**/*.config.ts"],
             "options": {

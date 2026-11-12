@@ -1,10 +1,10 @@
 import type * as Domain from '@alchemy.run/domain'
 import type { Internals } from '@alchemy.run/domain/Model'
-import type { Actor } from '@sidequest/domain/Actor'
+import type { Actor, Party } from '@sidequest/domain/Actor'
 import { CurrentActor } from '@sidequest/domain/CurrentActor.context'
 import { PeopleApi } from '@sidequest/domain/People.api'
 import { Session, Unauthorized } from '@sidequest/domain/Session.middleware'
-import { type AccountId, SignedInAccount } from '@sidequest/protocol'
+import { SignedInAccount } from '@sidequest/protocol'
 import { Context, Effect, Layer, type Scope } from 'effect'
 import { type ModelError, refused } from './Refusals.ts'
 
@@ -22,8 +22,9 @@ const anonymous: Session['Service'] = () => Effect.fail(new Unauthorized())
 
 /**
  * The model as one caller reaches it: the {@link PeopleApi}, in process, with every command's `decide` and every
- * read's `validate` judging that caller. The HTTP layer has verified the session cookie (`SignedIn`) by then, so the
- * Api's `Session` middleware trusts the account it was given rather than reading the cookie again.
+ * read's `validate` judging that caller. The transport has verified who it is by then (the session cookie for HTTP's
+ * `SignedIn`, an agent's bearer token for MCP), so the Api's `Session` middleware trusts the party it was given,
+ * a person or an agent with its grant, rather than reading a credential again.
  *
  * The pinned `@alchemy.run/domain` (2.0.0-beta.84) has no `clientInProcess`; its `testClient` is the same in-process
  * client (the Api's handlers behind Effect RPC's no-serialization transport, each entry's middleware running), so it
@@ -31,16 +32,16 @@ const anonymous: Session['Service'] = () => Effect.fail(new Unauthorized())
  */
 export class PeopleClients extends Context.Service<
   PeopleClients,
-  { readonly as: (account: AccountId | undefined) => Effect.Effect<People, never, Scope.Scope> }
+  { readonly as: (party: Party | undefined) => Effect.Effect<People, never, Scope.Scope> }
 >()('Sidequest/PeopleClients') {
   static readonly layer = Layer.effect(
     PeopleClients,
     Effect.gen(function* () {
       const model = yield* Effect.context<Internals>()
       return PeopleClients.of({
-        as: (account) =>
+        as: (party) =>
           PeopleApi.testClient.pipe(
-            Effect.provideService(Session, account === undefined ? anonymous : trusting({ account })),
+            Effect.provideService(Session, party === undefined ? anonymous : trusting(party)),
             Effect.provide(model),
           ),
       })
@@ -49,16 +50,26 @@ export class PeopleClients extends Context.Service<
 }
 
 /**
- * The model as the signed-in person, for one group's handlers: `ask` runs a read or a command and answers with its
- * result, `send` sends one command and answers with no content. Both answer the model's refusals as the API's errors.
+ * The model as the party `who` names, for one call: `ask` runs a read or a command and answers with its result,
+ * `send` sends one command and answers with no content. Both answer the model's refusals as the API's errors.
  */
-export const signedIn = (clients: PeopleClients['Service']) => {
+const callerAs = <RP>(clients: PeopleClients['Service'], who: Effect.Effect<Party, never, RP>) => {
   const ask = <A, E extends ModelError, R>(use: (people: People) => Effect.Effect<A, E, R>) =>
     Effect.gen(function* () {
-      const people = yield* clients.as(yield* SignedInAccount)
+      const people = yield* clients.as(yield* who)
       return yield* use(people)
     }).pipe(Effect.scoped, refused)
   const send = <E extends ModelError, R>(use: (people: People) => Effect.Effect<unknown, E, R>) =>
     Effect.asVoid(ask(use))
   return { ask, send }
 }
+
+/** The model as the signed-in person, for one group's handlers. */
+export const signedIn = (clients: PeopleClients['Service']) =>
+  callerAs(
+    clients,
+    Effect.map(SignedInAccount, (account): Party => ({ account })),
+  )
+
+/** The model as an agent a bearer token let in, acting for its operator within its grant. */
+export const actingAs = (clients: PeopleClients['Service'], party: Party) => callerAs(clients, Effect.succeed(party))

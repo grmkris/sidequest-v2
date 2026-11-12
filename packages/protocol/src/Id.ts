@@ -7,6 +7,7 @@ const prefixes = {
   ListingId: 'listing',
   JobId: 'job',
   ProposalId: 'proposal',
+  AgentTokenId: 'token',
 } as const
 type IdKind = keyof typeof prefixes
 
@@ -15,7 +16,7 @@ type IdKind = keyof typeof prefixes
 const ulid = '[0-7][0-9A-HJKMNP-TV-Z]{25}'
 
 // `<prefix>_<ULID>`.
-const id = (kind: IdKind) => Schema.String.check(Schema.isPattern(new RegExp(`^${prefixes[kind]}_${ulid}$`)))
+const id = (kind: IdKind) => Schema.String.check(Schema.isPattern(new RegExp(`^${prefixes[kind]}_${ulid}$`, 'u')))
 
 export const AccountId = id('AccountId').pipe(Schema.brand('AccountId'))
 export type AccountId = typeof AccountId.Type
@@ -27,6 +28,9 @@ export const JobId = id('JobId').pipe(Schema.brand('JobId'))
 export type JobId = typeof JobId.Type
 export const ProposalId = id('ProposalId').pipe(Schema.brand('ProposalId'))
 export type ProposalId = typeof ProposalId.Type
+/** An access token an operator issued to one of their agents. The id names it; it is not the secret. */
+export const AgentTokenId = id('AgentTokenId').pipe(Schema.brand('AgentTokenId'))
+export type AgentTokenId = typeof AgentTokenId.Type
 
 /** A negotiation room is the buyer and one bidder; an engagement room is the buyer and the worker. */
 export const RoomKind = Schema.Literals(['negotiation', 'engagement'])
@@ -37,7 +41,7 @@ export type RoomKind = typeof RoomKind.Type
  * it names the same room. `room_<job ULID>_engagement` or `room_<job ULID>_negotiation_<bidder ULID>`.
  */
 export const RoomId = Schema.String.check(
-  Schema.isPattern(new RegExp(`^room_${ulid}_(?:engagement|negotiation_${ulid})$`)),
+  Schema.isPattern(new RegExp(`^room_${ulid}_(?:engagement|negotiation_${ulid})$`, 'u')),
 ).pipe(Schema.brand('RoomId'))
 export type RoomId = typeof RoomId.Type
 
@@ -56,7 +60,7 @@ export const roomIdOf = (room: RoomOf): RoomId =>
       : `room_${ulidOf(room.job)}_negotiation_${ulidOf(room.bidder)}`,
   )
 
-const ids = { AccountId, AgentId, ListingId, JobId, ProposalId }
+const ids = { AccountId, AgentId, ListingId, JobId, ProposalId, AgentTokenId }
 
 /** Mints a fresh, time-ordered id of the given kind. */
 export const generateId = <Kind extends IdKind>(kind: Kind): Effect.Effect<(typeof ids)[Kind]['Type']> =>

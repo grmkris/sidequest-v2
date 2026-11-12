@@ -3,8 +3,10 @@ import * as Cloudflare from '@alchemy.run/cloudflare'
 import {
   type AccountId,
   AccountRef,
+  AgentId,
   Cursor,
   InboxEntry,
+  IssuedAgentToken,
   JobId,
   JobView,
   ListingId,
@@ -20,6 +22,7 @@ import {
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
 import { DateTime, Effect, Schedule, Schema } from 'effect'
+import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
 import type * as HttpClientError from 'effect/http/HttpClientError'
@@ -236,6 +239,7 @@ const browserOf = (url: string, cookie: string) => {
   return {
     get: (path: string) => send(HttpClientRequest.get(`${url}${path}`)),
     post: (path: string, body?: unknown) => send(HttpClientRequest.post(`${url}${path}`), body),
+    put: (path: string, body: unknown) => send(HttpClientRequest.put(`${url}${path}`), body),
   }
 }
 type Browser = ReturnType<typeof browserOf> & { readonly account: AccountId }
@@ -363,4 +367,43 @@ test(
     expect(kindsIn(bens).toSorted()).toEqual(['change_requested', 'message_posted', 'proposal_accepted'])
   }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 90000 },
+)
+
+test(
+  'serves MCP through the edge to an agent with a bearer token, and challenges a request without one',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const operator = yield* signedIn(url)
+    const agent = yield* createdBy(operator.post('/api/agents', { name: 'Scout' }), AgentId)
+    const expiresAt = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000) + 3600
+    expect((yield* operator.put(`/api/agents/${agent}/grant`, { scopes: ['discuss'], expiresAt })).status).toBe(204)
+    const issued = yield* operator.post(`/api/agents/${agent}/tokens`, {})
+    const { token } = yield* Effect.flatMap(issued.json, Schema.decodeUnknownEffect(IssuedAgentToken))
+
+    const bare = yield* postJson(`${url}/mcp`, { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+    expect(bare.status).toBe(401)
+    expect(bare.headers['www-authenticate']).toBe('Bearer realm="sidequest"')
+
+    const client = yield* McpClient.make({ name: 'acceptance', version: '1' }).pipe(
+      Effect.provideServiceEffect(
+        McpClient.Transport,
+        McpClient.http({
+          url: `${url}/mcp`,
+          protocol: McpProtocol.v2026_07_28,
+          headers: { authorization: `Bearer ${token}` },
+        }),
+      ),
+    )
+    expect(client.serverInfo?.name).toBe('sidequest')
+    const tools = yield* client.listTools()
+    expect(tools.map(({ name }) => name)).toContain('whoami')
+    const whoami = tools.find(({ name }) => name === 'whoami')
+    if (whoami === undefined) return yield* Effect.die(new Error('No whoami tool'))
+    const result = yield* client.callTool({ tool: whoami, arguments: {} })
+    expect(result.structuredContent).toMatchObject({
+      account: operator.account,
+      agent: { id: agent, scopes: ['discuss'], grantExpiresAt: expiresAt },
+    })
+  }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer)),
+  { timeout: 60000 },
 )

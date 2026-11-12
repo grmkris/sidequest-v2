@@ -6,6 +6,6 @@ import { JobId } from './Id.ts'
 export const Delivery = Schema.Struct({
   job: JobId,
   artifactHash: Digest,
-  url: Schema.String.check(Schema.isPattern(/^https:\/\/[^\s]+$/), Schema.isMaxLength(2048)),
+  url: Schema.String.check(Schema.isPattern(/^https:\/\/[^\s]+$/u), Schema.isMaxLength(2048)),
 })
 export type Delivery = typeof Delivery.Type

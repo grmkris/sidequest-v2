@@ -14,6 +14,7 @@ import { walletRef } from '../src/SignIn/Siwe.ts'
 import { anvilAvailable, type LocalChain, startChain } from './Anvil.ts'
 import { artifactHash, buyerViewOf, named, postJob, propose } from './Hire.ts'
 import { ada, ben, bodyOf, cy, type Person, terms, withApi } from './HttpWorld.ts'
+import { callTool, grantedAgent } from './McpWorld.ts'
 import { signInWorld } from './World.ts'
 
 // The whole hire against a real chain: Anvil running the Foundry build of the audited escrow and `SidequestOperator`
@@ -122,10 +123,16 @@ describeOnChain('the hire on chain', () => {
   test(
     'funds, delivers and approves: the worker is paid, the treasury takes its fee',
     () =>
-      onChain(async ({ signIn }) => {
+      onChain(async (api) => {
         const paidBefore = await chain.balanceOf(ben.address)
         const feesBefore = await chain.balanceOf(chain.treasury)
-        const { buyer, worker, job } = await fundedHire(signIn)
+        const { buyer, worker, job } = await fundedHire(api.signIn)
+        // The worker's agent reads the same chain reader's status over MCP.
+        const { token } = await grantedAgent(worker, ['deliver'])
+        expect((await callTool(api, token, 'payment_status', { job })).structuredContent).toMatchObject({
+          payment: { stage: 'Funded', funding: { amount: String(amount) } },
+          nextAction: null,
+        })
         const delivered = await deliver(buyer, worker, job)
         expect(delivered.review?.reviewEndsAt).toBe((delivered.review?.deliveredAt ?? 0) + 3 * 86_400)
         const approval = bodyOf(TypedData, await buyer.get(`/api/jobs/${job}/approval`))

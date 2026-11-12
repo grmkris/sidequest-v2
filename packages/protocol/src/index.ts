@@ -5,6 +5,13 @@ export { Agent } from './Agent.ts'
 export { Agreement } from './Agreement.ts'
 export { Amount } from './Amount.ts'
 export { AgentsApi } from './AgentsApi.ts'
+export {
+  AgentAccessToken,
+  AgentToken,
+  defaultTokenLifetimeSeconds,
+  IssuedAgentToken,
+  TokenLifetime,
+} from './AgentToken.ts'
 export { SidequestApi, SystemApi } from './Api.ts'
 export { AssetId, AssetRef } from './AssetRef.ts'
 export { Bytes32 } from './Bytes32.ts'
@@ -23,7 +30,18 @@ export {
 export { FundingRequest } from './Funding.ts'
 export { Grant, GrantScope } from './Grant.ts'
 export { CrossSiteRequest, SameOrigin, SignedIn, SignedInAccount } from './Guards.ts'
-export { AccountId, AgentId, generateId, JobId, ListingId, ProposalId, RoomId, roomIdOf, RoomKind } from './Id.ts'
+export {
+  AccountId,
+  AgentId,
+  AgentTokenId,
+  generateId,
+  JobId,
+  ListingId,
+  ProposalId,
+  RoomId,
+  roomIdOf,
+  RoomKind,
+} from './Id.ts'
 export { InboxEntry, InboxKind } from './Inbox.ts'
 export { InboxApi } from './InboxApi.ts'
 export { JobsApi } from './JobsApi.ts'
@@ -83,6 +101,12 @@ export { ProtocolVersion, Status } from './Status.ts'
 export { Terms } from './Terms.ts'
 export { termsDigest } from './TermsDigest.ts'
 export { Text } from './Text.ts'
+export { AccountTools } from './Tools/Account.ts'
+export { AgentToolkit } from './Tools/AgentToolkit.ts'
+export { NextAction, ToolRefusal } from './Tools/Common.ts'
+export { DirectoryTools } from './Tools/Directory.ts'
+export { JobTools } from './Tools/Jobs.ts'
+export { RoomTools } from './Tools/Rooms.ts'
 export { TypedData } from './TypedData.ts'
 export { UnixSeconds } from './UnixSeconds.ts'
 export { webCrypto } from './WebCrypto.ts'

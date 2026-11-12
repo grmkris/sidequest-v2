@@ -27,7 +27,9 @@ export const jobsHandlers = HttpApiBuilder.group(SidequestApi, 'jobs', (handlers
       )
       .handle('open', ({ query }) => openRequests.page(query))
       .handle('get', ({ params, request }) =>
-        Effect.flatMap(visitorOf(sessions, request), (account) => jobViewFor(clients, params.job, account)),
+        Effect.flatMap(visitorOf(sessions, request), (account) =>
+          jobViewFor(clients, params.job, account === undefined ? undefined : { account }),
+        ),
       )
       .handle('propose', ({ params, payload }) =>
         Effect.gen(function* () {

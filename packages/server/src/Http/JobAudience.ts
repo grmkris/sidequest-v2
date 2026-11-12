@@ -1,3 +1,4 @@
+import type { Party } from '@sidequest/domain/Actor'
 import { type AccountId, type JobId, type JobView, NotFound, roomIdOf, type RoomRef } from '@sidequest/protocol'
 import { Effect } from 'effect'
 import type { PeopleClients } from './People.ts'
@@ -7,11 +8,12 @@ import { refused } from './Refusals.ts'
  * A job as the one asking sees it. Anyone reads the public summary; its buyer reads the buyer's summary, and a bidder
  * their own negotiation's. Each private summary's `validate` decides who may read it; this only picks the one that
  * fits who asks, and falls back to the public summary when no private one admits them (yet: views follow events
- * eventually). A job never posted is `NotFound`.
+ * eventually). A job never posted is `NotFound`. An agent sees what its operator sees, while its grant is live.
  */
-export const jobViewFor = (clients: PeopleClients['Service'], job: JobId, account: AccountId | undefined) =>
+export const jobViewFor = (clients: PeopleClients['Service'], job: JobId, viewer: Party | undefined) =>
   Effect.gen(function* () {
-    const people = yield* clients.as(account)
+    const people = yield* clients.as(viewer)
+    const account = viewer?.account
     const summary = yield* refused(people.JobSummary.get(job))
     if (summary?.request == null) return yield* new NotFound({ reason: 'UnknownJob', evidence: { job } })
     const shown: JobView = { audience: 'public', view: summary }

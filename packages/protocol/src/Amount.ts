@@ -11,7 +11,7 @@ const fitsUint256 = (value: string) =>
  * zeros and no fraction. Bounded by uint256 so every amount fits an EVM word.
  */
 export const Amount = Schema.String.check(
-  Schema.isPattern(/^(0|[1-9][0-9]*)$/),
+  Schema.isPattern(/^(0|[1-9][0-9]*)$/u),
   Schema.makeFilter(fitsUint256, { expected: 'uint256' }),
 ).pipe(Schema.brand('Amount'))
 export type Amount = typeof Amount.Type
