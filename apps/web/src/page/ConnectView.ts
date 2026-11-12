@@ -18,7 +18,7 @@ import { scopeLabel } from './AgentsView.ts'
  * Who asks, as far as anyone can tell: a client known by its published document is named with the host that
  * publishes it; a client that registered itself chose its own name, which the page says proves nothing.
  */
-const whoAsks = (h: Html.HtmlBuilder<Message>, language: Language, request: ConnectRequest) => {
+const whoAsks = (h: Html.HtmlBuilder<Message>, language: Language, request: ConnectRequest, timeZone: string) => {
   const name = request.client.name ?? say(language, 'connect.unnamed')
   return h.div(styled(h, s.section()), [
     h.h2(styled(h, s.rowTitle()), [format(language, 'connect.asks', { client: name })]),
@@ -40,24 +40,30 @@ const whoAsks = (h: Html.HtmlBuilder<Message>, language: Language, request: Conn
         ),
       ),
       Ui.fact(h, say(language, 'connect.resource'), Ui.dataText(h, request.resource)),
-      Ui.fact(h, say(language, 'connect.until'), formatInstant(request.expiresAt, language)),
+      Ui.fact(h, say(language, 'connect.until'), formatInstant(request.expiresAt, language, timeZone)),
     ]),
   ])
 }
 
-const grantText = (language: Language, agent: Agent) => {
+const grantText = (language: Language, agent: Agent, timeZone: string) => {
   if (agent.revoked) return say(language, 'agents.revoked')
   return Option.match(Option.fromNullishOr(agent.grant), {
     onNone: () => say(language, 'agents.noGrant'),
     onSome: (grant) =>
       format(language, 'agents.grantSummary', {
         scopes: grant.scopes.map((scope) => scopeLabel(language, scope)).join(', '),
-        date: formatInstant(grant.expiresAt, language),
+        date: formatInstant(grant.expiresAt, language, timeZone),
       }),
   })
 }
 
-const agentChoice = (h: Html.HtmlBuilder<Message>, model: Model, request: ConnectRequest, agent: Agent) => {
+const agentChoice = (
+  h: Html.HtmlBuilder<Message>,
+  model: Model,
+  request: ConnectRequest,
+  agent: Agent,
+  timeZone: string,
+) => {
   const id = `connect-agent-${agent.id}`
   const enabled = pickable(agent, request.expiresAt)
   return h.keyed('div')(agent.id, styled(h, as.scope()), [
@@ -75,13 +81,13 @@ const agentChoice = (h: Html.HtmlBuilder<Message>, model: Model, request: Connec
       [],
       [
         h.label([h.For(id), ...styled(h, s.label())], [agent.name]),
-        h.span([h.Id(`${id}-grant`), ...styled(h, s.hint())], [grantText(model.language, agent)]),
+        h.span([h.Id(`${id}-grant`), ...styled(h, s.hint())], [grantText(model.language, agent, timeZone)]),
       ],
     ),
   ])
 }
 
-const agentPicker = (h: Html.HtmlBuilder<Message>, model: Model, request: ConnectRequest) =>
+const agentPicker = (h: Html.HtmlBuilder<Message>, model: Model, request: ConnectRequest, timeZone: string) =>
   h.fieldset(styled(h, s.choices()), [
     h.legend(styled(h, s.legend()), [say(model.language, 'connect.pickAgent')]),
     AsyncData.matchData(model.agents, {
@@ -93,7 +99,7 @@ const agentPicker = (h: Html.HtmlBuilder<Message>, model: Model, request: Connec
           onNonEmpty: (items) =>
             h.div(
               [],
-              items.map((agent) => agentChoice(h, model, request, agent)),
+              items.map((agent) => agentChoice(h, model, request, agent, timeZone)),
             ),
         }),
     }),
@@ -123,7 +129,7 @@ const decision = (h: Html.HtmlBuilder<Message>, model: Model) => {
   ])
 }
 
-const asked = (h: Html.HtmlBuilder<Message>, model: Model) =>
+const asked = (h: Html.HtmlBuilder<Message>, model: Model, timeZone: string) =>
   Asking.match(model.asking, {
     Reading: () => Ui.waiting(h, say(model.language, 'connect.reading')),
     Gone: () => Ui.notice(h, 'neutral', [h.p([], [say(model.language, 'connect.gone')])]),
@@ -131,16 +137,17 @@ const asked = (h: Html.HtmlBuilder<Message>, model: Model) =>
     Shown: ({ request }) =>
       h.section(
         [h.AriaLabel(say(model.language, 'connect.title')), ...styled(h, s.panel())],
-        [whoAsks(h, model.language, request), agentPicker(h, model, request), decision(h, model)],
+        [whoAsks(h, model.language, request, timeZone), agentPicker(h, model, request, timeZone), decision(h, model)],
       ),
   })
 
 /** The consent page: who asks, where the access goes, which agent it acts as; allow or refuse. */
-export const view = Submodel.defineView<Model, Message, { readonly session: Session }>((model, { session }, h) =>
-  h.div(styled(h, s.page()), [
-    Ui.pageHead(h, say(model.language, 'connect.title'), [say(model.language, 'connect.lede')]),
-    signedInOnly(h, { language: model.language, session, route: AppRoute.Connect({ request: model.request }) }, () =>
-      asked(h, model),
-    ),
-  ]),
+export const view = Submodel.defineView<Model, Message, { readonly session: Session; readonly timeZone: string }>(
+  (model, { session, timeZone }, h) =>
+    h.div(styled(h, s.page()), [
+      Ui.pageHead(h, say(model.language, 'connect.title'), [say(model.language, 'connect.lede')]),
+      signedInOnly(h, { language: model.language, session, route: AppRoute.Connect({ request: model.request }) }, () =>
+        asked(h, model, timeZone),
+      ),
+    ]),
 )

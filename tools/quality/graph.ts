@@ -82,7 +82,9 @@ const resolveEdge = (
   const destination = posix.normalize(posix.join(dirname(file), specifier))
   if (owner !== undefined && !destination.startsWith(`${owner.directory}/`))
     throw new Error(`Cross-package relative import: ${file} -> ${specifier}`)
-  if (file.includes('/src/') && /\/test\//.test(destination)) throw new Error(`Test fixture imported by ${file}`)
+  // Production source never reaches a test fixture; tests under `src/test/` may share their own helpers.
+  if (file.includes('/src/') && !file.includes('/test/') && destination.includes('/test/'))
+    throw new Error(`Test fixture imported by ${file}`)
   return destination
 }
 

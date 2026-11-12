@@ -79,22 +79,27 @@ const notFound = (h: Html.HtmlBuilder<Message>, model: Model) =>
   ])
 
 /** The consent page an MCP client's authorization request waits on. */
-const connectPage = (h: Html.HtmlBuilder<Message>, connect: ConnectModel, session: Session) =>
+const connectPage = (h: Html.HtmlBuilder<Message>, connect: ConnectModel, session: Session, timeZone: string) =>
   h.submodel({
     slotId: 'connect',
     model: connect,
     view: ConnectView.view,
-    viewInputs: { session },
+    viewInputs: { session, timeZone },
     toParentMessage: (message) => Message.GotConnectMessage({ message }),
   })
 
 /** The apps connected to the person's agents. */
-const connectionsPage = (h: Html.HtmlBuilder<Message>, connections: ConnectionsModel, session: Session) =>
+const connectionsPage = (
+  h: Html.HtmlBuilder<Message>,
+  connections: ConnectionsModel,
+  session: Session,
+  timeZone: string,
+) =>
   h.submodel({
     slotId: 'connections',
     model: connections,
     view: ConnectionsView.view,
-    viewInputs: { session },
+    viewInputs: { session, timeZone },
     toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
   })
 
@@ -167,8 +172,8 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         viewInputs: { session, origin: model.flags.origin, timeZone },
         toParentMessage: (message) => Message.GotAgentsMessage({ message }),
       }),
-    Connect: ({ connect }) => connectPage(h, connect, session),
-    Connections: ({ connections }) => connectionsPage(h, connections, session),
+    Connect: ({ connect }) => connectPage(h, connect, session, timeZone),
+    Connections: ({ connections }) => connectionsPage(h, connections, session, timeZone),
     NotFound: () => notFound(h, model),
   })
 }

@@ -9,7 +9,7 @@ import { view } from '../../src/page/ConnectView.ts'
 import { Session } from '../../src/Session.ts'
 import { ada, adaSession } from '../Fixtures.ts'
 
-const signedIn = { session: Session.SignedIn({ session: adaSession }) }
+const signedIn = { session: Session.SignedIn({ session: adaSession }), timeZone: 'UTC' }
 const request = ConnectRequestId.make('connect_01JQ0000000000000000000RQ1')
 const scout = AgentId.make('agent_01JQ0000000000000000000SC1')
 const retired = AgentId.make('agent_01JQ0000000000000000000RT1')
@@ -46,6 +46,8 @@ describe('the consent page', () => {
       expect(text(/registered itself: its name is its own claim/u)).toExist(),
       expect(text('127.0.0.1:43117')).toExist(),
       expect(text('An app on this device')).toExist(),
+      expect(text('Jan 15, 2027, 8:10 AM')).toExist(),
+      expect(text(/until Mar 17, 2030/u)).toExist(),
       expect(label('Retired')).toBeDisabled(),
       expect(role('button', { name: 'Allow' })).toBeDisabled(),
       change(label('Scout'), scout),
@@ -71,7 +73,7 @@ describe('the consent page', () => {
 
   test('asks a signed-out person to sign in first', () => {
     scene(
-      { update, view: withViewInputs(view, { session: Session.SignedOut() })() },
+      { update, view: withViewInputs(view, { session: Session.SignedOut(), timeZone: 'UTC' })() },
       given(init('en', request, false).model),
       Command.expectNone(),
       expect(role('link', { name: 'Sign in' })).toExist(),
@@ -103,6 +105,7 @@ describe('the connected apps page', () => {
         ).model,
       ),
       expect(text('Published by claude.example.')).toExist(),
+      expect(text('Jan 15, 2027, 8:00 AM')).toExist(),
       click(role('button', { name: 'Revoke' })),
       Command.resolve(Connections.RevokeConnection({ connection }), Connections.Message.SucceededRevoke()),
       Command.resolve(Connections.ListConnections, Connections.Message.SucceededListConnections({ connections: [] })),

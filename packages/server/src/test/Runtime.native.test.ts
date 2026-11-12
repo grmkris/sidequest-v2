@@ -1,24 +1,14 @@
 import { expect } from 'bun:test'
 import * as Cloudflare from '@alchemy.run/cloudflare'
 import {
-  type AccountId,
   AccountRef,
   AgentId,
   ConnectDecision,
-  Cursor,
-  InboxEntry,
   IssuedAgentToken,
   JobId,
-  JobView,
   ListingId,
-  Message,
-  ProposalId,
-  type ProposalRef,
-  RoomRef,
   SessionView,
-  SignInChallenge,
   Status,
-  UsdcOnArcTestnet,
 } from '@sidequest/protocol'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
@@ -27,14 +17,26 @@ import { Base64Url } from 'effect/encoding'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
-import type * as HttpClientError from 'effect/http/HttpClientError'
 import * as HttpClientRequest from 'effect/http/HttpClientRequest'
-import type * as HttpClientResponse from 'effect/http/HttpClientResponse'
-import { type Browser as Chromium, type BrowserContext, chromium, type Page } from 'playwright'
-import { isHex } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
+import { apiReadsDuring, headlessChromium, openPage, reloadUntilShown, walletContext } from './ChromiumWorld.ts'
+import {
+  browserOf,
+  createdBy,
+  day,
+  Inbox,
+  kindsIn,
+  Messages,
+  negotiate,
+  NotYet,
+  postJson,
+  Rooms,
+  signedIn,
+  signIn,
+  until,
+} from './EdgeWorld.ts'
 
 // `test:native` builds the website with this release before the test runs (package.json).
 const release = 'acceptance'
@@ -150,12 +152,6 @@ test(
   { timeout: 30000 },
 )
 
-/** A headless Chromium for one test, closed when the test's scope ends. */
-const headlessChromium = Effect.acquireRelease(
-  Effect.promise(() => chromium.launch({ headless: true })),
-  (opened) => Effect.promise(() => opened.close()),
-)
-
 test(
   'hydrates the page in headless Chromium without errors and shows the title and release',
   Effect.scoped(
@@ -185,19 +181,6 @@ test(
   ),
   { timeout: 60000 },
 )
-
-const postJson = (url: string, body: unknown) =>
-  HttpClient.execute(HttpClientRequest.post(url).pipe(HttpClientRequest.bodyJsonUnsafe(body)))
-
-/** Sign a generated key in through the edge: ask for a challenge, sign it, send it back. */
-const signIn = (url: string, wallet: ReturnType<typeof privateKeyToAccount>) =>
-  Effect.gen(function* () {
-    const challenge = yield* postJson(`${url}/api/session/challenge`, { address: wallet.address })
-    expect(challenge.status).toBe(200)
-    const { message } = yield* Effect.flatMap(challenge.json, Schema.decodeUnknownEffect(SignInChallenge))
-    const signature = yield* Effect.promise(() => wallet.signMessage({ message }))
-    return { message, signature, response: yield* postJson(`${url}/api/session/verify`, { message, signature }) }
-  })
 
 test(
   'signs a wallet in through the edge with a __Host- session cookie, reads the session, signs out, and refuses a replay',
@@ -235,111 +218,6 @@ test(
   }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
 )
-
-/** One person's requests through the edge: JSON, from the site's origin, with their session cookie. */
-const browserOf = (url: string, cookie: string) => {
-  const send = (request: HttpClientRequest.HttpClientRequest, body?: unknown) =>
-    HttpClient.execute(
-      (body === undefined ? request : HttpClientRequest.bodyJsonUnsafe(request, body)).pipe(
-        HttpClientRequest.setHeaders({ cookie, origin: url }),
-      ),
-    )
-  return {
-    get: (path: string) => send(HttpClientRequest.get(`${url}${path}`)),
-    post: (path: string, body?: unknown) => send(HttpClientRequest.post(`${url}${path}`), body),
-    put: (path: string, body: unknown) => send(HttpClientRequest.put(`${url}${path}`), body),
-  }
-}
-type Browser = ReturnType<typeof browserOf> & { readonly account: AccountId; readonly cookie: string }
-
-/** Sign a fresh wallet in and keep its session cookie. */
-const signedIn = (url: string) =>
-  Effect.gen(function* () {
-    const { response } = yield* signIn(url, privateKeyToAccount(generatePrivateKey()))
-    const cookie = (response.headers['set-cookie'] ?? '').split('; ')[0] ?? ''
-    const { account } = yield* Effect.flatMap(response.json, Schema.decodeUnknownEffect(SessionView))
-    const browser: Browser = { ...browserOf(url, cookie), account, cookie }
-    return browser
-  })
-
-class NotYet extends Schema.TaggedError<NotYet>()('NotYet', {}) {}
-
-/**
- * Read until the answer decodes and `done` holds: Durable Objects commit at once, but views and D1 projections follow
- * eventually. A bounded retry, every 100 ms for at most 20 seconds, never a fixed sleep.
- */
-const until = <A>(
-  read: Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError, HttpClient.HttpClient>,
-  schema: Schema.Decoder<A>,
-  done: (value: A) => boolean = () => true,
-) =>
-  read.pipe(
-    Effect.flatMap((response) => response.json),
-    Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-    Effect.flatMap((value) => (done(value) ? Effect.succeed(value) : Effect.fail(new NotYet()))),
-    Effect.retry({ schedule: Schedule.spaced('100 millis'), times: 200 }),
-  )
-
-/** The id a command that creates something answered with; a command is sent once, never retried. */
-const createdBy = <A>(
-  send: Effect.Effect<HttpClientResponse.HttpClientResponse, HttpClientError.HttpClientError, HttpClient.HttpClient>,
-  id: Schema.Decoder<A>,
-) =>
-  send.pipe(
-    Effect.flatMap((response) => response.json),
-    Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ id }))),
-    Effect.map((created) => created.id),
-  )
-const day = 86_400
-const offer = (amount: string) => ({
-  title: 'A logo',
-  deliverables: ['SVG logo'],
-  amount,
-  asset: UsdcOnArcTestnet.id,
-  network: UsdcOnArcTestnet.network,
-  deliveryDeadline: Math.floor(Date.now() / 1000) + 30 * day,
-  reviewWindowSeconds: 3 * day,
-  disputeWindowSeconds: 2 * day,
-  arbitrationWindowSeconds: 7 * day,
-  rail: 'escrow',
-})
-
-/** The versions the buyer's view of `job` names, once it holds `count`. */
-const proposalsFor = (buyer: Browser, job: string, count: number) =>
-  until(
-    buyer.get(`/api/jobs/${job}`),
-    JobView,
-    (shown) => shown.audience === 'buyer' && shown.view.proposals.length === count,
-  ).pipe(
-    Effect.map((shown): ReadonlyArray<ProposalRef> =>
-      shown.audience === 'buyer'
-        ? shown.view.proposals.map(({ bidder, version, termsDigest }) => ({ bidder, version, termsDigest }))
-        : [],
-    ),
-  )
-
-const Rooms = Schema.Struct({ rooms: Schema.Array(RoomRef) })
-const Messages = Schema.Struct({ messages: Schema.Array(Message) })
-const Inbox = Schema.Struct({ items: Schema.Array(InboxEntry), next: Cursor })
-const kindsIn = (inbox: typeof Inbox.Type) => inbox.items.map(({ kind }) => kind)
-
-/** Ben offers logos, Ada posts a request; Ben proposes, Ada asks for a change, Ben proposes again. */
-const negotiate = (ada: Browser, ben: Browser) =>
-  Effect.gen(function* () {
-    const listing = yield* createdBy(
-      ben.post('/api/listings', { title: 'Logos', description: 'By hand.', tags: ['logo'] }),
-      ListingId,
-    )
-    const now = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000)
-    const posted = { title: 'A logo for my café', description: 'Warm.', expiresAt: now + 7 * day }
-    const job = yield* createdBy(ada.post('/api/jobs', posted), JobId)
-    yield* createdBy(ben.post(`/api/jobs/${job}/proposals`, { terms: offer('250000000') }), ProposalId)
-    const [v1] = yield* proposalsFor(ada, job, 1)
-    expect((yield* ada.post(`/api/jobs/${job}/change-requests`, v1)).status).toBe(204)
-    yield* createdBy(ben.post(`/api/jobs/${job}/proposals`, { previous: 1, terms: offer('300000000') }), ProposalId)
-    const [first, second] = yield* proposalsFor(ada, job, 2)
-    return { listing, job, first, second }
-  })
 
 test(
   'runs the off-chain hire for two wallets through the edge: Durable Objects, D1 projections and policies together',
@@ -417,77 +295,6 @@ test(
   }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
 )
-
-/** A browser context whose page has a wallet: `window.ethereum`, an EIP-1193 provider backed by a key in this process.
- * The page's CSP forbids inline script, so the provider is installed with Playwright's init script, which the browser
- * evaluates outside the page's CSP, and each request crosses to Node through an exposed function. */
-const walletContext = (browser: Chromium) =>
-  Effect.gen(function* () {
-    const wallet = privateKeyToAccount(generatePrivateKey())
-    const context = yield* Effect.promise(() => browser.newContext({ locale: 'en-US' }))
-    yield* Effect.promise(() =>
-      context.exposeFunction('__sidequestWallet', async (method: string, params: ReadonlyArray<unknown>) => {
-        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [wallet.address]
-        if (method === 'eth_chainId') return '0x4cef52'
-        const [message] = params
-        if (method === 'personal_sign' && typeof message === 'string' && isHex(message))
-          return wallet.signMessage({ message: { raw: message } })
-        throw Object.assign(new Error(`The test wallet does not answer ${method}`), { code: 4200 })
-      }),
-    )
-    yield* Effect.promise(() =>
-      context.addInitScript({
-        content:
-          'window.ethereum = { request: ({ method, params }) => window.__sidequestWallet(method, params ?? []) }',
-      }),
-    )
-    return { wallet, context }
-  })
-
-/** A page that records every error the browser reports, CSP violations included, and is hydrated before use. */
-const openPage = (context: BrowserContext, url: string) =>
-  Effect.gen(function* () {
-    const page = yield* Effect.promise(() => context.newPage())
-    const problems: Array<string> = []
-    page.on('pageerror', (error) => problems.push(error.message))
-    page.on('console', (message) => {
-      if (message.type() === 'error') problems.push(message.text())
-    })
-    yield* Effect.promise(() => page.goto(url, { waitUntil: 'networkidle' }))
-    yield* hydrated(page)
-    return { page, problems }
-  })
-
-const hydrated = (page: Page) =>
-  Effect.promise(() =>
-    page.waitForFunction(() => window.document.querySelector('[data-foldkit-app]') === null, undefined, {
-      timeout: 10000,
-    }),
-  )
-
-/** Open `target` in `page` and wait until it hydrated; the paths of the API reads the page made meanwhile, data or
- * session alike. A page hydrated from the server's data makes none of the reads it rendered. */
-const apiReadsDuring = (page: Page, target: string) =>
-  Effect.gen(function* () {
-    const reads: Array<string> = []
-    const record = (request: { readonly method: () => string; readonly url: () => string }) => {
-      const path = new URL(request.url()).pathname
-      if (request.method() === 'GET' && path.startsWith('/api/')) reads.push(path)
-    }
-    page.on('request', record)
-    yield* Effect.promise(() => page.goto(target, { waitUntil: 'networkidle' }))
-    yield* hydrated(page)
-    page.off('request', record)
-    return reads
-  })
-
-/** Reload until `text` shows: the open requests come from a D1 projection, which follows the job eventually. A bounded
- * retry on what the page shows, never a fixed sleep. */
-const reloadUntilShown = (page: Page, text: string) =>
-  Effect.tryPromise(async () => {
-    await page.reload({ waitUntil: 'networkidle' })
-    await page.getByText(text).first().waitFor({ timeout: 1000 })
-  }).pipe(Effect.retry({ times: 20 }))
 
 test(
   'signs in with an injected wallet, posts a request as the buyer, and shows it to another visitor on the home page',

@@ -101,6 +101,9 @@ const preloadFor = (api: SidequestApiClient, route: AppRoute, signedIn: boolean)
     SignIn: () => Effect.succeed(Preload.Nothing()),
     NewListing: () => Effect.succeed(Preload.Nothing()),
     NewRequest: () => Effect.succeed(Preload.Nothing()),
+    // The consent page and the connected apps read after hydration, as their own person.
+    Connect: () => Effect.succeed(Preload.Nothing()),
+    Connections: () => Effect.succeed(Preload.Nothing()),
     NotFound: () => Effect.succeed(Preload.Nothing()),
   })
 
