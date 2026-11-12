@@ -8,6 +8,7 @@ import { D1ListingStore } from './Projections/D1ListingStore.ts'
 import { D1OpenJobStore } from './Projections/D1OpenJobStore.ts'
 import { D1PartyJobStore } from './Projections/D1PartyJobStore.ts'
 import { ChainSettlementLive } from './Settlement/ChainSettlementLive.ts'
+import { SagaTimingLive } from './Settlement/SagaTiming.ts'
 
 /** The stores the model's D1 projections write through; they need the database's `SqlClient`. */
 export const D1Stores = Layer.mergeAll(
@@ -25,5 +26,10 @@ export const D1Stores = Layer.mergeAll(
  */
 export const DomainHandlers = SidequestHandlers.pipe(Layer.provide(Layer.mergeAll(D1Stores, ChainSettlementLive)))
 
-/** The model hosted on Durable Objects, its projections writing to D1 and its sagas reading the chain. */
-export const DomainLive = Sidequest.layer(DomainHandlers).pipe(Layer.provide(DomainCloudflare.DurableObjects))
+/**
+ * The model hosted on Durable Objects, its projections writing to D1 and its sagas reading the chain at the pace the
+ * Worker's configuration names.
+ */
+export const DomainLive = Sidequest.layer(DomainHandlers.pipe(Layer.provide(SagaTimingLive))).pipe(
+  Layer.provide(DomainCloudflare.DurableObjects),
+)

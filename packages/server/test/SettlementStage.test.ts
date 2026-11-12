@@ -1,8 +1,9 @@
 import { it } from '@effect/vitest'
 import { Effect, Option, Redacted } from 'effect'
 import { ConfigProvider } from 'effect'
-import { describe, expect } from 'vitest'
+import { describe, expect, it as plain } from 'vitest'
 import { escrowConfigFrom } from '../src/Settlement/EscrowConfig.ts'
+import { sagaTimingFrom } from '../src/Settlement/SagaTiming.ts'
 import { settlementVariablesFromShell } from '../src/Settlement/SettlementStage.ts'
 
 // What a stage binds for settlement, read from the deploying shell: nothing when nothing is set, everything (keys as
@@ -67,4 +68,14 @@ describe('settlement from the deploying shell', () => {
       expect(operator.message).toContain('SIDEQUEST_ARBITRATION_OPERATOR')
     }),
   )
+})
+
+describe('the settlement sagas’ pace', () => {
+  plain('reads poll, longest poll and idle wait in milliseconds, and keeps the default for anything else', () => {
+    expect(sagaTimingFrom({ SIDEQUEST_SETTLEMENT_TIMING: '250,1000,2000' })).toEqual(
+      Option.some({ pollMillis: 250, maxPollMillis: 1000, idleMillis: 2000 }),
+    )
+    for (const value of [undefined, '', '250,1000', '250,1000,2000,1', '0,1000,2000', '250,x,2000'])
+      expect(sagaTimingFrom({ SIDEQUEST_SETTLEMENT_TIMING: value })).toEqual(Option.none())
+  })
 })
