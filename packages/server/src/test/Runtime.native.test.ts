@@ -4,6 +4,7 @@ import {
   type AccountId,
   AccountRef,
   AgentId,
+  ConnectDecision,
   Cursor,
   InboxEntry,
   IssuedAgentToken,
@@ -22,6 +23,7 @@ import {
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
 import { DateTime, Effect, Schedule, Schema } from 'effect'
+import { Base64Url } from 'effect/encoding'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
@@ -388,7 +390,9 @@ test(
 
     const bare = yield* postJson(`${url}/mcp`, { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
     expect(bare.status).toBe(401)
-    expect(bare.headers['www-authenticate']).toBe('Bearer realm="sidequest"')
+    expect(bare.headers['www-authenticate']).toBe(
+      `Bearer realm="sidequest", resource_metadata="${url}/.well-known/oauth-protected-resource/mcp"`,
+    )
 
     const client = yield* McpClient.make({ name: 'acceptance', version: '1' }).pipe(
       Effect.provideServiceEffect(
@@ -567,5 +571,61 @@ test(
     expect(ownBody).toContain('No proposals yet.')
     expect(own.headers['cache-control']).toBe('private, no-store')
   }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 60000 },
+)
+
+test(
+  'connects an MCP client over OAuth through the edge, and serves it as a 2025-11-25 client without a session',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const person = yield* signedIn(url)
+    const agent = yield* createdBy(person.post('/api/agents', { name: 'Scout' }), AgentId)
+    const expiresAt = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000) + 3600
+    yield* person.put(`/api/agents/${agent}/grant`, { scopes: ['discuss'], expiresAt })
+    const redirect = 'http://127.0.0.1:9/callback'
+    const registered = yield* postJson(`${url}/oauth/register`, { redirect_uris: [redirect] })
+    const Registered = Schema.Struct({ client_id: Schema.String })
+    const { client_id: client } = yield* Effect.flatMap(registered.json, Schema.decodeUnknownEffect(Registered))
+    // PKCE from Web Crypto here, never the server's code: a verifier and its S256 challenge.
+    const verifier = generatePrivateKey().slice(2)
+    const digest = yield* Effect.promise(() => crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)))
+    const query = new URLSearchParams({ response_type: 'code', client_id: client, redirect_uri: redirect, state: 's1' })
+    query.set('code_challenge', Base64Url.encode(new Uint8Array(digest)))
+    query.set('code_challenge_method', 'S256')
+    const authorized = yield* HttpClient.get(`${url}/oauth/authorize?${query.toString()}`).pipe(
+      Effect.provideService(FetchHttpClient.RequestInit, { redirect: 'manual' }),
+    )
+    const consentPage = authorized.headers['location'] ?? ''
+    expect(consentPage).toMatch(/^\/connect\/connect_[0-9A-HJKMNP-TV-Z]{26}$/u)
+    expect((yield* HttpClient.get(`${url}${consentPage}`, { headers: { accept: 'text/html' } })).status).toBe(200)
+    // The person allows it from the browser that opened the request: their session and the request's binding cookie.
+    const binding = (authorized.headers['set-cookie'] ?? '').split('; ')[0] ?? ''
+    const allowed = yield* browserOf(url, `${person.cookie}; ${binding}`).post(`/api${consentPage}/allow`, { agent })
+    const { redirect: back } = yield* Effect.flatMap(allowed.json, Schema.decodeUnknownEffect(ConnectDecision))
+    const answered = new URL(back).searchParams
+    expect([answered.get('state'), answered.get('iss')]).toEqual(['s1', url])
+    const form = { grant_type: 'authorization_code', code: answered.get('code') ?? '', code_verifier: verifier }
+    const tokenRequest = HttpClientRequest.post(`${url}/oauth/token`).pipe(
+      HttpClientRequest.bodyUrlParams({ ...form, redirect_uri: redirect, client_id: client }),
+    )
+    const exchanged = yield* HttpClient.execute(tokenRequest)
+    const Tokens = Schema.Struct({ access_token: Schema.String })
+    const { access_token: token } = yield* Effect.flatMap(exchanged.json, Schema.decodeUnknownEffect(Tokens))
+    const accept = 'application/json, text/event-stream'
+    const mcp = (body: Record<string, unknown>, version: Record<string, string> = {}) =>
+      HttpClient.execute(
+        HttpClientRequest.post(`${url}/mcp`).pipe(
+          HttpClientRequest.bodyJsonUnsafe({ jsonrpc: '2.0', id: 1, ...body }),
+          HttpClientRequest.setHeaders({ authorization: `Bearer ${token}`, accept, ...version }),
+        ),
+      )
+    const params = { protocolVersion: '2025-11-25', capabilities: {}, clientInfo: { name: 'acceptance', version: '1' } }
+    const initialized = yield* mcp({ method: 'initialize', params })
+    expect(initialized.headers['mcp-session-id']).toBeUndefined()
+    expect(yield* initialized.json).toMatchObject({ result: { protocolVersion: '2025-11-25' } })
+    const whoami = { method: 'tools/call', params: { name: 'whoami', arguments: {} } }
+    const called = yield* mcp(whoami, { 'mcp-protocol-version': '2025-11-25' })
+    expect(yield* called.json).toMatchObject({ result: { structuredContent: { agent: { id: agent } } } })
+  }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
 )
