@@ -8,7 +8,7 @@ import {
   SignInChallenge,
   type TypedData,
 } from '@sidequest/protocol'
-import { Data, Effect, Schedule, Schema } from 'effect'
+import { Data, Effect, Predicate, Schedule, Schema } from 'effect'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { type Hex, isAddress } from 'viem'
@@ -36,6 +36,26 @@ export interface Person {
 
 /** A refused request, with what the API said. */
 export class Refused extends Data.TaggedError('Refused')<{ readonly message: string }> {}
+
+/** An MCP call that failed below the tool: in the transport, the HTTP exchange or the protocol. */
+export class McpFailed extends Data.TaggedError('McpFailed')<{ readonly message: string }> {}
+
+/**
+ * What an MCP client failure carries, down to the wire: each error's name and message, an HTTP status and a code where
+ * one has them, then its cause. "MCP HTTP request failed" alone hides whether the server answered at all.
+ */
+const detailOf = (failure: unknown, depth = 0): string => {
+  if (!Predicate.isObject(failure) || depth > 8) return String(failure)
+  const name = Predicate.hasProperty(failure, 'name') ? String(failure.name) : 'Error'
+  const message = Predicate.hasProperty(failure, 'message') ? String(failure.message) : ''
+  const status = Predicate.hasProperty(failure, 'status') ? ` (HTTP ${String(failure.status)})` : ''
+  const code =
+    Predicate.hasProperty(failure, 'code') && (Predicate.isString(failure.code) || Predicate.isNumber(failure.code))
+      ? ` [${failure.code}]`
+      : ''
+  const cause = Predicate.hasProperty(failure, 'cause') ? failure.cause : undefined
+  return `${name}: ${message}${status}${code}${cause === undefined ? '' : ` <- ${detailOf(cause, depth + 1)}`}`
+}
 
 const send = async (url: string, method: string, path: string, cookie: string, body?: unknown): Promise<Reply> => {
   const headers: Record<string, string> = { origin: url, cookie }
@@ -164,7 +184,11 @@ const callTool = (url: string, token: string, name: string, args: Record<string,
     if (result.isError === true)
       return yield* Effect.die(new Refused({ message: `${name}: ${JSON.stringify(result.content)}` }))
     return result.structuredContent
-  }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer))
+  }).pipe(
+    Effect.mapError((failure) => new McpFailed({ message: `${name}: ${detailOf(failure)}` })),
+    Effect.scoped,
+    Effect.provide(FetchHttpClient.layer),
+  )
 
 const agentAt = (url: string, id: AgentId, token: string): Agent => ({
   id,

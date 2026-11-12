@@ -1,0 +1,96 @@
+diff --git a/lib/Workflows/DurableObjectEngine.js b/lib/Workflows/DurableObjectEngine.js
+index be9b376a5976239138eb5a1a257b765dff90eb41..735f6d78b0b8212cec43937de1fc1e5109b05a9c 100644
+--- a/lib/Workflows/DurableObjectEngine.js
++++ b/lib/Workflows/DurableObjectEngine.js
+@@ -214,16 +214,31 @@ const executionObject = (registration) => Effect.gen(function* () {
+         const wake = runs
+             .schedule(RUN, { after: 0, payload: {} })
+             .pipe(Effect.orDie, Effect.provide(context));
+-        const complete = (deferredName, exit) => query("INSERT OR IGNORE INTO workflow_deferred (name, exit) VALUES (?, ?)", deferredName, exit).pipe(Effect.andThen(wake));
++        const record = (deferredName, exit) => query("INSERT OR IGNORE INTO workflow_deferred (name, exit) VALUES (?, ?)", deferredName, exit);
++        const complete = (deferredName, exit) => record(deferredName, exit).pipe(Effect.andThen(wake));
++        // sidequest patch: the journal only grows, so its size is the
++        // execution's progress. A callback scheduled from inside an alarm pass
++        // inherits that pass's retry budget unless it names a higher `progress`
++        // cursor; without one, every fired clock and every run that sleeps again
++        // counted as one more failed attempt, and an execution's wake-ups backed
++        // off exponentially (5 s, 10 s, 20 s, ...) until they parked for an hour.
++        const journalSize = Effect.map(query("SELECT (SELECT COUNT(*) FROM workflow_activity) + (SELECT COUNT(*) FROM workflow_deferred) + (SELECT COUNT(*) FROM workflow_clock) AS size"), (rows) => rows[0]?.size ?? 0);
+         const clocks = yield* makeCallback("clock", (job) => Effect.gen(function* () {
+-            yield* complete(job.deferred, yield* encodeExit(Exit.void));
++            yield* record(job.deferred, yield* encodeExit(Exit.void));
++            yield* runs
++                .schedule(RUN, { after: 0, payload: {}, progress: yield* journalSize })
++                .pipe(Effect.orDie, Effect.provide(context));
+         }), { retry: { delay: "5 seconds" } });
+         const scheduleClock = (name, deferredName, due) => Effect.gen(function* () {
+             const done = yield* query("SELECT 1 FROM workflow_deferred WHERE name = ?", deferredName);
+             if (done.length > 0)
+                 return;
+             yield* clocks
+-                .schedule(name, { at: due, payload: { deferred: deferredName } })
++                .schedule(name, {
++                at: due,
++                payload: { deferred: deferredName },
++                progress: yield* journalSize,
++            })
+                 .pipe(Effect.orDie, Effect.provide(context));
+         });
+         const run = Effect.gen(function* () {
+diff --git a/src/Workflows/DurableObjectEngine.ts b/src/Workflows/DurableObjectEngine.ts
+index 9ae2b09f33a4fd64e0dedfdbd03799cffae925c6..438bc3d49c89d84bd10d7fba581c5cdf19a8445b 100644
+--- a/src/Workflows/DurableObjectEngine.ts
++++ b/src/Workflows/DurableObjectEngine.ts
+@@ -375,18 +375,36 @@ const executionObject = (registration: Registration) =>
+         .schedule(RUN, { after: 0, payload: {} })
+         .pipe(Effect.orDie, Effect.provide(context));
+ 
+-      const complete = (deferredName: string, exit: string) =>
++      const record = (deferredName: string, exit: string) =>
+         query(
+           "INSERT OR IGNORE INTO workflow_deferred (name, exit) VALUES (?, ?)",
+           deferredName,
+           exit,
+-        ).pipe(Effect.andThen(wake));
++        );
++      const complete = (deferredName: string, exit: string) =>
++        record(deferredName, exit).pipe(Effect.andThen(wake));
++
++      // sidequest patch: the journal only grows, so its size is the
++      // execution's progress. A callback scheduled from inside an alarm pass
++      // inherits that pass's retry budget unless it names a higher `progress`
++      // cursor; without one, every fired clock and every run that sleeps again
++      // counted as one more failed attempt, and an execution's wake-ups backed
++      // off exponentially (5 s, 10 s, 20 s, ...) until they parked for an hour.
++      const journalSize = Effect.map(
++        query<{ size: number }>(
++          "SELECT (SELECT COUNT(*) FROM workflow_activity) + (SELECT COUNT(*) FROM workflow_deferred) + (SELECT COUNT(*) FROM workflow_clock) AS size",
++        ),
++        (rows) => rows[0]?.size ?? 0,
++      );
+ 
+       const clocks = yield* makeCallback(
+         "clock",
+         (job: { readonly deferred: string }) =>
+           Effect.gen(function* () {
+-            yield* complete(job.deferred, yield* encodeExit(Exit.void));
++            yield* record(job.deferred, yield* encodeExit(Exit.void));
++            yield* runs
++              .schedule(RUN, { after: 0, payload: {}, progress: yield* journalSize })
++              .pipe(Effect.orDie, Effect.provide(context));
+           }),
+         { retry: { delay: "5 seconds" } },
+       );
+@@ -395,7 +413,11 @@ const executionObject = (registration: Registration) =>
+           const done = yield* query("SELECT 1 FROM workflow_deferred WHERE name = ?", deferredName);
+           if (done.length > 0) return;
+           yield* clocks
+-            .schedule(name, { at: due, payload: { deferred: deferredName } })
++            .schedule(name, {
++              at: due,
++              payload: { deferred: deferredName },
++              progress: yield* journalSize,
++            })
+             .pipe(Effect.orDie, Effect.provide(context));
+         });
+ 

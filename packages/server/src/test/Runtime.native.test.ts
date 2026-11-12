@@ -12,7 +12,7 @@ import {
 } from '@sidequest/protocol'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
-import { DateTime, Effect, Schedule, Schema } from 'effect'
+import { Clock, DateTime, Effect, Schedule, Schema } from 'effect'
 import { Base64Url } from 'effect/encoding'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
@@ -22,6 +22,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
 import { apiReadsDuring, headlessChromium, openPage, reloadUntilShown, walletContext } from './ChromiumWorld.ts'
+import WakeWorkerLive, { millis, sleeps, WakeWorker } from './WakeWorker.ts'
 import {
   browserOf,
   createdBy,
@@ -71,7 +72,8 @@ const Stack = Alchemy.Stack(
       ...edgeWorker,
       env: { API: received, WEBSITE: received },
     })
-    return { url, probeUrl: probe.url.as<string>() }
+    const wakes = yield* WakeWorker.pipe(Effect.provide(WakeWorkerLive))
+    return { url, probeUrl: probe.url.as<string>(), wakesUrl: wakes.url.as<string>() }
   }),
 )
 
@@ -120,6 +122,29 @@ test(
     expect(response.headers['strict-transport-security']).toBe('max-age=31536000')
   }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 30000 },
+)
+
+test(
+  'wakes a durable workflow on time after every sleep, as the settlement sagas need on Durable Objects',
+  Effect.gen(function* () {
+    const { wakesUrl } = yield* stack
+    const started = yield* Clock.currentTimeMillis
+    // A new run each time: the local Durable Objects outlive a run of this test, and the same id finds the old run.
+    const { executionId } = yield* until(
+      HttpClient.get(`${wakesUrl}/start/wakes-${started}`),
+      Schema.Struct({ executionId: Schema.String }),
+    )
+    // Each wake-up is the run's progress: a clock that fired, or a run that sleeps again, is not a retry of the one
+    // before. Counted as retries, the wakes backed off 5 s, 10 s, 20 s, ... and this run took over ten minutes.
+    const done = yield* until(
+      HttpClient.get(`${wakesUrl}/status/${executionId}`),
+      Schema.Struct({ completed: Schema.Boolean, result: Schema.optional(Schema.Number) }),
+      (status) => status.completed,
+    )
+    expect(done.result).toBe(sleeps)
+    expect((yield* Clock.currentTimeMillis) - started).toBeLessThan(sleeps * millis + 5000)
+  }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 60000 },
 )
 
 test(

@@ -194,16 +194,20 @@ const reclaimAbi = parseAbi([
   'function reclaim((address operator, address payer, address receiver, address token, uint120 maxAmount, uint48 preApprovalExpiry, uint48 authorizationExpiry, uint48 refundExpiry, uint16 minFeeBps, uint16 maxFeeBps, address feeReceiver, uint256 salt) paymentInfo)',
 ])
 
-/** Two funded jobs, one awaiting the saga's refund and one whose settlement calls the node withholds. */
+/** Funded jobs: one awaiting the saga's refund and, where (d) runs, one whose settlement calls the node withholds. */
 export interface Undelivered {
   readonly refund: { readonly job: JobId; readonly funding: FundingRequest }
-  readonly reclaim: { readonly job: JobId; readonly funding: FundingRequest }
+  readonly reclaim: { readonly job: JobId; readonly funding: FundingRequest } | undefined
 }
 
-/** Award and fund the jobs of (c) and (d); nothing will be delivered on either. */
-export const fundUndelivered = async (world: World, deadlineIn: number): Promise<Undelivered> => {
+/**
+ * Award and fund the job of (c) and, with `reclaim`, the job of (d); nothing will be delivered on either. Only (d)'s
+ * payment is withheld; where (d) does not run its job is never funded, so a live chain keeps no withheld escrow.
+ */
+export const fundUndelivered = async (world: World, deadlineIn: number, reclaim: boolean): Promise<Undelivered> => {
   const refundJob = await award(world, 'c', deadlineIn)
   const refundFunding = await fund(world, 'c', refundJob)
+  if (!reclaim) return { refund: { job: refundJob, funding: refundFunding }, reclaim: undefined }
   const reclaimJob = await award(world, 'd', deadlineIn)
   const reclaimFunding = await fund(world, 'd', reclaimJob)
   if (!isHex(reclaimFunding.paymentHash)) throw new Error('A payment hash is hex')
@@ -253,6 +257,7 @@ export const refundedUndelivered = async (world: World, funded: Undelivered): Pr
 export const reclaimedAfterExpiry = async (world: World, funded: Undelivered): Promise<CaseResult> => {
   const started = Date.now()
   const before = await balances(world)
+  if (funded.reclaim === undefined) throw new Error('The job of (d) was not funded')
   const { job, funding } = funded.reclaim
   await passTime(world, funding.deliveryDeadline)
   await eventually(

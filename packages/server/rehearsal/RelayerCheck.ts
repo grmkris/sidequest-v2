@@ -1,5 +1,5 @@
 import { Database } from 'bun:sqlite'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { Schema } from 'effect'
 import { isAddressEqual, isHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -13,12 +13,25 @@ import type { World } from './Hire.ts'
 
 const d1 = new URL('../../../.alchemy/local/d1/cloudflare-runtime-D1DatabaseObject/', import.meta.url)
 
+/** When a file under the D1 directory last changed (SQLite writes its WAL first), or 0 if it is not there. */
+const modifiedAt = (name: string) => {
+  const file = new URL(name, d1)
+  return existsSync(file) ? statSync(file).mtimeMs : 0
+}
+
 const Row = Schema.Struct({ id: Schema.String, state: Schema.String, hashes: Schema.NullOr(Schema.String) })
 
-/** The relayer's intents in the local D1 that holds them, if one does. */
+/**
+ * The relayer's intents in the local D1 that holds them, if one does: the newest such database, since a destroyed
+ * stage leaves its file behind and Arc testnet runs reuse one relayer key, so earlier runs' databases hold it too.
+ */
 const storedIntents = (signer: string) => {
   if (!existsSync(d1)) return undefined
-  for (const file of readdirSync(d1).filter((name) => name.endsWith('.sqlite') && name !== 'metadata.sqlite')) {
+  const files = readdirSync(d1)
+    .filter((name) => name.endsWith('.sqlite') && name !== 'metadata.sqlite')
+    .map((name) => ({ name, modified: Math.max(...[name, `${name}-wal`].map(modifiedAt)) }))
+    .toSorted((a, b) => b.modified - a.modified)
+  for (const { name: file } of files) {
     const database = new Database(new URL(file, d1).pathname, { readonly: true })
     try {
       const table = database.query("SELECT name FROM sqlite_master WHERE name = 'relayer_transactions'").all()

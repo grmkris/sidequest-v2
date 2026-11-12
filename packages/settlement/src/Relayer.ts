@@ -342,8 +342,12 @@ const step = (w: Wiring, intent: RelayIntent, seen: Look, gas: Option.Option<big
     const next: Progress = { done: false, intent: yield* reread(w, signed) }
     return next
   })
+  const next = (stored: RelayIntent): Effect.Effect<Progress, SettlementStoreError> =>
+    Effect.map(reread(w, stored), (latest): Progress => ({ done: false, intent: latest }))
   return Look.$match(seen, {
-    Used: ({ transaction, reverted }) => Effect.andThen(close(w, intent, transaction, reverted), send(intent)),
+    // The nonce is used: there is nothing left to send. Sending a mined transaction again could only be refused, and
+    // the refusal would be recorded on it and alerted as if it were news.
+    Used: ({ transaction, reverted }) => Effect.andThen(close(w, intent, transaction, reverted), next(intent)),
     Unsigned: () => Effect.flatMap(signFirst(w, intent, gas), send),
     Waiting: ({ transaction }) => finish(answer(intent, transaction)),
     // Sent by this relay already and still unknown: the node has it or will refuse it; the next look will tell.

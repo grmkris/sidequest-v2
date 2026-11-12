@@ -96,7 +96,8 @@
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
     "@alchemy.run/domain@2.0.0-beta.84": "patches/@alchemy.run%2Fdomain@2.0.0-beta.84.patch",
-    "@foldkit/vite-plugin@0.28.0": "patches/@foldkit%2Fvite-plugin@0.28.0.patch"
+    "@foldkit/vite-plugin@0.28.0": "patches/@foldkit%2Fvite-plugin@0.28.0.patch",
+    "@alchemy.run/cloudflare@2.0.0-beta.84": "patches/@alchemy.run%2Fcloudflare@2.0.0-beta.84.patch"
   },
   "trustedDependencies": [
     "esbuild",

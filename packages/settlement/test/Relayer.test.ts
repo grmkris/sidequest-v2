@@ -1,5 +1,5 @@
 import { it } from '@effect/vitest'
-import { Effect, Layer, Redacted } from 'effect'
+import { Effect, Layer, Option, Redacted } from 'effect'
 import { decodeFunctionData, keccak256, parseTransaction, toHex } from 'viem'
 import { describe, expect } from 'vitest'
 import { sidequestOperatorAbi } from '../src/abi/SidequestOperator.ts'
@@ -114,6 +114,24 @@ describe('the relayer', () => {
       yield* relay(rpc, intents, 'job-2:refundUndelivered', refundUndelivered)
       const nonces = [...rpc.transactions.values()].map(({ raw }) => parseTransaction(raw).nonce)
       expect(nonces).toEqual([0, 1])
+    }),
+  )
+
+  it.effect('closes an intent the chain mined without sending its transaction again', () =>
+    Effect.gen(function* () {
+      const rpc = fakeRpc()
+      const intents = memoryRelayerIntents()
+      const funded = yield* relay(rpc, intents, 'job-1:settleAfterReview', settleAfterReview)
+      rpc.mine(funded.transactionHash)
+      // As a node, or the gate rehearsal's proxy, may: refuse a transaction it is sent again, whatever became of it.
+      rpc.refuse = (transaction) => (keccak256(transaction.raw) === funded.transactionHash ? 'withheld' : undefined)
+      yield* relay(rpc, intents, 'job-2:refundUndelivered', refundUndelivered)
+      // The next relay closes the mined intent first; it sends only its own call.
+      expect(sends(rpc)).toBe(2)
+      const closed = yield* intents.find('job-1:settleAfterReview')
+      expect(closed.pipe(Option.map(({ state, transactions }) => [state, transactions.at(-1)?.refused]))).toEqual(
+        Option.some(['mined', null]),
+      )
     }),
   )
 })

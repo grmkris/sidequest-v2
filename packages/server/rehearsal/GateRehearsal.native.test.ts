@@ -20,7 +20,7 @@ import { type CaseResult, evidenceFor, summaryOf, writeEvidence } from './Eviden
 import type { World } from './Hire.ts'
 import { relayerSettled } from './RelayerCheck.ts'
 import { type RpcProxy, startProxy } from './RpcProxy.ts'
-import { registerAgent, signIn } from './Surfaces.ts'
+import { eventually, type Person, registerAgent, signIn } from './Surfaces.ts'
 
 // The phase 1 technical gate, rehearsed (docs/ROADMAP.md): two unrelated accounts complete escrowed hires through MCP
 // clients, including a rejection settled by a ruling and a buyer's reclaim. The whole built stack runs in workerd as
@@ -102,6 +102,26 @@ const deployWith = (proxy: RpcProxy, settlement: SettlementVariables) =>
     return url
   }).pipe(Effect.provide(FetchHttpClient.layer))
 
+/** A well-formed job id no job has: a ruling for it is refused only after the arbitration operator is checked. */
+const noJob = 'job_00000000000000000000000000'
+
+/**
+ * Wait until the API Worker runs with the configuration naming `arbitration` as the arbitration operator. A redeploy
+ * that changes the Worker's configuration restarts it a few seconds after the deploy returns; until then the old
+ * instance answers (so the status endpoint is ready at once), and at the swap the local runtime resets connections in
+ * flight, which an MCP client meets as "MCP HTTP request failed". So hires start only once the new instance answers:
+ * the old one refuses the arbitration operator's ruling as NotPermitted, the new one looks for the job.
+ */
+const untilConfigured = (arbitration: Person) =>
+  eventually(
+    () =>
+      arbitration.post(`/api/jobs/${noJob}/ruling`, { workerShareBps: 5000 }).then(
+        (reply) => reply.status !== 403,
+        () => false,
+      ),
+    (configured) => configured,
+  )
+
 /**
  * The chain, the proxy and the stack, and the people and agents of the hire. The arbitration operator is an account,
  * which exists only once its person signed in: so the stack is deployed, that person signs in, and the stack is
@@ -118,6 +138,7 @@ const startWorld = Effect.gen(function* () {
   const first = yield* deployWith(proxy, yield* settlementFor(chain, undefined))
   const arbitration = yield* Effect.promise(() => signIn(first, 'arbitration', chain.keys.arbitration))
   const url = yield* deployWith(proxy, yield* settlementFor(chain, arbitration.account))
+  yield* Effect.promise(() => untilConfigured(arbitration))
   const buyer = yield* Effect.promise(() => signIn(url, 'buyer', chain.keys.buyer))
   const worker = yield* Effect.promise(() => signIn(url, 'worker', chain.keys.worker))
   yield* Effect.promise(async () => chain.mint?.(buyer.wallet.address, 4n * chain.amount))
@@ -185,7 +206,8 @@ test(
 
 let undelivered: Undelivered | undefined
 const funded = async (current: World) => {
-  undelivered ??= await fundUndelivered(current, mode === 'anvil' ? 2 * hour : 240)
+  // On Arc testnet (d) is not run, so its job is not funded: its refund would be withheld on a live chain.
+  undelivered ??= await fundUndelivered(current, mode === 'anvil' ? 2 * hour : 240, mode === 'anvil')
   return undelivered
 }
 
