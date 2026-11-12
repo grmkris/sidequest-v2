@@ -37,6 +37,9 @@ export default defineConfig({
       // is shown to people by the website.
       'packages/protocol/src/Tools/*.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Mcp/**/*.ts': ['/[\\s\\S]*/'],
+      // OAuth's endpoints answer MCP clients' developers in OAuth's English (RFC 6749 error descriptions) and their
+      // SQL. The one text a person may see, a request so malformed it cannot be sent back to its client, is English too.
+      'packages/server/src/OAuth/**/*.ts': ['/[\\s\\S]*/'],
       // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for
       // everyone, like the rest of the EIP-4361 message around it.
       'packages/server/src/SignIn/Siwe.ts': ['/^Sign in to Sidequest\\.$/'],
