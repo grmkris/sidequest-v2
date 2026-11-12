@@ -10,7 +10,7 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,6 +19,23 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
+      # The hire journeys on Anvil run the Foundry build of the escrow, its collector, the ERC-3009 mock token and
+      # SidequestOperator; `bun run check` fails rather than skips them when CI lacks either (packages/server/test/Anvil.ts).
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.8.3
+      - name: Cache the contracts build
+        uses: actions/cache@v4
+        with:
+          path: |
+            contracts/dependencies
+            contracts/out
+            contracts/cache
+          key: contracts-${{ runner.os }}-foundry-v1.8.3-${{ hashFiles('contracts/foundry.toml', 'contracts/soldeer.lock', 'contracts/src/**', 'contracts/test/**', 'contracts/script/**') }}
+      # Installs the pinned dependencies and checks them against soldeer.lock, then builds (a no-op on a cache hit).
+      - name: Build the contracts
+        working-directory: contracts
+        run: forge soldeer install && forge build
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
       - run: bun run check

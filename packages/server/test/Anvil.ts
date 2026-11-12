@@ -15,12 +15,14 @@ import {
   type PublicClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { beforeAll } from 'vitest'
 import type { EscrowConfig } from '../src/Settlement/EscrowConfig.ts'
 
 // A local chain for the settlement journey: Anvil with Arc testnet's chain id, the real `AuthCaptureEscrow` v1.1, its
 // `ERC3009PaymentCollector` and `SidequestOperator` from the Foundry build, and commerce-payments' ERC-3009 mock token
 // placed at Arc's USDC address. Available only where `anvil` runs and `contracts/out` holds the build
-// (`forge soldeer install && forge build` in `contracts/`); the journey skips itself otherwise.
+// (`forge soldeer install && forge build` in `contracts/`); elsewhere the journeys skip with a notice, and in CI they
+// fail instead, so CI can never pass without running them.
 
 const out = new URL('../../../contracts/out/', import.meta.url)
 const artifacts = {
@@ -30,10 +32,33 @@ const artifacts = {
   operator: 'SidequestOperator.sol/SidequestOperator.json',
 } as const
 
-/** Whether the journey can run here: Anvil installed and the contracts built. */
-export const anvilAvailable =
-  spawnSync('anvil', ['--version'], { stdio: 'ignore' }).status === 0 &&
-  Object.values(artifacts).every((file) => existsSync(new URL(file, out)))
+/** Why the journeys cannot run here, if they cannot: Anvil missing, or the contracts not built. */
+export const anvilMissing = (() => {
+  if (spawnSync('anvil', ['--version'], { stdio: 'ignore' }).status !== 0) return 'anvil is not on PATH'
+  const unbuilt = Object.values(artifacts).filter((file) => !existsSync(new URL(file, out)))
+  return unbuilt.length === 0 ? undefined : `contracts/out lacks ${unbuilt.join(', ')}`
+})()
+
+const inCi = process.env['CI'] !== undefined
+const unavailable =
+  anvilMissing === undefined
+    ? undefined
+    : `${anvilMissing}: install Foundry 1.8.3 and run \`forge soldeer install && forge build\` in contracts/`
+
+/** Whether suites on Anvil skip here: they cannot run, and this is not CI. */
+export const skipOnChain = unavailable !== undefined && !inCi
+
+/**
+ * Call first inside a suite that runs on Anvil (`describe.skipIf(skipOnChain)`). Where the suite skips, it says so on
+ * stderr, naming the suite and why; in CI (`CI` set, as GitHub Actions sets it) the suite runs and fails with the
+ * reason instead, so CI never passes without it.
+ */
+export const onChainOnly = (suite: string) => {
+  if (skipOnChain) process.stderr.write(`\nSKIPPED "${suite}", every test in it: ${unavailable}.\n\n`)
+  beforeAll(() => {
+    if (unavailable !== undefined) throw new Error(`CI must run "${suite}" on Anvil, but ${unavailable}`)
+  })
+}
 
 const Artifact = Schema.Struct({
   bytecode: Schema.Struct({ object: Schema.String }),

@@ -11,7 +11,7 @@ import { isAddress } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { walletRef } from '../src/SignIn/Siwe.ts'
-import { anvilAvailable, type LocalChain, startChain } from './Anvil.ts'
+import { type LocalChain, onChainOnly, skipOnChain, startChain } from './Anvil.ts'
 import { artifactHash, buyerViewOf, named, postJob, propose } from './Hire.ts'
 import { ada, ben, bodyOf, cy, type Person, terms, withApi } from './HttpWorld.ts'
 import { callTool, grantedAgent } from './McpWorld.ts'
@@ -19,8 +19,7 @@ import { signInWorld } from './World.ts'
 
 // The whole hire against a real chain: Anvil running the Foundry build of the audited escrow and `SidequestOperator`
 // (see Anvil.ts). Each person signs with their own key; the server relays and records only what its chain reader
-// verified. Skipped where Anvil or the contracts build is missing (the default CI job has neither: the stories and the
-// fake-RPC tests cover the rules there).
+// verified. Skipped with a notice where Anvil or the contracts build is missing, and failed in CI, which has both.
 
 const fast = { pollMillis: 25, maxPollMillis: 200, idleMillis: 200 }
 const operator = AccountId.make('account_01JCXZ4Q6N8M2V7T3R5W9Y0B1Z')
@@ -70,9 +69,8 @@ const deliver = async (buyer: Person, worker: Person, job: JobId) => {
   return buyerViewOf(buyer, job, (view) => view.state === 'Delivered')
 }
 
-const describeOnChain = anvilAvailable ? describe : describe.skip
-
-describeOnChain('the hire on chain', () => {
+describe.skipIf(skipOnChain)('the hire on chain', () => {
+  onChainOnly('the hire on chain')
   let chain: LocalChain
   beforeAll(async () => {
     chain = await startChain()
