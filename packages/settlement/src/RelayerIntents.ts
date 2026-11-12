@@ -33,7 +33,7 @@ export type IntentState = typeof IntentState.Type
  * relayer's address, the nonce it holds, the call, where it stands, and the transactions signed for it at that nonce,
  * oldest first. Every one of them carries the same nonce, so the chain mines at most one.
  */
-export const RelayIntent = Schema.Struct({
+export const IntentRecord = Schema.Struct({
   id: Schema.String,
   signer: Schema.String,
   nonce: Schema.Int,
@@ -42,8 +42,8 @@ export const RelayIntent = Schema.Struct({
   state: IntentState,
   outcome: Schema.NullOr(Schema.String),
   reason: Schema.NullOr(Schema.String),
-  transactions: Schema.Array(RelayTransaction),
 })
+export const RelayIntent = Schema.Struct({ ...IntentRecord.fields, transactions: Schema.Array(RelayTransaction) })
 export type RelayIntent = typeof RelayIntent.Type
 
 /** What reserving an intent needs: its id, call and the lowest nonce the chain would accept from the signer. */

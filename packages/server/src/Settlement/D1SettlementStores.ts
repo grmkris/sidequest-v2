@@ -1,6 +1,6 @@
 import { PaymentRecord, PaymentRequests } from '@sidequest/settlement/PaymentRequests'
 import { Cursor, ReaderCursors, SettlementStoreError } from '@sidequest/settlement/ReaderCursors'
-import { IntentState, type RelayIntent, RelayerIntents, RelayTransaction } from '@sidequest/settlement/RelayerIntents'
+import { IntentRecord, type RelayIntent, RelayerIntents, RelayTransaction } from '@sidequest/settlement/RelayerIntents'
 import { Effect, Layer, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
@@ -49,16 +49,7 @@ export const D1PaymentRequests = Layer.effect(
   }),
 )
 
-const IntentRow = Schema.Struct({
-  id: Schema.String,
-  signer: Schema.String,
-  nonce: Schema.Int,
-  to: Schema.String,
-  data: Schema.String,
-  state: IntentState,
-  outcome: Schema.NullOr(Schema.String),
-  reason: Schema.NullOr(Schema.String),
-})
+const IntentRow = IntentRecord
 const TransactionRow = Schema.Struct({ ...RelayTransaction.fields, intent: Schema.String })
 
 /** The relayer's reads: an intent by id, a signer's open intents, and their transactions at the nonce each holds. */
