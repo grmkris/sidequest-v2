@@ -44,11 +44,13 @@ const Stack = Alchemy.Stack(
   Effect.suspend(() =>
     sidequestWorkers(
       release,
-      Cloudflare.Worker('SidequestWebsite', {
-        main: 'apps/web/dist/server/fetch.js',
-        assets: { directory: 'apps/web/dist/client' },
-        compatibility,
-      }),
+      (api) =>
+        Cloudflare.Worker('SidequestWebsite', {
+          main: 'apps/web/dist/server/fetch.js',
+          assets: { directory: 'apps/web/dist/client' },
+          compatibility,
+          env: { API: api },
+        }),
       settings.rpcUrl,
       settings.settlement,
     ),

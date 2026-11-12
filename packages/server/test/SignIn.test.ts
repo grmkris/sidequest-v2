@@ -234,11 +234,8 @@ describe('the Session middleware', () => {
             const agents = yield* Agent
             const asAda = Effect.provideService(CurrentActor, { account: session.account })
             yield* agents.send(agent, new RegisterAgent({ name: 'Scout' })).pipe(asAda)
-            // The model in memory stamps commands with the real clock, which is past the test's start: the grant
-            // must end after both.
-            const grantEnds = start / 1000 + 10 * 365 * 24 * 60 * 60
             yield* agents
-              .send(agent, new GrantAgent({ grant: { scopes: ['discuss'], expiresAt: grantEnds } }))
+              .send(agent, new GrantAgent({ grant: { scopes: ['discuss'], expiresAt: grantExpiry } }))
               .pipe(asAda)
             const { token } = yield* (yield* AgentTokens).issue(agent, 3600, start / 1000)
             const client = yield* SessionProbe.testClient
