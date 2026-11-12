@@ -19,9 +19,23 @@ export { PaymentRail } from './PaymentRail.ts'
 export { Proposal, ProposalVersion } from './Proposal.ts'
 export { Receipt } from './Receipt.ts'
 export { Review } from './Review.ts'
+export {
+  NotSignedIn,
+  SessionApi,
+  SessionCookie,
+  sessionCookieName,
+  SessionView,
+  SignInChallenge,
+  SignInRefusal,
+  SignInRefused,
+  Unavailable,
+  WalletAddress,
+  WalletSignature,
+} from './SessionApi.ts'
 export { ProtocolVersion, Status } from './Status.ts'
 export { Terms } from './Terms.ts'
 export { termsDigest } from './TermsDigest.ts'
 export { Text } from './Text.ts'
 export { UnixSeconds } from './UnixSeconds.ts'
+export { webCrypto } from './WebCrypto.ts'
 export { WorkRequest } from './WorkRequest.ts'

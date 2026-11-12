@@ -60,7 +60,10 @@
           "effect/http",
           "effect/http-api",
           "effect/rpc",
-          "effect/Crypto"
+          "effect/Crypto",
+          "effect/sql",
+          "effect/reactivity",
+          "@effect/sql-d1"
         ],
         "overrides": [
           {

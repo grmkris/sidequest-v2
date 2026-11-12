@@ -35,7 +35,7 @@ export const checkDirection = (from: string, to: string) => {
 export const assertBrowserSafe = (file: string, specifier: string) => {
   if (
     isBuiltin(specifier) ||
-    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@effect\/sql-)/.test(specifier) ||
+    /^(node:|bun:|cloudflare:|@alchemy\.run\/cloudflare|@effect\/sql-|viem(\/|$))/.test(specifier) ||
     /\/server\//.test(file)
   ) {
     throw new Error(`Server adapter in browser graph: ${file} -> ${specifier}`)

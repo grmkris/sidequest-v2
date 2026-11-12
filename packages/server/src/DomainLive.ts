@@ -1,14 +1,14 @@
 import * as DomainCloudflare from '@alchemy.run/cloudflare/Domain'
 import { Sidequest, SidequestHandlers } from '@sidequest/domain'
-import { MemoryListingStore } from '@sidequest/domain/Directory/ListingStore'
-import { MemoryInboxStore } from '@sidequest/domain/Inbox/InboxStore'
-import { MemoryOpenJobStore } from '@sidequest/domain/Job/OpenJobStore'
 import { Layer } from 'effect'
+import { D1InboxStore } from './Projections/D1InboxStore.ts'
+import { D1ListingStore } from './Projections/D1ListingStore.ts'
+import { D1OpenJobStore } from './Projections/D1OpenJobStore.ts'
 
-// Placeholder until the projections' D1 adapters arrive with hosting: no route sends a command yet, so nothing
-// reaches these memory stores. Replace each with its D1 implementation before any command is exposed.
-const Stores = Layer.mergeAll(MemoryListingStore, MemoryOpenJobStore, MemoryInboxStore)
+/** The stores the model's D1 projections write through; they need the database's `SqlClient`. */
+export const D1Stores = Layer.mergeAll(D1ListingStore, D1OpenJobStore, D1InboxStore)
 
-export const DomainLive = Sidequest.layer(SidequestHandlers.pipe(Layer.provide(Stores))).pipe(
+/** The model hosted on Durable Objects, its projections writing to D1. */
+export const DomainLive = Sidequest.layer(SidequestHandlers.pipe(Layer.provide(D1Stores))).pipe(
   Layer.provide(DomainCloudflare.DurableObjects),
 )

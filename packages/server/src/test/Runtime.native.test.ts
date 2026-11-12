@@ -1,18 +1,23 @@
 import { expect } from 'bun:test'
 import * as Cloudflare from '@alchemy.run/cloudflare'
-import { Status } from '@sidequest/protocol'
+import { AccountRef, SessionView, SignInChallenge, Status } from '@sidequest/protocol'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
 import { Effect, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
+import * as HttpClientRequest from 'effect/http/HttpClientRequest'
 import { chromium } from 'playwright'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
 
 // `test:native` builds the website with this release before the test runs (package.json).
 const release = 'acceptance'
 const forgedCorrelation = 'forged-by-the-client'
+// The API reaches Arc only to check a contract account's signature. Nothing listens on the discard port, so a key's
+// sign-in passes only if it never calls the chain, and the test needs no network.
+const unreachableRpc = 'http://127.0.0.1:9'
 
 // The production Workers around the built website, run in workerd. Website.Foldkit's dev mode runs Vite in Node, which
 // cannot prove the deployed Worker, so the website is the SSR artifact itself. A second edge in front of a Worker that
@@ -28,6 +33,7 @@ const Stack = Alchemy.Stack(
         assets: { directory: 'apps/web/dist/client' },
         compatibility,
       }),
+      unreachableRpc,
     )
     const received = yield* Cloudflare.Worker('ReceivedHeaders', {
       script: 'export default { fetch: (request) => Response.json(Object.fromEntries(request.headers)) }',
@@ -148,5 +154,52 @@ test(
       expect(problems).toEqual([])
     }),
   ),
+  { timeout: 60000 },
+)
+
+const postJson = (url: string, body: unknown) =>
+  HttpClient.execute(HttpClientRequest.post(url).pipe(HttpClientRequest.bodyJsonUnsafe(body)))
+
+/** Sign a generated key in through the edge: ask for a challenge, sign it, send it back. */
+const signIn = (url: string, wallet: ReturnType<typeof privateKeyToAccount>) =>
+  Effect.gen(function* () {
+    const challenge = yield* postJson(`${url}/api/session/challenge`, { address: wallet.address })
+    expect(challenge.status).toBe(200)
+    const { message } = yield* Effect.flatMap(challenge.json, Schema.decodeUnknownEffect(SignInChallenge))
+    const signature = yield* Effect.promise(() => wallet.signMessage({ message }))
+    return { message, signature, response: yield* postJson(`${url}/api/session/verify`, { message, signature }) }
+  })
+
+test(
+  'signs a wallet in through the edge with a __Host- session cookie, reads the session, signs out, and refuses a replay',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const wallet = privateKeyToAccount(generatePrivateKey())
+    const { message, signature, response } = yield* signIn(url, wallet)
+    expect(response.status).toBe(200)
+    const session = yield* Effect.flatMap(response.json, Schema.decodeUnknownEffect(SessionView))
+    expect(session.account).toMatch(/^account_/)
+    expect(session.wallet).toBe(AccountRef.make(`eip155:5042002:${wallet.address}`))
+    const [cookie = '', ...attributes] = (response.headers['set-cookie'] ?? '').split('; ')
+    expect(cookie).toMatch(/^__Host-sidequest-session=[0-9a-f]{64}$/)
+    expect(attributes.toSorted()).toEqual(['HttpOnly', 'Max-Age=604800', 'Path=/', 'SameSite=Lax', 'Secure'])
+
+    const current = yield* HttpClient.get(`${url}/api/session`, { headers: { cookie } })
+    expect(current.status).toBe(200)
+    expect(yield* Effect.flatMap(current.json, Schema.decodeUnknownEffect(SessionView))).toEqual(session)
+
+    // The same wallet signs in to the same account.
+    const again = yield* signIn(url, wallet)
+    expect(yield* Effect.flatMap(again.response.json, Schema.decodeUnknownEffect(SessionView))).toMatchObject({
+      account: session.account,
+    })
+
+    expect((yield* HttpClient.post(`${url}/api/session/sign-out`, { headers: { cookie } })).status).toBe(204)
+    expect((yield* HttpClient.get(`${url}/api/session`, { headers: { cookie } })).status).toBe(401)
+
+    const replayed = yield* postJson(`${url}/api/session/verify`, { message, signature })
+    expect(replayed.status).toBe(401)
+    expect(yield* replayed.json).toEqual({ _tag: 'SignInRefused', reason: 'unknown_nonce' })
+  }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
 )

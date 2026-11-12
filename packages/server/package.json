@@ -9,10 +9,12 @@
   "dependencies": {
     "@alchemy.run/cloudflare": "catalog:",
     "@alchemy.run/domain": "catalog:",
+    "@effect/sql-d1": "catalog:",
     "@sidequest/domain": "workspace:*",
     "@sidequest/protocol": "workspace:*",
     "alchemy": "catalog:",
-    "effect": "catalog:"
+    "effect": "catalog:",
+    "viem": "2.57.12"
   },
   "devDependencies": {
     "@types/node": "catalog:"

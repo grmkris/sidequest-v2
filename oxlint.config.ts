@@ -37,7 +37,10 @@ export default defineConfig({
     // uses; typecheck rejects unknown properties and tokens, and Knip reports unused styles.
     'zyzz/valid-styles': 'error',
     // @effect/vitest's it.effect is a test block too.
-    'vitest/no-standalone-expect': ['error', { additionalTestBlockFunctions: ['it.effect', 'it.live', 'it.scoped'] }],
+    'vitest/no-standalone-expect': [
+      'error',
+      { additionalTestBlockFunctions: ['it.effect', 'it.effect.prop', 'it.live', 'it.scoped'] },
+    ],
     'typescript/no-explicit-any': 'error',
     'typescript/no-floating-promises': ['error', { ignoreVoid: false }],
     'typescript/no-misused-promises': 'error',

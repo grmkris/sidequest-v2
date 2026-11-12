@@ -15,8 +15,16 @@ export default defineConfig({
   },
   extract: {
     autoDetect: true,
-    ignore: ['Sidequest', 'English', 'Slovenščina'],
+    // Log events (`Sidequest.<Area> …`) are read by operators in Workers Logs, never shown to people.
+    ignore: ['Sidequest', 'English', 'Slovenščina', '/^Sidequest\\.[A-Za-z]+/'],
     ignoreByFile: {
+      // The D1 stores' text is SQL.
+      'packages/server/src/Projections/**/*.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/SignIn/Nonces.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/SignIn/Sessions.ts': ['/[\\s\\S]*/'],
+      // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for
+      // everyone, like the rest of the EIP-4361 message around it.
+      'packages/server/src/SignIn/Siwe.ts': ['/^Sign in to Sidequest\\.$/'],
       'apps/web/src/**/*.styles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/GlobalStyles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/zyzz.config.ts': ['/[\\s\\S]*/'],

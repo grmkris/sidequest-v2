@@ -51,6 +51,10 @@ test('domain cannot depend on the server and browser cannot reach adapters throu
     expect(() => assertBrowserSafe(file, '')).toThrow('Server adapter')
   for (const specifier of ['node:fs', 'cloudflare:workers', '@alchemy.run/cloudflare', '@effect/sql-d1'])
     expect(() => assertBrowserSafe('apps/web/src/entry.ts', specifier)).toThrow('Server adapter')
+  // Signature verification is the server's: the wallet library never reaches the browser.
+  for (const specifier of ['viem', 'viem/siwe', 'viem/accounts'])
+    expect(() => assertBrowserSafe('apps/web/src/entry.ts', specifier)).toThrow('Server adapter')
+  expect(() => assertBrowserSafe('apps/web/src/entry.ts', 'viem-like')).not.toThrow()
   expect(() => assertBrowserSafe('apps/web/src/App.ts', 'foldkit')).not.toThrow()
   expect(() => assertBrowserSafe('packages/protocol/src/index.ts', 'effect')).not.toThrow()
 })

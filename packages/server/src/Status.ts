@@ -1,5 +1,5 @@
 import { ProtocolVersion, SidequestApi, type Status } from '@sidequest/protocol'
-import { Effect, Layer } from 'effect'
+import { Effect } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 
 export const releaseFromEnvironment = (environment: Readonly<Record<string, unknown>>): string => {
@@ -14,10 +14,8 @@ export const statusOf = (release: string): Status => ({
   release,
 })
 
-const systemHandlers = (release: string) =>
+/** The `system` group of the HTTP API: the service's status and release. */
+export const systemHandlers = (release: string) =>
   HttpApiBuilder.group(SidequestApi, 'system', (handlers) =>
     handlers.handle('status', () => Effect.succeed(statusOf(release))),
   )
-
-export const apiRoutes = (release: string) =>
-  HttpApiBuilder.layer(SidequestApi).pipe(Layer.provide(systemHandlers(release)))

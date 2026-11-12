@@ -1,24 +1,39 @@
 import * as Cloudflare from '@alchemy.run/cloudflare'
 import * as AlchemyHttp from 'alchemy/Http'
+import { RuntimeContext } from 'alchemy/RuntimeContext'
 import { Effect, Layer, Logger } from 'effect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpRouter from 'effect/http/HttpRouter'
-import { apiRoutes, releaseFromEnvironment } from './Status.ts'
-import { SidequestDatabase, SidequestMedia } from './Resources.ts'
+import { apiRoutes } from './Api.ts'
+import { SidequestSql } from './Database.ts'
 import { DomainLive } from './DomainLive.ts'
+import { SidequestMedia } from './Resources.ts'
+import { ArcRpc, arcRpcUrlFrom } from './SignIn/ArcRpc.ts'
+import { SignInLive } from './SignIn/SignInLive.ts'
+import { releaseFromEnvironment } from './Status.ts'
 
-const Runtime = Layer.mergeAll(
-  DomainLive,
+/** The Cloudflare services the Worker runs on. The Worker is the runtime context its init runs in. */
+const Platform = Layer.mergeAll(
+  Layer.effect(RuntimeContext, Cloudflare.Worker),
   Cloudflare.Telemetry({ headSamplingRate: 1 }),
   Cloudflare.D1.QueryDatabaseBinding,
   Cloudflare.R2.ReadWriteBucketBinding,
 )
 
-const declareBindings = Effect.gen(function* () {
-  const database = yield* Cloudflare.D1.QueryDatabase(SidequestDatabase)
-  const media = yield* Cloudflare.R2.ReadWriteBucket(SidequestMedia)
-  return { database, media }
-})
+/** The Arc testnet RPC client, at the URL the Worker's configuration names. */
+const ArcRpcLive = Layer.unwrap(
+  Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => ArcRpc.layer(arcRpcUrlFrom(environment))),
+)
+
+/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1. */
+const Runtime = SignInLive.pipe(
+  Layer.provide(ArcRpcLive),
+  Layer.provideMerge(DomainLive),
+  Layer.provideMerge(SidequestSql),
+  Layer.provideMerge(Platform),
+)
+
+const declareBindings = Cloudflare.R2.ReadWriteBucket(SidequestMedia)
 
 const makeApplication = (release: string) =>
   Effect.gen(function* () {
