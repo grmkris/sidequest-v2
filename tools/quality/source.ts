@@ -5,7 +5,7 @@ export const sourceFiles = async (root = '.') => {
   const files: string[] = []
   const extensions = '{ts,tsx,mts,cts,js,jsx,mjs,cjs}'
   for await (const file of glob(
-    ['apps', 'packages', 'tools', 'infra']
+    ['apps', 'packages', 'tools', 'infra', 'examples']
       .map((directory) => `${directory}/**/*.${extensions}`)
       .concat(`*.${extensions}`),
     { cwd: root, exclude: ['**/node_modules/**', '**/dist/**', 'tools/oxlint/anti-slop/**'] },
