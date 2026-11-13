@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://x18n.dev/schema/reviews.json
+x18n: 1
+sources:
+  agents.connectConsent:
+    sl: 123d2041f89fb4
+  agents.createNote:
+    sl: 1282ce583581a0
+  agents.done.pause:
+    sl: f17556df48da
+  agents.done.resume:
+    sl: 12ca17a7a5bcf3
+  agents.lede:
+    sl: 17e5be1bf75771
+  delegation.allows:
+    sl: 13b8b49b141d7
+  delegation.stored:
+    sl: 1dc833ac2e457e
+  gateway.unauthorized:
+    sl: a088ccd81150b
+  gateway.unavailable:
+    sl: eb0a317d8f62b
