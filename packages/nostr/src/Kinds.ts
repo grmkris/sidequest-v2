@@ -1,19 +1,19 @@
 /**
- * Sidequest's event kinds: one block, 8210–8220, in NIP-01's regular range and not in the NIPs' kind registry. They
- * live here alone so the block can move in one edit if a usage check on live relays finds it taken. One kind per
- * consequential action lets a NIP-46 signer scope an agent's key per action (`sign_event:<kind>`). 8217 and 8220 are
- * kept free.
+ * Sidequest's event kinds: one block, 8410–8420, in NIP-01's regular range and not in the NIPs' kind registry. They
+ * live here alone so the block can move in one edit. It moved once, from 8210–8220: on 13 November 2026 public relays
+ * already held another client's kind 8211, and held nothing in 8410–8421. One kind per consequential action lets a
+ * NIP-46 signer scope an agent's key per action (`sign_event:<kind>`). 8417 and 8420 are kept free.
  */
 export const sidequestKinds = {
-  walletLink: 8210,
-  request: 8211,
-  proposal: 8212,
-  accept: 8213,
-  deliveryNote: 8214,
-  statement: 8215,
-  review: 8216,
-  grant: 8218,
-  revocation: 8219,
+  walletLink: 8410,
+  request: 8411,
+  proposal: 8412,
+  accept: 8413,
+  deliveryNote: 8414,
+  statement: 8415,
+  review: 8416,
+  grant: 8418,
+  revocation: 8419,
 } as const
 export type SidequestKind = (typeof sidequestKinds)[keyof typeof sidequestKinds]
 

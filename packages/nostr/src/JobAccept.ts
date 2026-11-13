@@ -7,7 +7,7 @@ import { sidequestKinds } from './Kinds.ts'
 import { eventTag, personTag } from './RoutingTags.ts'
 
 /**
- * The buyer accepts one proposal (kind 8213), binding its exact terms by digest. It moves money, so its author names
+ * The buyer accepts one proposal (kind 8413), binding its exact terms by digest. It moves money, so its author names
  * the network in `sq-net`; whoever indexes it checks that against the proposal's terms.
  */
 export const JobAcceptContent = Schema.Struct({

@@ -14,7 +14,7 @@ export type EvmAccount = typeof EvmAccount.Type
 const WalletSignature = Schema.String.check(Schema.isPattern(/^0x(?:[0-9a-fA-F]{2}){1,8192}$/u))
 
 /**
- * A Nostr key claims a wallet (kind 8210): the wallet's EIP-712 signature of `LinkNostrKey(pubkey, issuedAt)` (see
+ * A Nostr key claims a wallet (kind 8410): the wallet's EIP-712 signature of `LinkNostrKey(pubkey, issuedAt)` (see
  * `walletLinkTypedData`) proves the wallet agreed. The `i` tag is the account so `#i` finds who claims it, and the
  * account's chain is the event's network. Verifying the wallet's signature is the indexer's job.
  */

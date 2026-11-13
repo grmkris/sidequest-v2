@@ -6,7 +6,7 @@ import type { KindSpec } from './KindSpec.ts'
 import { sidequestKinds } from './Kinds.ts'
 import { eventTag, personTag } from './RoutingTags.ts'
 
-/** One side of a job rates the other (kind 8216), from 1 to 5. */
+/** One side of a job rates the other (kind 8416), from 1 to 5. */
 export const JobReviewContent = Schema.Struct({
   job: EventId,
   subject: PublicKey,

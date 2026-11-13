@@ -9,7 +9,7 @@ import { eventTag, optionalTag } from './RoutingTags.ts'
 export const StatementType = Schema.Literals(['withdraw_request', 'withdraw_proposal', 'rejection_reason'])
 export type StatementType = typeof StatementType.Type
 
-/** A party says something on the record about a job (kind 8215), optionally about one event of it. */
+/** A party says something on the record about a job (kind 8415), optionally about one event of it. */
 export const StatementContent = Schema.Struct({
   job: EventId,
   about: Schema.optionalKey(EventId),

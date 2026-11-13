@@ -6,7 +6,7 @@ import { sidequestKinds } from './Kinds.ts'
 import { personTag } from './RoutingTags.ts'
 
 /**
- * An operator lets one agent key act for them (kind 8218) with these scopes from `notBefore` until `expiresAt`, or
+ * An operator lets one agent key act for them (kind 8418) with these scopes from `notBefore` until `expiresAt`, or
  * until a revocation names this event. Events the agent signs under it carry `["sq-grant", <this event's id>]`.
  */
 export const AgentGrantContent = Schema.Struct({

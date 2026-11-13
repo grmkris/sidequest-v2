@@ -7,7 +7,7 @@ import { sidequestKinds } from './Kinds.ts'
 import { eventTag, optionalTag, personTag } from './RoutingTags.ts'
 
 /**
- * A bidder offers terms for a job (kind 8212). Its event id is the proposal's id; `previous` names the proposal it
+ * A bidder offers terms for a job (kind 8412). Its event id is the proposal's id; `previous` names the proposal it
  * revises. `termsDigest` is what an accept binds, so the parser recomputes it from `terms`. Payment goes to `payTo`,
  * which must be on the terms' network, and the money's network is the terms' (`sq-net` must equal it).
  */

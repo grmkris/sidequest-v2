@@ -9,7 +9,7 @@ import { eventTag, personTag } from './RoutingTags.ts'
 const HttpsUrl = Schema.String.check(Schema.isPattern(/^https:\/\/\S{1,2000}$/u))
 
 /**
- * The worker says what they delivered (kind 8214): the `deliveryHash` they also submit to the escrow, and where to
+ * The worker says what they delivered (kind 8414): the `deliveryHash` they also submit to the escrow, and where to
  * find it. It concerns money on a network, which its author names in `sq-net`.
  */
 export const DeliveryNoteContent = Schema.Struct({

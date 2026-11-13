@@ -10,7 +10,7 @@ import { optionalTag, personTag } from './RoutingTags.ts'
 const Topic = Text(40).check(Schema.isLowercased())
 
 /**
- * A buyer asks for work (kind 8211). The request event's id is the job's id, on relays and in the escrow contract.
+ * A buyer asks for work (kind 8411). The request event's id is the job's id, on relays and in the escrow contract.
  * Optional fields route it: `topics` to `#t`, `listing` (a NIP-99 listing it answers) to `#a`, `to` (a seller it is
  * addressed to) to `#p`. `expiresAt` is also its NIP-40 `expiration`, so relays may drop it after.
  */
