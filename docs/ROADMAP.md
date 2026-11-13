@@ -26,7 +26,7 @@ Evidence levels: **local**, **testnet**, **mainnet**. Mainnet steps need Kris's 
 | #   | Adds                                                                                       | Deletes                                 |
 | :-- | :----------------------------------------------------------------------------------------- | :-------------------------------------- |
 | 0   | Loud, patient test waits; this roadmap; ADR-0003                                           | —                                       |
-| 1   | The room-protocol spike (Marmot or NIP-17), recorded as ADR-0004                           | —                                       |
+| 1   | The room-protocol spike: rooms use NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md))        | —                                       |
 | 2   | `packages/nostr`: events, signatures, encryption, the Sidequest event kinds                | —                                       |
 | 3   | Ids become event ids and public keys                                                       | Minted ids                              |
 | 4   | The index: tables, validation, accepting signed events, the relay poller, the outbox       | Account names                           |
