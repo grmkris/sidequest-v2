@@ -1,10 +1,11 @@
 import { Option } from 'effect'
 
 /**
- * Which relay URLs the index may connect to. `public`, always outside tests: `wss` to a public host name, never an IP
- * literal, `localhost` or a name only a private network resolves. `local` is for tests alone: it also allows a relay
- * on `ws://127.0.0.1`, as the test relay listens there. Relays the index learns from people's lists meet the same
- * rule, so a relay list cannot point the Worker at anything else.
+ * Which relay URLs the index and the edge's relay pipe may connect to. `public`, always outside tests: `wss` on port
+ * 443 to a public host name, never an IP literal, `localhost` or a name only a private network resolves. `local` is for
+ * tests alone: it also allows a relay on `ws://127.0.0.1`, as the test relay listens there. Relays the index learns
+ * from people's lists, and relays a browser asks the pipe for, meet the same rule, so neither can point a Worker at
+ * anything else.
  */
 export type RelayUrlPolicy = 'public' | 'local'
 
@@ -23,8 +24,9 @@ const parsed = (text: string) => (URL.canParse(text) ? Option.some(new URL(text)
 export const relayUrlOf = (text: string, policy: RelayUrlPolicy): Option.Option<string> =>
   Option.flatMap(parsed(text.trim()), (url) => {
     const bare = url.username === '' && url.password === '' && url.hash === ''
-    const allowed =
-      (url.protocol === 'wss:' && isPublicHost(url.hostname)) || (policy === 'local' && isLocalTestRelay(url))
+    // The URL standard drops a scheme's default port, so `wss://host:443` reads as no port, and any other is refused.
+    const publicRelay = url.protocol === 'wss:' && url.port === '' && isPublicHost(url.hostname)
+    const allowed = publicRelay || (policy === 'local' && isLocalTestRelay(url))
     return bare && allowed ? Option.some(url.href) : Option.none()
   })
 

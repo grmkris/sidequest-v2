@@ -7,6 +7,7 @@ describe('a relay URL', () => {
   test('is allowed as wss to a public host name', () => {
     expect(relayUrlOf('wss://relay.damus.io', 'public')).toEqual(Option.some('wss://relay.damus.io/'))
     expect(relayUrlOf(' wss://Nos.LOL/inbox ', 'public')).toEqual(Option.some('wss://nos.lol/inbox'))
+    expect(relayUrlOf('wss://relay.damus.io:443', 'public')).toEqual(Option.some('wss://relay.damus.io/'))
   })
 
   test('is refused as ws, http, an IP literal, localhost, a private name, or with credentials', () => {
@@ -21,6 +22,8 @@ describe('a relay URL', () => {
       'wss://nas.local',
       'wss://relay.internal',
       'wss://user:pass@relay.damus.io',
+      'wss://relay.damus.io:8443',
+      'wss://relay.damus.io:80',
       'wss://relay',
       'not a url',
     ])
@@ -31,6 +34,7 @@ describe('a relay URL', () => {
     expect(relayUrlOf('ws://127.0.0.1:4848', 'public')).toEqual(Option.none())
     expect(relayUrlOf('ws://127.0.0.1:4848', 'local')).toEqual(Option.some('ws://127.0.0.1:4848/'))
     expect(relayUrlOf('ws://10.0.0.8:4848', 'local')).toEqual(Option.none())
+    expect(relayUrlOf('wss://relay.damus.io:8443', 'local')).toEqual(Option.none())
   })
 })
 
