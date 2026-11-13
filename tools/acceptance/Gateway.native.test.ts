@@ -29,6 +29,7 @@ import { Duration, Effect, Option, Redacted, Schema } from 'effect'
 import { Base64Url } from 'effect/encoding'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
+import * as HttpClient from 'effect/http/HttpClient'
 import { anyone, nostrPerson, sign } from '../../packages/server/rehearsal/Nostr.ts'
 import { eventually } from '../../packages/server/rehearsal/Surfaces.ts'
 import { startTestRelay } from '../../packages/server/test/TestRelay.ts'
@@ -302,12 +303,15 @@ const relayPortOf = (key: SecretKey): RelayPort => {
 
 /** The inbox relays the core's index knows for `pubkey`. */
 const inboxRelaysAt = (url: string) => (pubkey: string) =>
-  Effect.promise(async () => {
-    const reply = await fetch(`${url}/api/people/${pubkey}`)
-    if (reply.status !== 200) return []
-    const person = Schema.decodeUnknownSync(Person)(await reply.json())
-    return (person.messagingRelays?.relays ?? []).map((relay) => Schema.decodeSync(RelayUrl)(relay))
-  })
+  HttpClient.get(`${url}/api/people/${pubkey}`).pipe(
+    Effect.flatMap((reply) => (reply.status === 200 ? reply.json : Effect.succeed(null))),
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.NullOr(Person))),
+    Effect.flatMap((person) =>
+      Schema.decodeUnknownEffect(Schema.Array(RelayUrl))(person?.messagingRelays?.relays ?? []),
+    ),
+    Effect.orElseSucceed(() => []),
+    Effect.provide(FetchHttpClient.layer),
+  )
 
 /** A person's rooms over the test relay, learning inbox relays from the core's index. */
 const roomsOf = (url: string, key: SecretKey) => personRooms(key, relayPortOf(key), inboxRelaysAt(url))
