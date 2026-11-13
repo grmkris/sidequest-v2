@@ -17,7 +17,8 @@ export const confirmedHead = Effect.fnUntraced(function* (rpc: PublicClient, cha
   return { head, safe, timestamp: Number(block.timestamp) }
 })
 
-const toRaw = (log: {
+/** A log as the RPC answered it, kept only once it is in a block. */
+export const toRaw = (log: {
   readonly address: string
   readonly topics: ReadonlyArray<string | null>
   readonly data: string

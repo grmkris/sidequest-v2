@@ -24,7 +24,9 @@ const LogFilter = Schema.Struct({
   address: Schema.Array(Schema.String),
   fromBlock: Schema.String,
   toBlock: Schema.String,
-  topics: Schema.Tuple([Schema.Null, Schema.String]),
+  // One payment's logs (`[null, paymentHash]`, the chain reader), or any of some events' (`[[selector, …]]`, the job
+  // log scan).
+  topics: Schema.Union([Schema.Tuple([Schema.Null, Schema.String]), Schema.Tuple([Schema.Array(Schema.String)])]),
 })
 const BlockParams = Schema.Tuple([Schema.String, Schema.Boolean])
 const HashParams = Schema.Tuple([Schema.String])
@@ -128,7 +130,10 @@ const logsIn = (rpc: FakeRpc, filter: typeof LogFilter.Type) => {
     .filter(([number]) => number >= from && number <= to && number <= rpc.head)
     .flatMap(([, block]) => block.logs)
     .filter((log) => filter.address.some((address) => address.toLowerCase() === log.address.toLowerCase()))
-    .filter((log) => log.topics[1] === filter.topics[1])
+    .filter((log) => {
+      const [first, second] = filter.topics
+      return first === null ? log.topics[1] === second : first.includes(log.topics[0] ?? '')
+    })
 }
 
 /** `getJob` at a block: the last status set at or before it. */

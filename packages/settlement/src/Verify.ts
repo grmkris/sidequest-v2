@@ -219,7 +219,7 @@ const inconclusive = (event: string, field: string): LogReading => ({
 })
 
 /** A log's parts as hex, if every one is: an RPC that answers otherwise answered nothing usable. */
-const hexParts = (log: RawLog) => {
+export const hexParts = (log: RawLog) => {
   const [signature, ...rest] = log.topics
   if (!isAddress(log.address, { strict: false }) || !isHex(log.data) || signature === undefined || !isHex(signature))
     return Option.none()
