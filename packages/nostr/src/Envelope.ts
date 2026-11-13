@@ -57,9 +57,45 @@ export const grantOf = (event: NostrEvent): Option.Option<EventId> =>
 const tagKey = (tag: Tag) => JSON.stringify(tag)
 
 /** Whether two tag lists hold the same tags, ignoring order: relays and indexes never depend on tag order. */
-export const sameTags = (left: ReadonlyArray<Tag>, right: ReadonlyArray<Tag>): boolean => {
+const sameTags = (left: ReadonlyArray<Tag>, right: ReadonlyArray<Tag>): boolean => {
   if (left.length !== right.length) return false
   const sortedLeft = left.map(tagKey).toSorted()
   const sortedRight = right.map(tagKey).toSorted()
   return sortedLeft.every((key, index) => key === sortedRight[index])
+}
+
+/**
+ * Tag names the vocabulary routes or scopes by: relays index the single-letter ones, and the rest say what an event
+ * binds, prices, titles or ends. An event may carry such a tag only where its content implies it.
+ */
+const routingTagNames: ReadonlySet<string> = new Set([
+  'e',
+  'p',
+  'a',
+  'i',
+  't',
+  'd',
+  'expiration',
+  envelopeTag.version,
+  envelopeTag.network,
+  envelopeTag.grant,
+  'sq-price',
+  'price',
+  'title',
+  'summary',
+  'status',
+])
+
+/**
+ * Whether an event's tags say what its content implies: every implied tag is there with its exact values, and no
+ * other tag with a routing name or an implied tag's name. Other clients add harmless tags (`client`, `alt`, `image`,
+ * `location`, …), which say nothing Sidequest reads, so they are ignored.
+ */
+export const impliedTagsMatch = (tags: ReadonlyArray<Tag>, implied: ReadonlyArray<Tag>): boolean => {
+  const impliedNames = new Set(implied.map((tag) => tag[0]))
+  const relevant = tags.filter((tag) => {
+    const name = tag[0] ?? ''
+    return routingTagNames.has(name) || impliedNames.has(name)
+  })
+  return sameTags(relevant, implied)
 }

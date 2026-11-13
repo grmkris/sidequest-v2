@@ -168,6 +168,32 @@ describe('a parser refuses what its content does not say', () => {
       }),
   )
 
+  it.effect.prop(
+    'reads any kind’s event that another client decorated with tags Sidequest does not route by',
+    [
+      Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: samples.length - 1 })),
+      Schema.Literals(['client', 'alt', 'published_at', 'image', 'location']),
+    ],
+    ([index, name]) =>
+      Effect.gen(function* () {
+        const { parse, template } = sampleAt(index)
+        const event = sign(yield* template)
+        const decorated = sign({ ...event, tags: [...event.tags, [name, 'Sidequest web']] })
+        expect(yield* reasonOf(parse(decorated))).toBe('accepted')
+      }),
+  )
+
+  it.effect('refuses an extra p tag, even one naming the author', () =>
+    Effect.gen(function* () {
+      const { parse, template } = sampleAt(0)
+      const event = sign(yield* template)
+      expect(yield* reasonOf(parse(sign({ ...event, tags: [...event.tags, ['p', buyer]] })))).toBe('tagMismatch')
+      expect(yield* reasonOf(parse(sign({ ...event, tags: [...event.tags, ['client', 'x'], ['p', worker]] })))).toBe(
+        'tagMismatch',
+      )
+    }),
+  )
+
   it.effect('refuses a routing tag that names someone the content does not', () =>
     Effect.gen(function* () {
       const { parse, template } = sampleAt(2)

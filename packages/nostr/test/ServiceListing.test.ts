@@ -67,20 +67,34 @@ describe('a service listing on NIP-99', () => {
     ),
   )
 
-  it.effect('refuses a price tag that disagrees with the exact price, an unregistered asset, and stray tags', () =>
+  it.effect(
+    'refuses a price tag that disagrees with the exact price, an unregistered asset, and stray routing tags',
+    () =>
+      Effect.gen(function* () {
+        const event = sign(serviceListingTemplate(listing, 1_800_000_100))
+        const retag = (tags: EventTemplate['tags']) => sign({ ...event, tags })
+        expect(
+          yield* outcome(retag(event.tags.map((tag) => (tag[0] === 'price' ? ['price', '15', 'USDC'] : tag)))),
+        ).toBe('tagMismatch')
+        const elsewhere = event.tags.map((tag) =>
+          tag[0] === 'sq-price' ? ['sq-price', '1', 'eip155:1/erc20:0xabc'] : tag,
+        )
+        expect(yield* outcome(retag(elsewhere))).toBe('badContent')
+        expect(yield* outcome(retag([...event.tags, ['e', 'aa'.repeat(32)]]))).toBe('tagMismatch')
+        expect(yield* outcome(retag([...event.tags, ['published_at', '1']]))).toBe('tagMismatch')
+        expect(yield* outcome(retag(event.tags.filter((tag) => tag[0] !== 'sq')))).toBe('badEnvelope')
+        expect(yield* outcome(sign({ ...event, kind: 30_403 }))).toBe('wrongKind')
+      }),
+  )
+
+  it.effect('reads a listing another NIP-99 client decorated with its own tags', () =>
     Effect.gen(function* () {
       const event = sign(serviceListingTemplate(listing, 1_800_000_100))
-      const retag = (tags: EventTemplate['tags']) => sign({ ...event, tags })
-      expect(yield* outcome(retag(event.tags.map((tag) => (tag[0] === 'price' ? ['price', '15', 'USDC'] : tag))))).toBe(
-        'tagMismatch',
-      )
-      const elsewhere = event.tags.map((tag) =>
-        tag[0] === 'sq-price' ? ['sq-price', '1', 'eip155:1/erc20:0xabc'] : tag,
-      )
-      expect(yield* outcome(retag(elsewhere))).toBe('badContent')
-      expect(yield* outcome(retag([...event.tags, ['location', 'Ljubljana']]))).toBe('tagMismatch')
-      expect(yield* outcome(retag(event.tags.filter((tag) => tag[0] !== 'sq')))).toBe('badEnvelope')
-      expect(yield* outcome(sign({ ...event, kind: 30_403 }))).toBe('wrongKind')
+      const decorated = sign({
+        ...event,
+        tags: [...event.tags, ['location', 'Ljubljana'], ['image', 'https://example.com/a.png'], ['client', 'x']],
+      })
+      expect((yield* parseServiceListing(decorated)).listing).toEqual(listing)
     }),
   )
 })

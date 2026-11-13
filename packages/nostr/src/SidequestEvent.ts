@@ -1,7 +1,7 @@
 import type { NetworkRef, UnixSeconds } from '@sidequest/protocol'
 import { Effect, Option, Predicate, Schema } from 'effect'
 import type { EventId, EventTemplate, NostrEvent, Tag } from './Event.ts'
-import { type Envelope, envelopeTags, readEnvelope, sameTags } from './Envelope.ts'
+import { type Envelope, envelopeTags, impliedTagsMatch, readEnvelope } from './Envelope.ts'
 import type { KindSpec } from './KindSpec.ts'
 import { verifyEvent } from './Verify.ts'
 
@@ -85,8 +85,9 @@ export const buildSidequestEvent = Effect.fnUntraced(function* <C>(
 
 /**
  * Verifies an event and reads it as this kind: the signature and recomputed id, the kind, the content against its
- * schema, the envelope, the network rule, tags exactly equal to those the content and envelope imply, and the
- * kind's own check. Never trusts a tag the content does not imply.
+ * schema, the envelope, the network rule, every tag the content and envelope imply with its exact values and no other
+ * routing tag (see `impliedTagsMatch`; other clients' harmless tags are ignored), and the kind's own check. Never
+ * trusts a routing tag the content does not imply.
  */
 export const parseSidequestEvent = Effect.fnUntraced(function* <C>(
   spec: KindSpec<C>,
@@ -100,7 +101,7 @@ export const parseSidequestEvent = Effect.fnUntraced(function* <C>(
   const envelope = readEnvelope(event)
   if (envelope === undefined) return yield* refused('badEnvelope')
   if (Option.isNone(settledNetwork(spec, content, envelope.network))) return yield* refused('networkMismatch')
-  if (!sameTags(event.tags, expectedTags(spec, content, envelope))) return yield* refused('tagMismatch')
+  if (!impliedTagsMatch(event.tags, expectedTags(spec, content, envelope))) return yield* refused('tagMismatch')
   yield* checkContent(spec, content)
   return { event, content, envelope }
 })

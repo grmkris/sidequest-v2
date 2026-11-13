@@ -1,6 +1,6 @@
 import { findAsset, PriceHint, Text, UnixSeconds } from '@sidequest/protocol'
 import { Effect, Option, Schema } from 'effect'
-import { envelopeTags, readEnvelope, sameTags } from './Envelope.ts'
+import { envelopeTags, impliedTagsMatch, readEnvelope } from './Envelope.ts'
 import type { EventTemplate, NostrEvent, Tag } from './Event.ts'
 import { standardKinds } from './Kinds.ts'
 import { type ListingAddress, listingAddressOf, ListingSlug } from './ListingAddress.ts'
@@ -94,7 +94,10 @@ const fieldsOf = (event: NostrEvent) => ({
 
 const refused = (reason: VocabularyRefused['reason']) => new VocabularyRefused({ reason })
 
-/** Verifies a kind-30402 event and reads it as a Sidequest listing whose tags are exactly those its fields imply. */
+/**
+ * Verifies a kind-30402 event and reads it as a Sidequest listing whose tags say what its fields imply: each implied tag
+ * exactly, no other routing tag, and any other client's tags (`image`, `location`, …) ignored.
+ */
 export const parseServiceListing = Effect.fnUntraced(function* (
   input: unknown,
 ): Effect.fn.Return<ParsedListing, VocabularyRefused> {
@@ -104,6 +107,6 @@ export const parseServiceListing = Effect.fnUntraced(function* (
   const listing = yield* Schema.decodeUnknownEffect(ServiceListing)(fieldsOf(event)).pipe(
     Effect.mapError(() => refused('badContent')),
   )
-  if (!sameTags(event.tags, listingTags(listing))) return yield* refused('tagMismatch')
+  if (!impliedTagsMatch(event.tags, listingTags(listing))) return yield* refused('tagMismatch')
   return { event, listing, address: listingAddressOf(event.pubkey, listing.slug) }
 })
