@@ -16,4 +16,4 @@ Work on `main`. Preserve concurrent edits. Stage explicit paths and commit coher
 
 `apps/web` is Foldkit-only. `packages/protocol` owns shared schemas. `packages/domain` will own future durable aggregates. `packages/server` owns the Worker and transport boundaries. Future chain adapters must remain outside the browser graph. Nod will live here as its own app and packages; Nod packages never import Sidequest packages, and Sidequest's settlement code reaches Nod only through the payment adapter interface. Scope decisions are in `docs/adr/` and sequencing in `docs/ROADMAP.md`; `docs/STATUS.md` records what is true today.
 
-The current foundation has no job, conversation, escrow, settlement or agent business behavior.
+Phase 2 makes Sidequest Nostr-native (`docs/adr/0003-nostr-native.md`): signed Nostr events carry coordination, only wallet signatures bind, the server is an index, and there is no server-side chat. `packages/nostr` owns events, signatures and the Sidequest event kinds; it is browser-safe and never imports a Nostr library.

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: accepted; its narrowing of rooms is superseded by ADR-0003
 date: 2026-11-12
 ---
 
