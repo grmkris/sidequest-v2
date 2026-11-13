@@ -1,7 +1,7 @@
 import { it } from '@effect/vitest'
 import type { ChainFact } from '@sidequest/fold'
 import type { NostrEvent } from '@sidequest/nostr'
-import { Effect, Option } from 'effect'
+import { Effect, Layer, Logger, Option } from 'effect'
 import { describe, expect } from 'vitest'
 import { ChainFacts } from '../src/Index/ChainFacts.ts'
 import { Ingest } from '../src/Index/Ingest.ts'
@@ -30,7 +30,7 @@ const settling = (
     readonly reverts?: string
     readonly intents?: ReadonlyArray<readonly [string, string]>
   },
-  clock: { now: number },
+  clock: { now: number; relayerBalance?: bigint },
 ) => {
   const world = indexWorld()
   const { chain, sent } = fakeChain(world.sqlite, clock, setup.reverts)
@@ -145,6 +145,49 @@ describe('the settler', () => {
       const given = yield* runAt(deadline, [funded], { intents: spent })
       expect(given.sent).toEqual([])
       expect(given.runs[0]).toMatchObject([{ result: 'gaveUp' }])
+    }),
+  )
+
+  it.effect('serves a newer payment before older ones it gave up on, however many there are', () =>
+    Effect.gen(function* () {
+      const older = yield* Effect.promise(() =>
+        Promise.all(
+          Array.from({ length: settlerLimits.duePerRun }, (_, n) =>
+            fundingOf(proposal, terms, `0x${(n + 1).toString(16).padStart(40, '0')}`, 50 + n),
+          ),
+        ),
+      )
+      const givenUp = older.flatMap(({ payment: each }) =>
+        Array.from(
+          { length: settlerLimits.attempts },
+          (_, attempt) => [`refundUndelivered:${each.hash}:native:${attempt}`, 'released'] as const,
+        ),
+      )
+      const { sent, runs } = yield* runAt(deadline, [...older.map(({ fact }) => fact), funded], { intents: givenUp })
+      expect(sent.map(({ id }) => id)).toEqual([`refundUndelivered:${payment.hash}:native:0`])
+      expect(runs[0]?.[0]).toMatchObject({ result: 'sent', paymentHash: payment.hash })
+      expect(runs[0]?.slice(1).map(({ result }) => result)).toEqual(
+        Array.from({ length: settlerLimits.duePerRun - 1 }, () => 'gaveUp'),
+      )
+    }),
+  )
+
+  it.effect('warns each run while the relayer’s balance is below the threshold, and still settles', () =>
+    Effect.gen(function* () {
+      const warned: Array<unknown> = []
+      const capture = Logger.layer([Logger.make(({ message }) => warned.push(message))])
+      const run = (relayerBalance: bigint) => {
+        const world = settling({ events: [request, proposal], facts: [funded] }, { now: deadline, relayerBalance })
+        return Effect.flatMap(world.prepared, (settler) => Effect.map(settler.run, () => world.sent)).pipe(
+          Effect.provide(Layer.merge(world.layer, capture)),
+        )
+      }
+      const low = yield* run(1n)
+      expect(low).toHaveLength(1)
+      expect(JSON.stringify(warned)).toContain('Sidequest.Settlement.relayerBalanceLow')
+      warned.length = 0
+      yield* run(10n ** 19n)
+      expect(JSON.stringify(warned)).not.toContain('relayerBalanceLow')
     }),
   )
 

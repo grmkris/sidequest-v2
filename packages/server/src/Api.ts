@@ -4,6 +4,7 @@ import { Layer } from 'effect'
 import { escrowHandlers } from './Http/EscrowHttp.ts'
 import { eventsHandlers } from './Http/EventsHttp.ts'
 import { indexJobsHandlers } from './Http/IndexReadsHttp.ts'
+import { operationsHandlers } from './Http/OperationsHttp.ts'
 import { systemHandlers } from './Status.ts'
 
 /**
@@ -13,5 +14,5 @@ import { systemHandlers } from './Status.ts'
  */
 export const apiRoutes = (release: string) =>
   HttpApiBuilder.layer(ServedApi).pipe(
-    Layer.provide([systemHandlers(release), eventsHandlers, indexJobsHandlers, escrowHandlers]),
+    Layer.provide([systemHandlers(release), eventsHandlers, indexJobsHandlers, escrowHandlers, operationsHandlers]),
   )

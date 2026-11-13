@@ -26,7 +26,9 @@ export const windowOf = (now: number, windowSeconds: number) => {
  * across a window's edge; for refusing floods that is enough, and it is one row per bucket and minute. D1 rather
  * than a Durable Object: the core's index and the agent gateway write to their D1 on every request that counts, the
  * counter rides the same database, and the tests run it on SQLite as they run everything else. Each database that
- * uses it has the table (`bucket`, `window_start`, `count`). `prune` deletes windows that have ended.
+ * uses it has the table (`bucket`, `window_start`, `count`). The first take of a bucket's new window deletes that
+ * bucket's ended windows (a primary-key range), so a bucket holds at most one row even where nothing calls `prune`, as
+ * on the agent gateway, which has no schedule. `prune` deletes every ended window, of buckets that never came back too.
  */
 export class RateLimiter extends Context.Service<
   RateLimiter,
@@ -53,6 +55,8 @@ export class RateLimiter extends Context.Service<
         take: Effect.fn('Sidequest.Index.rateLimit')(function* (bucket, { limit, windowSeconds }) {
           const window = windowOf(yield* nowSeconds, windowSeconds)
           const [taken] = yield* stored(count({ bucket, start: window.start }))
+          if (taken?.count === 1)
+            yield* stored(sql`DELETE FROM rate_limits WHERE bucket = ${bucket} AND window_start < ${window.start}`)
           if (taken !== undefined && taken.count > limit)
             return yield* new RateLimited({ retryAfterSeconds: window.remaining })
         }),

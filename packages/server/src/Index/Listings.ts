@@ -14,6 +14,7 @@ import { cursors, nextCursor, pageOf, type PageRequest, rowsFor } from '../Index
 import { stored } from '@sidequest/serving/Stored'
 import type { ListingRow } from './Derived.ts'
 import { receiptVerified } from './PayPerCall.ts'
+import { notHidden } from './Moderation.ts'
 
 /**
  * Stores a listing row, replacing the seller's row under the same slug only when this event supersedes it: later, or
@@ -122,6 +123,7 @@ const listingReads = (sql: SqlClient.SqlClient) => {
           OR l.summary LIKE ${q === null ? null : containing(q)} ESCAPE '\\')
         AND (${tag} IS NULL OR EXISTS (SELECT 1 FROM json_each(l.topics) WHERE json_each.value = ${tag}))
         AND (${rail} IS NULL OR (${rail} = 'x402') = (l.x402_resource IS NOT NULL))
+        AND ${notHidden(sql, sql`l.event_id`, sql`l.pubkey`)}
       ORDER BY l.created_at DESC, l.event_id
       LIMIT ${rows}`,
   })

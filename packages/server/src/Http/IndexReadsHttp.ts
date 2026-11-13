@@ -2,6 +2,7 @@ import { NotIndexed } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { Jobs } from '../Index/Jobs.ts'
+import { labelled, Moderation } from '../Index/Moderation.ts'
 import { publicFor } from './EventsHttp.ts'
 import { ServedApi } from '@sidequest/fold/api'
 
@@ -12,11 +13,13 @@ import { ServedApi } from '@sidequest/fold/api'
 export const indexJobsHandlers = HttpApiBuilder.group(ServedApi, 'indexJobs', (handlers) =>
   Effect.gen(function* () {
     const jobs = yield* Jobs
+    const moderation = yield* Moderation
     return handlers
       .handle('job', ({ params }) =>
         Effect.gen(function* () {
           const job = yield* jobs.job(params.id)
           if (Option.isNone(job)) return yield* new NotIndexed()
+          yield* labelled(yield* moderation.covers([params.id, job.value.buyer]))
           yield* publicFor(10)
           return job.value
         }),

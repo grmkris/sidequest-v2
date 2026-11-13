@@ -138,10 +138,14 @@ export const IndexSettingsLive = Layer.effect(
 /** The API Worker's index bindings for a stage: plain text, and the key as `Redacted`, which binds as a secret. */
 export type IndexVariables = Readonly<Record<string, string | Redacted.Redacted>>
 
-/** The index's variables from the deploying shell, checked; the key binds as a secret. Unset, the stage is idle. */
+/**
+ * The index's variables from the deploying shell, checked; the key binds as a secret. Unset, the stage is idle.
+ * `SIDEQUEST_MODERATOR_PUBKEY` (64 hex), the Nostr key whose NIP-98 alone changes the hide list
+ * (`Index/Moderation.ts`), rides along; unset, nobody may.
+ */
 export const indexVariablesFromShell = Effect.gen(function* () {
   const plain: Record<string, string> = {}
-  for (const name of ['SIDEQUEST_RELAYS', 'SIDEQUEST_RELAY_OVERLAP_SECONDS'] as const) {
+  for (const name of ['SIDEQUEST_RELAYS', 'SIDEQUEST_RELAY_OVERLAP_SECONDS', 'SIDEQUEST_MODERATOR_PUBKEY'] as const) {
     const value = yield* Config.option(Config.String(name))
     if (Option.isSome(value) && value.value !== '') plain[name] = value.value
   }
@@ -150,6 +154,13 @@ export const indexVariablesFromShell = Effect.gen(function* () {
     (found) => Redacted.value(found) !== '',
   )
   const secrets: Record<string, Redacted.Redacted> = Option.isSome(key) ? { SIDEQUEST_INDEX_KEY: key.value } : {}
+  const moderator = plain['SIDEQUEST_MODERATOR_PUBKEY']
+  if (moderator !== undefined && !/^[0-9a-f]{64}$/u.test(moderator))
+    return yield* Effect.fail(
+      new Config.ConfigError(
+        new ConfigProvider.SourceError({ message: 'Sidequest.Index.misconfigured: fix SIDEQUEST_MODERATOR_PUBKEY' }),
+      ),
+    )
   const checked = indexConfigFrom({
     ...plain,
     ...(Option.isSome(key) ? { SIDEQUEST_INDEX_KEY: Redacted.value(key.value) } : {}),

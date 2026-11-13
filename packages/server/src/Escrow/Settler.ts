@@ -9,7 +9,7 @@ import * as SqlSchema from 'effect/sql/SqlSchema'
 import { stored } from '@sidequest/serving/Stored'
 import { paymentOfFunding } from './FundedPayment.ts'
 import { keptTerms } from './KeptTerms.ts'
-import { type EscrowChain, escrowChain, relayedReads } from './EscrowChain.ts'
+import { type EscrowChain, escrowChain, intentPaymentHash, relayedReads } from './EscrowChain.ts'
 
 /**
  * How much one run does: at most `duePerRun` payments whose deadline call is due, oldest funding first; and at most
@@ -37,7 +37,12 @@ export type SettlerOutcome = {
  * The Funded payments of indexed jobs (a request event with the job's id is indexed) that have not ended (no
  * `Settled` or `Reclaimed` fact on the payment) and whose deadline call is due at `now`, the chain's time: the
  * payment's first rejection's `arbitrationEndsAt` (`settleUnruled`), else its first delivery's `reviewEndsAt`
- * (`settleAfterReview`), else the funding's `deliveryDeadline` (`refundUndelivered`). One statement, bounded.
+ * (`settleAfterReview`), else the funding's `deliveryDeadline` (`refundUndelivered`). Oldest first, but a payment whose
+ * due call the settler already tried `settlerLimits.attempts` times comes after every other: it gave up on it (and
+ * says so each run it is listed), and payments it gave up on must not keep newer ones out of the run's `duePerRun`.
+ * One statement, its answer bounded; it walks every Funded fact through the partial index `chain_facts_funded`
+ * (migration 0015), so its cost still grows with all the payments ever funded (docs/MAINNET-READINESS.md, "The
+ * settler's scan").
  */
 const dueQuery = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
@@ -45,7 +50,7 @@ const dueQuery = (sql: SqlClient.SqlClient) =>
     Result: Due,
     execute: ({ now, limit }) => sql`
       WITH unsettled AS (
-        SELECT f.block, f.log_index, f.fact AS funded,
+        SELECT f.block, f.log_index, f.payment_hash, f.fact AS funded,
           (SELECT d.fact FROM chain_facts AS d WHERE d.payment_hash = f.payment_hash AND d.kind = 'Delivered'
             ORDER BY d.block, d.log_index LIMIT 1) AS delivered,
           (SELECT r.fact FROM chain_facts AS r WHERE r.payment_hash = f.payment_hash AND r.kind = 'Rejected'
@@ -56,7 +61,7 @@ const dueQuery = (sql: SqlClient.SqlClient) =>
           AND NOT EXISTS (SELECT 1 FROM chain_facts AS e
             WHERE e.payment_hash = f.payment_hash AND e.kind IN ('Settled', 'Reclaimed'))
       ), timed AS (
-        SELECT block, log_index, funded,
+        SELECT block, log_index, payment_hash, funded,
           CASE WHEN rejected IS NOT NULL THEN 'settleUnruled'
             WHEN delivered IS NOT NULL THEN 'settleAfterReview' ELSE 'refundUndelivered' END AS call,
           CASE WHEN rejected IS NOT NULL THEN json_extract(rejected, '$.arbitrationEndsAt')
@@ -64,8 +69,12 @@ const dueQuery = (sql: SqlClient.SqlClient) =>
             ELSE json_extract(funded, '$.deliveryDeadline') END AS due_at
         FROM unsettled
       )
-      SELECT funded AS fact, call FROM timed WHERE due_at <= ${now}
-      ORDER BY block, log_index LIMIT ${limit}`,
+      SELECT funded AS fact, call FROM timed AS t WHERE due_at <= ${now}
+      ORDER BY (SELECT COUNT(*) FROM relayer_intents AS i
+          WHERE ${intentPaymentHash(sql)} = t.payment_hash AND i.state <> 'open'
+            AND i.id LIKE t.call || ':%:native:%') >= ${settlerLimits.attempts},
+        block, log_index
+      LIMIT ${limit}`,
   })
 
 type Relayed = (paymentHash: string) => Effect.Effect<ReadonlyArray<RelayedCall>, Unavailable>
@@ -111,6 +120,24 @@ const logged = (outcome: SettlerOutcome) =>
     ? Effect.logWarning('Sidequest.Escrow.settlerSkipped').pipe(Effect.annotateLogs({ alert: 'settler', ...outcome }))
     : Effect.logInfo('Sidequest.Escrow.settler').pipe(Effect.annotateLogs({ ...outcome }))
 
+/** Warns, every run, while the relayer's balance is below the stage's threshold: it pays every relayed call's gas. */
+const warnIfLow = (on: EscrowChain) =>
+  on.relayerBalance.pipe(
+    Effect.flatMap((balance) =>
+      balance < on.lowRelayerBalance
+        ? Effect.logWarning('Sidequest.Settlement.relayerBalanceLow').pipe(
+            Effect.annotateLogs({
+              alert: 'settlement-relayer',
+              relayer: on.relayer,
+              balance: String(balance),
+              threshold: String(on.lowRelayerBalance),
+            }),
+          )
+        : Effect.void,
+    ),
+    Effect.catch(() => Effect.void),
+  )
+
 /**
  * The settler with `chain` (none: a stage without settlement, where it does nothing). Needs the database.
  */
@@ -125,6 +152,7 @@ export const makeSettler = (chain: Option.Option<EscrowChain>) =>
       const on = chain.value
       yield* terms.keep
       yield* on.repair.pipe(Effect.catch((failure) => Effect.logWarning('Sidequest.Escrow.repairFailed', failure)))
+      yield* warnIfLow(on)
       const now = yield* on.chainTime
       const payments = yield* stored(due({ now, limit: settlerLimits.duePerRun }))
       return yield* Effect.forEach(payments, ({ fact, call }) => Effect.tap(settleOne(on, relayed, fact, call), logged))

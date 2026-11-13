@@ -10,17 +10,19 @@ const authWindowSeconds = 60
 
 /**
  * Passes when the request carries a NIP-98 authorization (`Authorization: Nostr …`) for exactly this URL, method and
- * body, made within a minute, by the stage's arbitration key (`SIDEQUEST_ARBITRATION_PUBKEY`, in `settings`). Nothing
- * ambient is read. Without a configured key no one may ask for a ruling (`Unavailable`).
+ * body, made within a minute, by `key`; otherwise fails with `refuse(reason)`. Nothing ambient is read. Without a
+ * configured key no one may (`Unavailable`). An authorization can be replayed for the same request within its minute,
+ * so what it authorises must be idempotent: a ruling, a hide or an unhide is.
  */
-export const requireArbitrationKey = Effect.fnUntraced(function* (
+export const requireNip98Key = Effect.fnUntraced(function* <E>(
   request: HttpServerRequest,
-  { arbitrationPubkey }: ArbitrationSettings,
+  key: Option.Option<string>,
+  refuse: (reason: string) => E,
 ) {
-  if (Option.isNone(arbitrationPubkey)) return yield* new Unavailable()
+  if (Option.isNone(key)) return yield* new Unavailable()
   const header = request.headers['authorization']
-  if (header === undefined) return yield* new ArbitrationRefused({ reason: 'missingAuthorization' })
-  const body = yield* request.text.pipe(Effect.mapError(() => new ArbitrationRefused({ reason: 'unreadableBody' })))
+  if (header === undefined) return yield* Effect.fail(refuse('missingAuthorization'))
+  const body = yield* request.text.pipe(Effect.mapError(() => refuse('unreadableBody')))
   const payloadSha256 = body === '' ? undefined : yield* textDigest(body)
   const verified = verifyHttpAuth(
     header,
@@ -28,6 +30,16 @@ export const requireArbitrationKey = Effect.fnUntraced(function* (
     yield* nowSeconds,
     authWindowSeconds,
   )
-  if (Result.isFailure(verified)) return yield* new ArbitrationRefused({ reason: verified.failure.reason })
-  if (verified.success !== arbitrationPubkey.value) return yield* new ArbitrationRefused({ reason: 'notArbitrator' })
+  if (Result.isFailure(verified)) return yield* Effect.fail(refuse(verified.failure.reason))
+  if (verified.success !== key.value) return yield* Effect.fail(refuse('notTheKey'))
+  return verified.success
 })
+
+/**
+ * Passes when the request carries a NIP-98 authorization for exactly it by the stage's arbitration key
+ * (`SIDEQUEST_ARBITRATION_PUBKEY`, in `settings`); see `requireNip98Key`.
+ */
+export const requireArbitrationKey = (request: HttpServerRequest, { arbitrationPubkey }: ArbitrationSettings) =>
+  requireNip98Key(request, arbitrationPubkey, (reason) =>
+    reason === 'notTheKey' ? new ArbitrationRefused({ reason: 'notArbitrator' }) : new ArbitrationRefused({ reason }),
+  )

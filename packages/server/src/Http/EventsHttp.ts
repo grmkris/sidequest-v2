@@ -20,6 +20,7 @@ import { Ingest, nowSeconds } from '../Index/Ingest.ts'
 import { Jobs } from '../Index/Jobs.ts'
 import { Listings } from '../Index/Listings.ts'
 import { PayPerCall } from '../Index/PayPerCall.ts'
+import { labelled, Moderation } from '../Index/Moderation.ts'
 import { Outbox } from '../Index/Outbox.ts'
 import { RateLimiter } from '@sidequest/serving/RateLimiter'
 import { publishLimits } from '../Index/PublishLimits.ts'
@@ -131,6 +132,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const listings = yield* Listings
     const payPerCall = yield* PayPerCall
     const jobs = yield* Jobs
+    const moderation = yield* Moderation
     return handlers
       .handle('publish', ({ payload }) =>
         Effect.gen(function* () {
@@ -147,8 +149,10 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
         Effect.gen(function* () {
           const found = yield* events.find(params.id)
           if (Option.isNone(found)) return yield* new NotIndexed()
-          // An event's id is the hash of all it says: what this URL answers never changes.
-          yield* publicFor(31_536_000, true)
+          // An event's id is the hash of all it says, so the event never changes; whether it is hidden can, and a
+          // takedown must reach caches within the hour, so it is cached for that long and not for a year.
+          yield* labelled(yield* moderation.covers([found.value.id, found.value.pubkey]))
+          yield* publicFor(3600)
           return found.value
         }),
       )
@@ -156,6 +160,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
         Effect.gen(function* () {
           const known = yield* events.known(params.pubkey)
           if (nothingKnown(known)) return yield* new NotIndexed()
+          yield* labelled(yield* moderation.covers([params.pubkey]))
           yield* publicFor(60)
           return personOf(params.pubkey, known, yield* nowSeconds)
         }),
@@ -194,6 +199,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
         Effect.gen(function* () {
           const found = yield* listings.get(params.pubkey, params.slug)
           if (Option.isNone(found)) return yield* new NotIndexed()
+          yield* labelled(yield* moderation.covers([found.value.event, params.pubkey]))
           yield* publicFor(30)
           return found.value
         }),

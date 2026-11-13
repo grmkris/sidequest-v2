@@ -32,7 +32,7 @@ export const escrowChain = Effect.gen(function* () {
 
 /**
  * The payment hash in an intent's id: every id Sidequest relays under is `<step>:<payment hash>[:…]`, the hash a
- * lowercase `0x` and 64 hex digits, and no step holds a `:`. The expression is exactly the one migration 0014 indexes
+ * lowercase `0x` and 64 hex digits, and no step holds a `:`. The expression is exactly the one migration 0015 indexes
  * (`relayer_intents_by_payment`), so a lookup by payment is an index search, not a scan of every intent.
  */
 export const intentPaymentHash = (sql: SqlClient.SqlClient) => sql.literal("substr(i.id, instr(i.id, ':') + 1, 66)")

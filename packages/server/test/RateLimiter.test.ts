@@ -45,6 +45,23 @@ describe('the rate limiter', () => {
     }).pipe(Effect.provide(RateLimiter.layer.pipe(Layer.provide(layer))))
   })
 
+  it.effect('keeps one row per bucket where nothing prunes, as on the agent gateway', () => {
+    const { sqlite, layer } = localSql()
+    return Effect.gen(function* () {
+      yield* TestClock.setTime(1_800_000_000_000)
+      for (let minute = 0; minute < 5; minute += 1) {
+        yield* takes('agent:a:calls', 2)
+        yield* takes('agent:b:calls', 1)
+        yield* TestClock.adjust('1 minute')
+      }
+      const rows = sqlite.prepare('SELECT bucket, count FROM rate_limits ORDER BY bucket').all()
+      expect(rows).toEqual([
+        { bucket: 'agent:a:calls', count: 2 },
+        { bucket: 'agent:b:calls', count: 1 },
+      ])
+    }).pipe(Effect.provide(RateLimiter.layer.pipe(Layer.provide(layer))))
+  })
+
   it('measures a window from its start', () => {
     expect(windowOf(1_800_000_010, 60)).toEqual({ start: 1_800_000_000, remaining: 50 })
     expect(windowOf(1_800_000_000, 60)).toEqual({ start: 1_800_000_000, remaining: 60 })

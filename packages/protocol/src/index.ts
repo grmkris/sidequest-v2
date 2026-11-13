@@ -23,6 +23,15 @@ export {
 } from './Escrow.ts'
 export { EscrowApi } from './EscrowGroup.ts'
 export {
+  HiddenKind,
+  HiddenTarget,
+  HideRequest,
+  labelsHeader,
+  ModerationRefused,
+  SettlementHealth,
+} from './Operations.ts'
+export { OperationsApi } from './OperationsGroup.ts'
+export {
   AgentGrantStatus,
   AgentGrantView,
   EventInvalid,

@@ -7,6 +7,7 @@ import { Ingest } from './Ingest.ts'
 import { Jobs } from './Jobs.ts'
 import { Listings } from './Listings.ts'
 import { PayPerCall } from './PayPerCall.ts'
+import { Moderation } from './Moderation.ts'
 import { Settler } from '../Escrow/Settler.ts'
 import { Outbox } from './Outbox.ts'
 import { Poller } from './Poller.ts'
@@ -14,11 +15,11 @@ import { RateLimiter } from '@sidequest/serving/RateLimiter'
 
 /**
  * The index's services over D1: its event store, ingestion, the publish-through rate limiter, the outbox, the relay
- * poller, the chain facts, the listing and job reads, and the x402 rail's receipts. Needs the database's `SqlClient` and the `IndexSettings`.
+ * poller, the chain facts, the listing and job reads, the x402 rail's receipts and the hide list. Needs the database's `SqlClient` and the `IndexSettings`.
  * The chain log poller is separate (`ChainLogPoller`): it needs the settlement chain, which not every stage has.
  */
 export const IndexLive = Layer.mergeAll(Poller.layer, Outbox.layer, Jobs.layer).pipe(
-  Layer.provideMerge(Layer.mergeAll(Ingest.layer, RateLimiter.layer, Listings.layer, PayPerCall.layer)),
+  Layer.provideMerge(Layer.mergeAll(Ingest.layer, RateLimiter.layer, Listings.layer, PayPerCall.layer, Moderation.layer)),
   Layer.provideMerge(Layer.merge(D1EventStore, ChainFacts.layer)),
 )
 

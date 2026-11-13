@@ -54,7 +54,9 @@ describe('publishing a signed event', () => {
       const read = await fetch(`/api/events/${event.id}`)
       expect(read.status).toBe(200)
       expect(Schema.decodeUnknownSync(SignedEvent)(await read.json())).toEqual(event)
-      expect(read.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+      // The event never changes; whether the hide list covers it can, so caches keep it for an hour.
+      expect(read.headers.get('cache-control')).toBe('public, max-age=3600')
+      expect(read.headers.get('sidequest-labels')).toBeNull()
       expect(await reply(await fetch(`/api/events/${'0'.repeat(64)}`))).toEqual({
         status: 404,
         body: { _tag: 'NotIndexed' },

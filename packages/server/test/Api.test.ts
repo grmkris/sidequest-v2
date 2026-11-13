@@ -46,6 +46,8 @@ const endpoints = () => {
 describe('what the API reads as authority', () => {
   test('serves no session, account or agent endpoint: every state change carries its own signature', () => {
     expect(endpoints().filter((endpoint) => !endpoint.startsWith('GET '))).toEqual([
+      // The hide list: a NIP-98 authorization by the stage's moderator key.
+      'DELETE /api/moderation/hidden/:target',
       // A Nostr event, signed by its author.
       'POST /api/events',
       // The escrow: each carries a wallet signature the contract verifies (the ruling, a NIP-98 authorization).
@@ -55,6 +57,7 @@ describe('what the API reads as authority', () => {
       'POST /api/index/jobs/:id/proposals/:proposal/funding',
       'POST /api/index/jobs/:id/rejection',
       'POST /api/index/jobs/:id/ruling',
+      'PUT /api/moderation/hidden/:target',
     ])
     // Phase 1's groups are gone; the index's own reads (`/api/index/…`, `/api/people`, `/api/wallets`) remain.
     for (const endpoint of endpoints())

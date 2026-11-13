@@ -1,6 +1,7 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { EscrowApi } from './EscrowGroup.ts'
 import { EventsApi } from './EventsGroup.ts'
+import { OperationsApi } from './OperationsGroup.ts'
 import { Status } from './Status.ts'
 
 export class SystemApi extends HttpApiGroup.make('system').add(
@@ -22,4 +23,4 @@ export class SystemApi extends HttpApiGroup.make('system').add(
  * form can, but cannot read the answers or send JSON, which needs a preflight the API does not grant. Granting CORS to
  * third-party web clients is a later decision, not an oversight.
  */
-export class SidequestApi extends HttpApi.make('sidequest').add(SystemApi, EventsApi, EscrowApi) {}
+export class SidequestApi extends HttpApi.make('sidequest').add(SystemApi, EventsApi, EscrowApi, OperationsApi) {}

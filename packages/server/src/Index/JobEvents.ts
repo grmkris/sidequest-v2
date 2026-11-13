@@ -69,9 +69,11 @@ const ByJob = Schema.Struct({ job: Schema.String, kind: Schema.Int, limit: Schem
  * as the fold requires: an `e` tag alone may name the job as something else (a statement's `about`).
  */
 export const jobQueries = (sql: SqlClient.SqlClient) => {
+  // `+kind` keeps SQLite from answering by the kind index (every event of the kind) when it has no statistics, as a
+  // fresh D1 database has none: the few ids the `e` tag names are looked up by id instead (migration 0015's notes).
   const about = (job: string, kind: number) => sql`
     id IN (SELECT event_id FROM event_tags WHERE name = 'e' AND value = ${job})
-    AND kind = ${kind} AND json_extract(content, '$.job') = ${job}`
+    AND +kind = ${kind} AND json_extract(content, '$.job') = ${job}`
   const columns = sql`id, pubkey, created_at, kind, tags, content, sig`
   const newest = SqlSchema.findAll({
     Request: ByJob,

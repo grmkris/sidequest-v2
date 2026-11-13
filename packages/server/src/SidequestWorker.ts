@@ -12,6 +12,8 @@ import { ChainLogPoller } from './Index/ChainLogPoller.ts'
 import { IndexLive, indexSchedule } from './Index/IndexLive.ts'
 import { EscrowSettings, escrowSettingsFrom, operatorDeployBlockFrom } from './Escrow/EscrowSettings.ts'
 import { Settler } from './Escrow/Settler.ts'
+import { LaunchCapSettings, launchCapsFrom } from './Escrow/LaunchCaps.ts'
+import { ModerationSettings, moderationSettingsFrom } from './Index/Moderation.ts'
 import { ArcRpc, arcRpcUrlFrom } from './Settlement/ArcRpc.ts'
 import { settlementConfigFrom } from './Settlement/SettlementConfig.ts'
 import { ChainRpcFromArc, settlementLive } from './Settlement/SettlementLive.ts'
@@ -57,9 +59,15 @@ const EscrowSettingsLive = Layer.effect(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, escrowSettingsFrom),
 )
 
+/** The stage's launch caps and its moderator key, from the Worker's variables; unset, there are none. */
+const StageGuardsLive = Layer.mergeAll(
+  Layer.effect(LaunchCapSettings, Effect.map(Cloudflare.Workers.WorkerEnvironment, launchCapsFrom)),
+  Layer.effect(ModerationSettings, Effect.map(Cloudflare.Workers.WorkerEnvironment, moderationSettingsFrom)),
+)
+
 /** The index, the chain log poller, the settler and the escrow's settings, each configured by the Worker's variables,
  * over settlement, the Arc RPC client and D1. */
-const Runtime = Layer.mergeAll(ChainLogPollerLive, Settler.layer, EscrowSettingsLive).pipe(
+const Runtime = Layer.mergeAll(ChainLogPollerLive, Settler.layer, EscrowSettingsLive, StageGuardsLive).pipe(
   Layer.provideMerge(IndexLive.pipe(Layer.provide(IndexSettingsLive))),
   Layer.provideMerge(SettlementLive),
   Layer.provideMerge(ArcRpcLive),

@@ -20,6 +20,7 @@ import { EventStore } from './EventStore.ts'
 import { nowSeconds } from './Ingest.ts'
 import { grantsNamedBy } from './JobGrants.ts'
 import { jobEventsOf, jobQueries, jobReadLimits } from './JobEvents.ts'
+import { notHidden } from './Moderation.ts'
 
 // An open request is `OpenJob` (`@sidequest/fold/api`); its `proposals` count stops at `openJobLimits.proposalCount`.
 
@@ -61,7 +62,7 @@ const candidates = (sql: SqlClient.SqlClient) =>
     execute: ({ after }) => sql`
       WITH page AS (
         SELECT id FROM events
-        WHERE kind = ${sidequestKinds.request}
+        WHERE kind = ${sidequestKinds.request} AND ${notHidden(sql, sql`events.id`, sql`events.pubkey`)}
           AND (${after?.createdAt ?? null} IS NULL OR created_at < ${after?.createdAt ?? null}
             OR (created_at = ${after?.createdAt ?? null} AND id > ${after?.id ?? null}))
         ORDER BY created_at DESC, id LIMIT ${openJobLimits.scan}
@@ -71,7 +72,7 @@ const candidates = (sql: SqlClient.SqlClient) =>
           EXISTS (
             SELECT 1 FROM events AS s
             WHERE s.id IN (SELECT event_id FROM event_tags WHERE name = 'e' AND value = r.id)
-              AND s.kind = ${sidequestKinds.statement} AND (s.pubkey = r.pubkey OR EXISTS (
+              AND +s.kind = ${sidequestKinds.statement} AND (s.pubkey = r.pubkey OR EXISTS (
                 -- An agent's, under the buyer's grant: for its key, with the accept scope, in its window, unrevoked.
                 SELECT 1 FROM event_tags AS t JOIN agent_grants AS g ON g.event_id = t.value
                 WHERE t.event_id = s.id AND t.name = ${envelopeTag.grant} AND g.operator = r.pubkey
@@ -90,7 +91,7 @@ const candidates = (sql: SqlClient.SqlClient) =>
           SELECT COUNT(*) FROM (
             SELECT 1 FROM events AS p
             WHERE p.id IN (SELECT event_id FROM event_tags WHERE name = 'e' AND value = flagged.id)
-              AND p.kind = ${sidequestKinds.proposal} AND json_extract(p.content, '$.job') = flagged.id
+              AND +p.kind = ${sidequestKinds.proposal} AND json_extract(p.content, '$.job') = flagged.id
             LIMIT ${openJobLimits.proposalCount})
         ) END AS proposals
       FROM flagged ORDER BY created_at DESC, id`,
@@ -144,7 +145,7 @@ const keyJobQueries = (sql: SqlClient.SqlClient) => ({
         ) AS g
         JOIN event_tags AS t ON t.name = ${envelopeTag.grant} AND t.value = g.event_id
         JOIN events AS p ON p.id = t.event_id
-        WHERE p.kind = ${sidequestKinds.proposal} AND p.pubkey = g.agent
+        WHERE +p.kind = ${sidequestKinds.proposal} AND p.pubkey = g.agent
           AND p.created_at >= g.not_before AND p.created_at < g.expires_at
           AND EXISTS (SELECT 1 FROM json_each(g.scopes) WHERE value = 'propose')
         ORDER BY p.created_at DESC, p.id LIMIT ${keyJobLimits.proposals}
