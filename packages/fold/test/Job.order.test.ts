@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { foldJob } from '../src/FoldJob.ts'
 import type { JobInput } from '../src/JobInput.ts'
+import { grantStories } from './grantStories.ts'
 import { stories } from './stories.ts'
 
 /** mulberry32: a tiny seeded generator, so a failing seed reproduces. */
@@ -29,13 +30,14 @@ const scrambled = (input: JobInput, seed: number): JobInput => {
     events: scramble(input.events, random),
     chain: scramble(input.chain, random),
     walletLinks: scramble(input.walletLinks, random),
+    grants: scramble(input.grants, random),
   }
 }
 
 const seeds = Array.from({ length: 40 }, (_, index) => index * 7_919 + 1)
 
 describe('the fold ignores the order and repetition of its inputs', () => {
-  test.each(Object.entries(stories))('%s', (_, input) => {
+  test.each(Object.entries({ ...stories, ...grantStories }))('%s', (_, input) => {
     const view = foldJob(input)
     for (const seed of seeds) expect(foldJob(scrambled(input, seed)), `seed ${seed}`).toEqual(view)
   })

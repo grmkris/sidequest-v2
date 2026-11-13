@@ -9,7 +9,7 @@ import type {
   ParsedEvent,
   StatementContent,
 } from '@sidequest/nostr/vocabulary'
-import type { UnixSeconds } from '@sidequest/protocol'
+import type { GrantScope, UnixSeconds } from '@sidequest/protocol'
 import type { ChainFact } from './ChainFacts.ts'
 
 /** A parsed, verified Sidequest event about a job, tagged with what it is. */
@@ -27,10 +27,26 @@ export interface WalletLinkFact {
   readonly pubkey: PublicKey
 }
 
-/** What the fold reads besides the job: links, chain facts and the time labels are judged at. */
+/**
+ * A grant the index knows (kind `grant`): `operator`, its signer, lets the key `agent` act for them with `scopes` from
+ * `notBefore` until `expiresAt`. `revoked`: a revocation of it that its operator signed is known, whenever it arrived.
+ */
+export interface GrantFact {
+  readonly grant: EventId
+  readonly operator: PublicKey
+  readonly agent: PublicKey
+  readonly scopes: ReadonlyArray<GrantScope>
+  readonly notBefore: UnixSeconds
+  readonly expiresAt: UnixSeconds
+  readonly revoked: boolean
+}
+
+/** What the fold reads besides the job: links, grants, chain facts and the time labels are judged at. */
 export interface FoldContext {
   /** Every current verified wallet link; only those naming a job's payer or receiver matter to it. */
   readonly walletLinks: ReadonlyArray<WalletLinkFact>
+  /** The grants the job's events name (`sq-grant`); others are ignored. See `Grants.ts` for how they count. */
+  readonly grants: ReadonlyArray<GrantFact>
   /** Verified chain facts. Facts about other jobs' payments are ignored. */
   readonly chain: ReadonlyArray<ChainFact>
   /** Unix seconds. Only labels read it; it never changes a stage. */

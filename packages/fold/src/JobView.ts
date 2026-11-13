@@ -7,8 +7,9 @@ import {
   StatementContent,
 } from '@sidequest/nostr/vocabulary'
 import { Bytes32, UnixSeconds } from '@sidequest/protocol'
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { ChainDelivered, ChainEnding, ChainFunded, ChainRejected } from './ChainFacts.ts'
+import { GrantRefusal } from './Grants.ts'
 
 /**
  * Where a job is. Before funding it comes from events alone: `open` (no live proposal), `proposed`, `accepted` (the
@@ -39,6 +40,19 @@ export const settledStages: ReadonlySet<Stage> = new Set(['released', 'ruled', '
 const signed = { id: EventId, author: PublicKey, createdAt: UnixSeconds }
 
 /**
+ * Whose a proposal, accept, statement or delivery note is (`Grants.ts`): `by: 'self'`, its `author`'s; `by: 'agent'`,
+ * `operator`'s, whose grant `grant` let the agent key `author` sign it. `grant` is also set, with `grantRefusal` saying
+ * why, when the event names a grant that does not authorise it; it then counts as its author's own. Each decodes to
+ * its default when absent, so a view served before grants counted still reads as the author's own.
+ */
+const acting = {
+  by: Schema.Literals(['self', 'agent']).pipe(Schema.withDecodingDefaultKey(Effect.succeed('self' as const))),
+  operator: Schema.NullOr(PublicKey).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+  grant: Schema.NullOr(EventId).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+  grantRefusal: Schema.NullOr(GrantRefusal).pipe(Schema.withDecodingDefaultKey(Effect.succeed(null))),
+}
+
+/**
  * The request. `expired`: `now` is at or past its `expiresAt` (a label; the job stays open). `closedByBuyer`: its
  * author signed a `withdraw_request` statement for it, which still shows once the job is funded.
  */
@@ -51,9 +65,10 @@ export const RequestView = Schema.Struct({
 export type RequestView = typeof RequestView.Type
 
 /**
- * One proposal; `author` is the bidder. Labels:
- * - `superseded`: a later proposal by the same author names this one as `previous`;
- * - `withdrawn`: its author signed a `withdraw_proposal` statement about it;
+ * One proposal; the bidder is its `operator` when an agent made it under their grant, else its `author`. Labels:
+ * - `superseded`: a later proposal by the same bidder names this one as `previous`;
+ * - `withdrawn`: its bidder (themselves, or an agent under their grant) signed a `withdraw_proposal` statement about
+ *   it;
  * - `expired`: `now` is at or past its `validUntil`;
  * - `accepted`: the buyer signed an accept that matches it (see `AcceptView.matchesProposal`);
  * - `funded`: it is the proposal the chain funded, whatever its other labels say;
@@ -61,6 +76,7 @@ export type RequestView = typeof RequestView.Type
  */
 export const ProposalView = Schema.Struct({
   ...signed,
+  ...acting,
   content: JobProposalContent,
   superseded: Schema.Boolean,
   withdrawn: Schema.Boolean,
@@ -73,12 +89,14 @@ export type ProposalView = typeof ProposalView.Type
 
 /**
  * One accept: a signal, never a commitment. Labels:
- * - `fromBuyer`: the request's author signed it (only those count towards `accepted`);
+ * - `fromBuyer`: it is the request's author's: they signed it, or an agent under their grant with the `accept` scope
+ *   did (only those count towards `accepted`);
  * - `matchesProposal`: the proposal it names is known, and its terms digest, worker and network are that proposal's;
  * - `conflicting`: the buyer also accepted a different proposal. Harmless: only the chain decides.
  */
 export const AcceptView = Schema.Struct({
   ...signed,
+  ...acting,
   proposal: EventId,
   worker: PublicKey,
   fromBuyer: Schema.Boolean,
@@ -94,7 +112,8 @@ export type AcceptView = typeof AcceptView.Type
  * - `termsAmbiguous`: more than one known proposal matches (the accepted one, then the lowest id, is chosen);
  * - `termsMatchChain`: the funded proposal's amount, asset, delivery deadline and windows are the chain's;
  * - `payerLinked`: the on-chain payer's wallet is linked to the buyer's key;
- * - `receiverLinked`: the on-chain receiver's wallet is linked to the worker's key;
+ * - `receiverLinked`: the on-chain receiver's wallet is linked to the worker's key (the operator's, for an agent's
+ *   proposal);
  * - `otherPayments`: other payments funded for the same job, which the fold ignores.
  */
 export const FundingView = Schema.Struct({
@@ -124,11 +143,12 @@ export const Deadlines = Schema.Struct({
 export type Deadlines = typeof Deadlines.Type
 
 /**
- * A delivery note. `fromWorker`: the funded proposal's author signed it (only those count). `matchesChain`: its
- * delivery hash is the one the chain recorded.
+ * A delivery note. `fromWorker`: it is the worker's, signed by them or by an agent under their grant with the `deliver`
+ * scope (only those count). `matchesChain`: its delivery hash is the one the chain recorded.
  */
 export const DeliveryNoteView = Schema.Struct({
   ...signed,
+  ...acting,
   content: DeliveryNoteContent,
   fromWorker: Schema.Boolean,
   matchesChain: Schema.Boolean,
@@ -136,10 +156,15 @@ export const DeliveryNoteView = Schema.Struct({
 export type DeliveryNoteView = typeof DeliveryNoteView.Type
 
 /**
- * A statement. `effective`: its author may say it: the buyer withdrawing the request (about nothing or the request) or
- * giving a rejection reason, or a proposal's author withdrawing that proposal.
+ * A statement. `effective`: whoever it counts as may say it: the buyer withdrawing the request (about nothing or the
+ * request) or giving a rejection reason, or a proposal's bidder withdrawing that proposal.
  */
-export const StatementView = Schema.Struct({ ...signed, content: StatementContent, effective: Schema.Boolean })
+export const StatementView = Schema.Struct({
+  ...signed,
+  ...acting,
+  content: StatementContent,
+  effective: Schema.Boolean,
+})
 export type StatementView = typeof StatementView.Type
 
 /** Which side of the escrow a reviewer's key is linked to: the on-chain payer's wallet or the receiver's. */
@@ -160,8 +185,9 @@ export const ReviewView = Schema.Struct({
 export type ReviewView = typeof ReviewView.Type
 
 /**
- * One job as a pure function of its signed events, the chain's facts and the wallet links. `buyer` is the request's
- * author, `worker` the funded proposal's author (`null` before funding or when the terms are unknown). The chain facts
+ * One job as a pure function of its signed events, the chain's facts, the wallet links and the grants. `buyer` is the
+ * request's author, `worker` the funded proposal's bidder: its author, or the operator whose agent made it under their
+ * grant (`null` before funding or when the terms are unknown). The chain facts
  * are the funding payment's first delivery after funding, first rejection after that delivery and first ending after
  * funding. Every list is in display order: by `createdAt`, then id.
  */

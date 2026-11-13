@@ -1,4 +1,4 @@
-import { Entropy, type EventId, finalizeEvent, type PublicKey, publicKeyOf, SecretKey } from '@sidequest/nostr'
+import { Entropy, EventId, finalizeEvent, type PublicKey, publicKeyOf, SecretKey } from '@sidequest/nostr'
 import {
   buildSidequestEvent,
   deliveryNote,
@@ -14,10 +14,20 @@ import {
   statement,
   type StatementType,
 } from '@sidequest/nostr/vocabulary'
-import { AccountRef, Amount, AssetId, type Bytes32, Digest, NetworkRef, Terms, termsDigest } from '@sidequest/protocol'
+import {
+  AccountRef,
+  Amount,
+  AssetId,
+  type Bytes32,
+  Digest,
+  type GrantScope,
+  NetworkRef,
+  Terms,
+  termsDigest,
+} from '@sidequest/protocol'
 import { Effect, Schema } from 'effect'
 import type { ChainFact, ChainFunded, LogPosition, OperatorOutcome } from '../src/ChainFacts.ts'
-import type { JobEvent, WalletLinkFact } from '../src/JobInput.ts'
+import type { GrantFact, JobEvent, WalletLinkFact } from '../src/JobInput.ts'
 
 /** Every story happens around this instant; `at(offset)` is that many seconds after it. */
 const start = 1_800_000_000
@@ -28,8 +38,18 @@ export const day = 24 * hour
 const key = (hex: string) => Schema.decodeSync(SecretKey)(hex.repeat(32))
 const zeros = Schema.decodeSync(Entropy)(new Uint8Array(32))
 
-/** The people in the stories: a buyer, a worker, a rival bidder and a stranger. */
-export const keys = { buyer: key('11'), worker: key('22'), rival: key('33'), stranger: key('44') }
+/**
+ * The people in the stories: a buyer, a worker, a rival bidder and a stranger; and two agent keys, which act for
+ * whoever granted them.
+ */
+export const keys = {
+  buyer: key('11'),
+  worker: key('22'),
+  rival: key('33'),
+  stranger: key('44'),
+  agent: key('55'),
+  buyerAgent: key('66'),
+}
 export type Person = keyof typeof keys
 export const pub = (person: Person): PublicKey => publicKeyOf(keys[person])
 
@@ -69,11 +89,23 @@ export const terms = Schema.decodeSync(Terms)({
 export const dearerTerms = Schema.decodeSync(Terms)({ ...Schema.encodeSync(Terms)(terms), amount: '150000000' })
 export const digestOf = (offered: Terms) => Effect.runPromise(termsDigest(offered))
 
-const signed = <C>(spec: KindSpec<C>, content: C, person: Person, createdAt: number, network?: NetworkRef) =>
+/** Under a grant: the grant event's id an agent's event names in `sq-grant`. */
+type Under = EventId | undefined
+
+const signed = <C>(
+  spec: KindSpec<C>,
+  content: C,
+  person: Person,
+  createdAt: number,
+  network?: NetworkRef,
+  grant?: EventId,
+) =>
   Effect.runPromise(
-    buildSidequestEvent(spec, content, network === undefined ? { createdAt } : { createdAt, network }).pipe(
-      Effect.flatMap((template) => parseSidequestEvent(spec, finalizeEvent(template, keys[person], zeros))),
-    ),
+    buildSidequestEvent(spec, content, {
+      createdAt,
+      ...(network === undefined ? {} : { network }),
+      ...(grant === undefined ? {} : { grant }),
+    }).pipe(Effect.flatMap((template) => parseSidequestEvent(spec, finalizeEvent(template, keys[person], zeros)))),
   )
 
 /** The buyer's request; it expires a week in. */
@@ -89,9 +121,11 @@ export interface ProposalSeed {
   readonly createdAt: number
   readonly offered?: Terms
   readonly previous?: EventId
+  /** The grant an agent proposes under. */
+  readonly grant?: EventId
 }
 
-/** A proposal valid for three days, paying the bidder's own wallet. */
+/** A proposal valid for three days, paying the rival's wallet when the rival bids, else the worker's. */
 export const proposal = async (seed: ProposalSeed) => {
   const offered = seed.offered ?? terms
   const payTo = AccountRef.make(seed.by === 'rival' ? wallets.rival : wallets.worker)
@@ -104,35 +138,48 @@ export const proposal = async (seed: ProposalSeed) => {
     validUntil: at(3 * day),
     ...(seed.previous === undefined ? {} : { previous: seed.previous }),
   }
-  const parsed = await signed(jobProposal, content, seed.by, seed.createdAt)
+  const parsed = await signed(jobProposal, content, seed.by, seed.createdAt, undefined, seed.grant)
   return { type: 'proposal', parsed } as const satisfies JobEvent
 }
 
 type Proposal = ParsedEvent<JobProposalContent>
 
 /** An accept of a proposal, by the buyer unless someone else is named. */
-export const accept = async (of: Proposal, createdAt: number, by: Person = 'buyer') => {
+export const accept = async (of: Proposal, createdAt: number, by: Person = 'buyer', grant?: Under) => {
   const content = {
     job: of.content.job,
     proposal: of.event.id,
     termsDigest: of.content.termsDigest,
     worker: of.event.pubkey,
   }
-  const parsed = await signed(jobAccept, content, by, createdAt, arc)
+  const parsed = await signed(jobAccept, content, by, createdAt, arc, grant)
   return { type: 'accept', parsed } as const satisfies JobEvent
 }
 
 export const deliveryHash: Bytes32 = `0x${'de'.repeat(32)}`
 
-export const note = async (job: EventId, by: Person, createdAt: number, hash: Bytes32 = deliveryHash) => {
+export const note = async (
+  job: EventId,
+  by: Person,
+  createdAt: number,
+  hash: Bytes32 = deliveryHash,
+  grant?: Under,
+) => {
   const content = { job, buyer: pub('buyer'), deliveryHash: hash }
-  const parsed = await signed(deliveryNote, content, by, createdAt, arc)
+  const parsed = await signed(deliveryNote, content, by, createdAt, arc, grant)
   return { type: 'deliveryNote', parsed } as const satisfies JobEvent
 }
 
-export const say = async (job: EventId, by: Person, type: StatementType, createdAt: number, about?: EventId) => {
+export const say = async (
+  job: EventId,
+  by: Person,
+  type: StatementType,
+  createdAt: number,
+  about?: EventId,
+  grant?: Under,
+) => {
   const content = { job, type, text: 'On the record.', ...(about === undefined ? {} : { about }) }
-  const parsed = await signed(statement, content, by, createdAt)
+  const parsed = await signed(statement, content, by, createdAt, undefined, grant)
   return { type: 'statement', parsed } as const satisfies JobEvent
 }
 
@@ -141,6 +188,23 @@ export const review = async (job: EventId, by: Person, subject: Person, rating: 
   const parsed = await signed(jobReview, content, by, createdAt)
   return { type: 'review', parsed } as const satisfies JobEvent
 }
+
+/**
+ * A grant the index knows: `operator` lets `agent` act with `scopes` from `notBefore` until `expiresAt` (by default
+ * the stories' first ten days). Its id is `seed` repeated, standing for the grant event's hash.
+ */
+export const grantFact =
+  (seed: string, operator: Person, agent: Person, scopes: ReadonlyArray<GrantScope>) =>
+  (window: { readonly notBefore?: number; readonly expiresAt?: number; readonly revoked?: boolean } = {}) =>
+    ({
+      grant: Schema.decodeSync(EventId)(seed.repeat(32)),
+      operator: pub(operator),
+      agent: pub(agent),
+      scopes,
+      notBefore: window.notBefore ?? at(0),
+      expiresAt: window.expiresAt ?? at(10 * day),
+      revoked: window.revoked ?? false,
+    }) satisfies GrantFact
 
 /** The escrow payment of the stories, and another one. */
 export const payment: Bytes32 = `0x${'cd'.repeat(32)}`

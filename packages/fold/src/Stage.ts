@@ -4,6 +4,7 @@ import { Match } from 'effect'
 import type { JobChain } from './Chain.ts'
 import type { ChainEnding, OperatorOutcome } from './ChainFacts.ts'
 import type { JobEvents } from './Events.ts'
+import type { Judged } from './Grants.ts'
 import { type Deadlines, settledStages, type Stage } from './JobView.ts'
 import { closedByBuyer, isAcceptedBy, isWithdrawn } from './Negotiation.ts'
 
@@ -31,20 +32,21 @@ const chainStage = (chain: JobChain): Stage | undefined => {
 
 /**
  * The stage the events say before funding: `closed` if the buyer withdrew the request, `accepted` if the buyer accepted
- * a proposal, `proposed` if a proposal for this buyer is not withdrawn, else `open`. Expiry never moves it.
+ * a proposal, `proposed` if a proposal for this buyer is not withdrawn, else `open`. Expiry never moves it. The buyer
+ * and the bidders act themselves or through agents under their grants (`Grants.ts`).
  */
-const negotiationStage = (job: EventId, buyer: PublicKey, events: JobEvents): Stage => {
-  if (closedByBuyer(job, buyer, events.statements)) return 'closed'
-  if (events.proposals.some((proposal) => isAcceptedBy(buyer, proposal, events.accepts))) return 'accepted'
+const negotiationStage = (job: EventId, buyer: PublicKey, events: JobEvents, judged: Judged): Stage => {
+  if (closedByBuyer(job, buyer, events.statements, judged)) return 'closed'
+  if (events.proposals.some((proposal) => isAcceptedBy(buyer, proposal, events.accepts, judged))) return 'accepted'
   const live = events.proposals.filter(
-    (proposal) => proposal.content.buyer === buyer && !isWithdrawn(proposal, events.statements),
+    (proposal) => proposal.content.buyer === buyer && !isWithdrawn(proposal, events.statements, judged),
   )
   return live.length > 0 ? 'proposed' : 'open'
 }
 
 /** The job's stage: the chain's once it funded the job, the events' before. */
-export const stageOf = (job: EventId, buyer: PublicKey, events: JobEvents, chain: JobChain): Stage =>
-  chainStage(chain) ?? negotiationStage(job, buyer, events)
+export const stageOf = (job: EventId, buyer: PublicKey, events: JobEvents, chain: JobChain, judged: Judged): Stage =>
+  chainStage(chain) ?? negotiationStage(job, buyer, events, judged)
 
 /** The deadline labels: the chain's deadlines compared with `now`, each only in its own stage. */
 export const deadlinesOf = (stage: Stage, chain: JobChain, now: UnixSeconds): Deadlines => {

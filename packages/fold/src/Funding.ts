@@ -4,6 +4,7 @@ import type { Terms } from '@sidequest/protocol'
 import type { JobChain } from './Chain.ts'
 import type { ChainFunded } from './ChainFacts.ts'
 import { compareText, type JobEvents } from './Events.ts'
+import type { Judged } from './Grants.ts'
 import type { WalletLinkFact } from './JobInput.ts'
 import type { FundingView } from './JobView.ts'
 import { isAcceptedBy } from './Negotiation.ts'
@@ -31,10 +32,15 @@ const termsMatchChain = (terms: Terms, funding: ChainFunded): boolean =>
 
 /**
  * The funded proposal: one whose job, terms digest and `payTo` are the chain's job, terms digest and receiver. Its
- * other labels (withdrawn, superseded, expired) do not matter. When several match, one the buyer accepted wins, then
- * the lowest id.
+ * other labels (withdrawn, superseded, expired) and whose it is do not matter. When several match, one the buyer
+ * accepted wins, then the lowest id.
  */
-const fundedCandidates = (funding: ChainFunded, buyer: PublicKey, events: JobEvents): ReadonlyArray<Proposal> =>
+const fundedCandidates = (
+  funding: ChainFunded,
+  buyer: PublicKey,
+  events: JobEvents,
+  judged: Judged,
+): ReadonlyArray<Proposal> =>
   events.proposals
     .filter(
       (proposal) =>
@@ -42,24 +48,31 @@ const fundedCandidates = (funding: ChainFunded, buyer: PublicKey, events: JobEve
     )
     .toSorted(
       (left, right) =>
-        Number(isAcceptedBy(buyer, right, events.accepts)) - Number(isAcceptedBy(buyer, left, events.accepts)) ||
-        compareText(left.event.id, right.event.id),
+        Number(isAcceptedBy(buyer, right, events.accepts, judged)) -
+          Number(isAcceptedBy(buyer, left, events.accepts, judged)) || compareText(left.event.id, right.event.id),
     )
 
 /** The funded proposal, if a known one matches. */
-export const fundedProposalOf = (chain: JobChain, buyer: PublicKey, events: JobEvents): Proposal | undefined =>
-  chain.funding === null ? undefined : fundedCandidates(chain.funding, buyer, events)[0]
-
-/** The funding with its labels, or `null` before the chain funds the job. */
-export const fundingView = (
+export const fundedProposalOf = (
   chain: JobChain,
   buyer: PublicKey,
   events: JobEvents,
+  judged: Judged,
+): Proposal | undefined =>
+  chain.funding === null ? undefined : fundedCandidates(chain.funding, buyer, events, judged)[0]
+
+/** The funding with its labels, or `null` before the chain funds the job; `worker` is the funded proposal's bidder. */
+export const fundingView = (
+  chain: JobChain,
+  buyer: PublicKey,
+  worker: PublicKey | null,
+  events: JobEvents,
   links: ReadonlyArray<WalletLinkFact>,
+  judged: Judged,
 ): FundingView | null => {
   const funding = chain.funding
   if (funding === null) return null
-  const candidates = fundedCandidates(funding, buyer, events)
+  const candidates = fundedCandidates(funding, buyer, events, judged)
   const proposal = candidates[0]
   return {
     fact: funding,
@@ -68,7 +81,7 @@ export const fundingView = (
     termsAmbiguous: candidates.length > 1,
     termsMatchChain: proposal !== undefined && termsMatchChain(proposal.content.terms, funding),
     payerLinked: isLinked(links, funding.payer, buyer),
-    receiverLinked: proposal !== undefined && isLinked(links, funding.receiver, proposal.event.pubkey),
+    receiverLinked: worker !== null && isLinked(links, funding.receiver, worker),
     otherPayments: chain.otherPayments,
   }
 }

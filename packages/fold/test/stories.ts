@@ -45,6 +45,7 @@ const input = (events: ReadonlyArray<JobEvent>, chain: ReadonlyArray<ChainFact>,
   chain,
   now,
   walletLinks: links,
+  grants: [],
 })
 export const offered = base.offered.parsed
 

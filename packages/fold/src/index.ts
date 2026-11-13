@@ -1,5 +1,6 @@
-// The job as a pure fold over its signed Nostr events, the chain's facts about its escrow and the verified wallet
-// links (ADR-0003): no I/O, no clock, no randomness, browser-safe. The server index and the website run the same fold.
+// The job as a pure fold over its signed Nostr events, the chain's facts about its escrow, the verified wallet links
+// and the agents' grants (ADR-0003): no I/O, no clock, no randomness, browser-safe. The server index and the website
+// run the same fold.
 export {
   ChainDelivered,
   ChainEnding,
@@ -12,7 +13,8 @@ export {
   OperatorOutcome,
 } from './ChainFacts.ts'
 export { foldJob, foldJobs } from './FoldJob.ts'
-export type { FoldContext, JobEvent, JobInput, WalletLinkFact } from './JobInput.ts'
+export { type Acting, actingOf, GrantRefusal, grantsById, principalOf, scopeOf } from './Grants.ts'
+export type { FoldContext, GrantFact, JobEvent, JobInput, WalletLinkFact } from './JobInput.ts'
 export {
   AcceptView,
   Deadlines,

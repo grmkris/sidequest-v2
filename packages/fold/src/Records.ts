@@ -4,21 +4,23 @@ import type { JobChain } from './Chain.ts'
 import type { ChainFunded } from './ChainFacts.ts'
 import { compareText } from './Events.ts'
 import { isLinked } from './Funding.ts'
+import type { Judged } from './Grants.ts'
 import type { WalletLinkFact } from './JobInput.ts'
 import { type DeliveryNoteView, type ReviewSide, type ReviewView, settledStages, type Stage } from './JobView.ts'
-import { signedFields } from './Negotiation.ts'
+import { actingFields, signedFields } from './Negotiation.ts'
 
 type Review = ParsedEvent<JobReviewContent>
 
-/** Every delivery note: whether the worker signed it, and whether its hash is the one on chain. */
+/** Every delivery note: whether it is the worker's, and whether its hash is the one on chain. */
 export const deliveryNoteViews = (
   notes: ReadonlyArray<ParsedEvent<DeliveryNoteContent>>,
   worker: PublicKey | null,
   chain: JobChain,
+  judged: Judged,
 ): ReadonlyArray<DeliveryNoteView> =>
   notes.map((note) => ({
-    ...signedFields(note),
-    fromWorker: worker !== null && note.event.pubkey === worker,
+    ...actingFields(note, judged),
+    fromWorker: worker !== null && judged.principal(note) === worker,
     matchesChain: chain.delivery !== null && note.content.deliveryHash === chain.delivery.deliveryHash,
   }))
 
