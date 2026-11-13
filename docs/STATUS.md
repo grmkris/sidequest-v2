@@ -7,7 +7,7 @@
 
 ## Phase 2 so far (2026-11-13)
 
-Built beside phase 1 and not yet used by the website, MCP or settlement, which still run on accounts, sessions and server-held jobs and rooms. Nothing below is deployed to the preview.
+Built beside phase 1. The website has an identity page (a Nostr key and the wallet link); everything else on the website, MCP and settlement still runs on accounts, sessions and server-held jobs and rooms. Deployed to the preview at release `3a268ff`.
 
 | Piece                                                                                                            | State                                                                                   |
 | :--------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
@@ -20,7 +20,9 @@ Built beside phase 1 and not yet used by the website, MCP or settlement, which s
 | Chain facts: a poller of the operator's and the escrow's logs into `chain_facts`, every minute where settled     | built; tested against Anvil; not run against Arc testnet or on Cloudflare               |
 | Rooms                                                                                                            | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                    |
 
-Not proven for these: a connection from a deployed Worker to a public relay (the index's or the pipe's), the pipe's per-address bounds on Cloudflare, where each isolate counts alone, the scheduled runs firing on Cloudflare, the index's queries on a deployed D1, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
+Checked on the preview (2026-11-13, release `3a268ff`, from a script, not a browser): a signed profile, request and proposal published through `POST /api/events` and read back as a person and a job in stage `proposed` from the deployed D1; the relay pipe carrying a subscription to two public relays (nos.lol, relay.primal.net); a pipe from another origin refused.
+
+Not proven for these: the index's own connections to relays from a deployed Worker (no relay is configured), the scheduled runs doing work on Cloudflare, the pipe's per-address bounds on Cloudflare, where each isolate counts alone, the chain-fact poller against Arc testnet, a real Nostr extension or wallet on the identity page, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
 
 The roadmap's order has changed in one way: the pieces that add are built first, and wallet sign-in, sessions and the phase 1 aggregates are deleted together at the settlement cut-over, so every commit keeps a working hire. Ids are not renamed on aggregates about to be deleted.
 
