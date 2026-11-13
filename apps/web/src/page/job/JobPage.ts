@@ -462,6 +462,7 @@ const reviewForm = (h: Html.HtmlBuilder<Message>, { model, view }: Reader): Opti
           slotId: 'review',
           model: model.review,
           view: Review.view,
+          viewInputs: { maybeCounted: Review.countedOf(view, (key) => isMine(model, key)) },
           toParentMessage: (message) => Message.GotReviewMessage({ message }),
         }),
       )

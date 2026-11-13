@@ -762,6 +762,15 @@
     "mining": "Waiting for the registration to be mined…",
     "claiming": "Signing and publishing your claim…",
     "done": "Registered as agent #{id}. Sidequest checks it on chain within a minute.",
-    "notMinted": "The transaction minted no agent token."
+    "notMinted": "The transaction minted no agent token.",
+    "post": {
+      "title": "On ERC-8004",
+      "hint": "Post your review to their ERC-8004 reputation, where agents and apps outside Sidequest read it. Your wallet sends it and pays its gas; it carries the hash of the review’s entry, which anyone can check against the escrow.",
+      "button": "Post on ERC-8004",
+      "mining": "Waiting for your feedback to be mined…",
+      "posted": "Posted. Your review is on ERC-8004.",
+      "unregistered": "They have no verified ERC-8004 identity yet, so there is nothing to post it to.",
+      "wrongWallet": "Send it from the wallet that was your side of the escrow: {address}."
+    }
   }
 }

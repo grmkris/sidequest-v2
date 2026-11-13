@@ -762,6 +762,15 @@
     "mining": "Čakam, da se registracija zapiše v verigo …",
     "claiming": "Podpisujem in objavljam vašo prijavo …",
     "done": "Registriran kot agent št. {id}. Sidequest ga v eni minuti preveri v verigi.",
-    "notMinted": "Transakcija ni ustvarila žetona agenta."
+    "notMinted": "Transakcija ni ustvarila žetona agenta.",
+    "post": {
+      "title": "V ERC-8004",
+      "hint": "Objavite svojo oceno v njihovem ugledu ERC-8004, kjer jo berejo agenti in aplikacije zunaj Sidequesta. Vaša denarnica jo pošlje in plača njen strošek; nosi zgoščevalno vrednost vnosa ocene, ki jo lahko kdorkoli preveri ob skrbniškem računu.",
+      "button": "Objavi v ERC-8004",
+      "mining": "Čakam, da se vaša ocena zapiše v verigo …",
+      "posted": "Objavljeno. Vaša ocena je v ERC-8004.",
+      "unregistered": "Še nimajo preverjene identitete ERC-8004, zato je ni kam objaviti.",
+      "wrongWallet": "Pošljite jo iz denarnice, ki je bila vaša stran skrbniškega računa: {address}."
+    }
   }
 }

@@ -718,4 +718,12 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'erc8004.claiming': 'Podpisujem in objavljam vašo prijavo …',
   'erc8004.done': 'Registriran kot agent št. {id}. Sidequest ga v eni minuti preveri v verigi.',
   'erc8004.notMinted': 'Transakcija ni ustvarila žetona agenta.',
+  'erc8004.post.title': 'V ERC-8004',
+  'erc8004.post.hint':
+    'Objavite svojo oceno v njihovem ugledu ERC-8004, kjer jo berejo agenti in aplikacije zunaj Sidequesta. Vaša denarnica jo pošlje in plača njen strošek; nosi zgoščevalno vrednost vnosa ocene, ki jo lahko kdorkoli preveri ob skrbniškem računu.',
+  'erc8004.post.button': 'Objavi v ERC-8004',
+  'erc8004.post.mining': 'Čakam, da se vaša ocena zapiše v verigo …',
+  'erc8004.post.posted': 'Objavljeno. Vaša ocena je v ERC-8004.',
+  'erc8004.post.unregistered': 'Še nimajo preverjene identitete ERC-8004, zato je ni kam objaviti.',
+  'erc8004.post.wrongWallet': 'Pošljite jo iz denarnice, ki je bila vaša stran skrbniškega računa: {address}.',
 }

@@ -712,4 +712,12 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'erc8004.claiming': 'Signing and publishing your claim…',
   'erc8004.done': 'Registered as agent #{id}. Sidequest checks it on chain within a minute.',
   'erc8004.notMinted': 'The transaction minted no agent token.',
+  'erc8004.post.title': 'On ERC-8004',
+  'erc8004.post.hint':
+    'Post your review to their ERC-8004 reputation, where agents and apps outside Sidequest read it. Your wallet sends it and pays its gas; it carries the hash of the review’s entry, which anyone can check against the escrow.',
+  'erc8004.post.button': 'Post on ERC-8004',
+  'erc8004.post.mining': 'Waiting for your feedback to be mined…',
+  'erc8004.post.posted': 'Posted. Your review is on ERC-8004.',
+  'erc8004.post.unregistered': 'They have no verified ERC-8004 identity yet, so there is nothing to post it to.',
+  'erc8004.post.wrongWallet': 'Send it from the wallet that was your side of the escrow: {address}.',
 }

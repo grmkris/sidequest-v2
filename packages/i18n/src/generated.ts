@@ -86,6 +86,13 @@ export interface MessageArgumentsByKey<_T = string> {
   'erc8004.mining': Readonly<Record<string, never>>
   'erc8004.none': Readonly<Record<string, never>>
   'erc8004.notMinted': Readonly<Record<string, never>>
+  'erc8004.post.button': Readonly<Record<string, never>>
+  'erc8004.post.hint': Readonly<Record<string, never>>
+  'erc8004.post.mining': Readonly<Record<string, never>>
+  'erc8004.post.posted': Readonly<Record<string, never>>
+  'erc8004.post.title': Readonly<Record<string, never>>
+  'erc8004.post.unregistered': Readonly<Record<string, never>>
+  'erc8004.post.wrongWallet': { readonly address: string | number }
   'erc8004.register': Readonly<Record<string, never>>
   'erc8004.registerHint': Readonly<Record<string, never>>
   'erc8004.title': Readonly<Record<string, never>>
@@ -641,4 +648,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '7559ac730a943dff89ebc681d50373fa6d70cc6c244dd8e355bef7a9b7a2c57a'
+export const catalogVersion = '550d611248f6c339f1cc62badabebbcf03a4c373eea11672345e874590e2562c'
