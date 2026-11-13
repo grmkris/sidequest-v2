@@ -42,6 +42,10 @@ export default defineConfig({
       'packages/nostr/src/WalletLinkTypedData.ts': ['/^(EIP712Domain|LinkNostrKey)\\(/'],
       // The EIP-712 type strings of the operator's `Delivery`, which an agent's key signs as a delivery's delegate.
       'packages/nostr/src/EvmKey.ts': ['/^(EIP712Domain|Delivery)\\(/'],
+      // The chains' facts (token domains, where each was checked) and the mainnet opt-in phrase an operator types.
+      'packages/settlement/src/Chains.ts': ['/[\\s\\S]*/'],
+      // The index's hide list: SQL.
+      'packages/server/src/Index/Moderation.ts': ['/[\\s\\S]*/'],
       // Contract ABIs generated from the Foundry build: Solidity type names, not text.
       'packages/settlement/src/abi/*.ts': ['/[\\s\\S]*/'],
       // What MCP tools share speaks to agents, in English like the protocol itself: their hints' descriptions.
