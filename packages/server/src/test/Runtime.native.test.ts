@@ -5,7 +5,6 @@ import {
   AgentId,
   ConnectDecision,
   IssuedAgentToken,
-  JobId,
   ListingId,
   Person,
   SessionView,
@@ -13,7 +12,7 @@ import {
 } from '@sidequest/protocol'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
-import { Clock, DateTime, Effect, Schedule, Schema } from 'effect'
+import { Clock, DateTime, Effect, Schema } from 'effect'
 import { Base64Url } from 'effect/encoding'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
@@ -22,24 +21,25 @@ import * as HttpClientRequest from 'effect/http/HttpClientRequest'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
-import { apiReadsDuring, headlessChromium, openPage, reloadUntilShown, walletContext } from './ChromiumWorld.ts'
+import { headlessChromium } from './ChromiumWorld.ts'
 import WakeWorkerLive, { millis, sleeps, WakeWorker } from './WakeWorker.ts'
 import {
+  findsPublishedListing,
   foldsPublishedJob,
   keepsLocalKeyAsBackup,
   linksWalletWithExtension,
+  negotiatesOnEvents,
   pipesToRelay,
   refusesForeignPipes,
+  rendersRequestsOnTheServer,
 } from './NostrJourneys.ts'
 import {
   browserOf,
   createdBy,
-  day,
   Inbox,
   kindsIn,
   Messages,
   negotiate,
-  NotYet,
   postJson,
   Rooms,
   signedIn,
@@ -366,57 +366,7 @@ test(
 )
 
 test(
-  'signs in with an injected wallet, posts a request as the buyer, and shows it to another visitor on the home page',
-  Effect.scoped(
-    Effect.gen(function* () {
-      const { url } = yield* stack
-      const browser = yield* headlessChromium
-      const buyer = yield* walletContext(browser)
-      const { page, problems } = yield* openPage(buyer.context, `${url}/sign-in`)
-      yield* Effect.promise(() => page.getByRole('button', { name: 'Connect wallet' }).click())
-      yield* Effect.promise(() => page.getByRole('button', { name: 'Sign in', exact: true }).click())
-      const short = `${buyer.wallet.address.slice(0, 6)}…${buyer.wallet.address.slice(-4)}`
-      yield* Effect.promise(() => page.getByText(`Wallet ${short}`).waitFor({ timeout: 15000 }))
-      expect(new URL(page.url()).pathname).toBe('/')
-
-      yield* Effect.promise(() =>
-        page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Post a request' }).click(),
-      )
-      const title = `A poster for the acceptance run ${generatePrivateKey().slice(2, 10)}`
-      yield* Effect.promise(() => page.getByLabel('What do you need?').fill(title))
-      yield* Effect.promise(() => page.getByLabel('Details').fill('A2, two colours, by Friday.'))
-      yield* Effect.promise(() => page.getByRole('button', { name: 'Post the request' }).click())
-      yield* Effect.promise(() => page.waitForURL(/\/jobs\/job_[0-9A-HJKMNP-TV-Z]{26}$/u, { timeout: 15000 }))
-      yield* Effect.promise(() => page.getByRole('heading', { level: 1, name: title }).waitFor({ timeout: 15000 }))
-      // The buyer's own view: their request, open, and no proposals yet.
-      yield* Effect.promise(() => page.getByText('No proposals yet.', { exact: false }).waitFor({ timeout: 15000 }))
-
-      const visitor = yield* walletContext(browser)
-      const home = yield* openPage(visitor.context, url)
-      yield* reloadUntilShown(home.page, title)
-      const link = home.page.getByRole('link', { name: title })
-      expect(yield* Effect.promise(() => link.getAttribute('href'))).toBe(new URL(page.url()).pathname)
-
-      // Rendered with its data on the server, the page hydrates from it and reads none of it again.
-      const jobPath = new URL(page.url()).pathname
-      const homeReads = yield* apiReadsDuring(home.page, url)
-      expect(homeReads).toEqual([])
-      yield* Effect.promise(() => home.page.getByRole('link', { name: title }).waitFor({ timeout: 1000 }))
-      // The buyer's own view of the job, rendered for their session: the request, and no proposals yet.
-      const buyerReads = yield* apiReadsDuring(page, `${url}${jobPath}`)
-      expect(buyerReads.filter((path) => path.startsWith('/api/jobs/') && !path.endsWith('/rooms'))).toEqual([])
-      expect(buyerReads).not.toContain('/api/session')
-      yield* Effect.promise(() => page.getByRole('heading', { level: 1, name: title }).waitFor({ timeout: 1000 }))
-      yield* Effect.promise(() => page.getByText('No proposals yet.', { exact: false }).waitFor({ timeout: 1000 }))
-      expect(problems).toEqual([])
-      expect(home.problems).toEqual([])
-    }),
-  ),
-  { timeout: 120000 },
-)
-
-test(
-  'publishes a profile with a NIP-07 extension and links the wallet, which the index then shows as verified',
+  'links the wallet with a NIP-07 extension, publishing no profile over theirs, and the index shows it verified',
   Effect.scoped(Effect.flatMap(stack, ({ url }) => linksWalletWithExtension(url))).pipe(
     Effect.provide(FetchHttpClient.layer),
   ),
@@ -432,37 +382,22 @@ test(
 )
 
 test(
-  'renders the home page and a job page with a posted request in the HTML, readable without JavaScript',
-  Effect.gen(function* () {
-    const { url } = yield* stack
-    const buyer = yield* signedIn(url)
-    const title = `Server rendered ${generatePrivateKey().slice(2, 10)}`
-    const expiresAt = Math.floor(DateTime.toEpochMillis(yield* DateTime.now) / 1000) + 7 * day
-    const job = yield* createdBy(buyer.post('/api/jobs', { title, description: 'In the HTML.', expiresAt }), JobId)
-    const html = (path: string, headers: Record<string, string> = {}) =>
-      HttpClient.get(`${url}${path}`, { headers: { accept: 'text/html', ...headers } })
-    // The open requests are a D1 projection, which follows the job eventually: read until the page shows it.
-    const home = yield* html('/').pipe(
-      Effect.flatMap((response) =>
-        Effect.map(response.text, (body) => ({ body, cacheControl: response.headers['cache-control'] })),
-      ),
-      Effect.flatMap((read) => (read.body.includes(title) ? Effect.succeed(read) : Effect.fail(new NotYet()))),
-      Effect.retry({ schedule: Schedule.spaced('100 millis'), times: 200 }),
-    )
-    expect(home.body).toContain(`/jobs/${job}`)
-    expect(home.cacheControl).toBe('public, max-age=0, s-maxage=10, must-revalidate')
-    const anyone = yield* html(`/jobs/${job}`)
-    expect(anyone.status).toBe(200)
-    expect(yield* anyone.text).toContain(title)
-    // The page differs by language and by session; Foldkit adds what it negotiates on itself.
-    expect(anyone.headers.vary).toStartWith('Accept-Language, Cookie')
-    const own = yield* html(`/jobs/${job}`, { cookie: buyer.cookie })
-    const ownBody = yield* own.text
-    expect(ownBody).toContain(title)
-    // Their own view, for their session alone: never kept by any cache.
-    expect(ownBody).toContain('No proposals yet.')
-    expect(own.headers['cache-control']).toBe('private, no-store')
-  }).pipe(Effect.provide(FetchHttpClient.layer)),
+  'negotiates on signed events in two browsers: a request, a proposal and its revision, the buyer’s accept',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => negotiatesOnEvents(url))).pipe(
+    Effect.provide(FetchHttpClient.layer),
+  ),
+  { timeout: 180000 },
+)
+
+test(
+  'publishes a listing with a NIP-07 key, and a visitor finds it by searching',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => findsPublishedListing(url))),
+  { timeout: 120000 },
+)
+
+test(
+  'renders the home page and a job page with a published request in the HTML, readable without JavaScript',
+  Effect.flatMap(stack, ({ url }) => rendersRequestsOnTheServer(url)).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
 )
 

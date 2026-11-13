@@ -154,6 +154,31 @@ export const useExtension = (page: Page, pubkey: string) =>
     yield* Effect.promise(() => page.getByText(pubkey).waitFor({ timeout: 15000 }))
   })
 
+/** A person in their own browser context: a wallet, a NIP-07 extension, a page that set the extension up as their
+ * signer on the identity page and, with `linkWallet`, linked the wallet to their key. */
+export const extensionPerson = (browser: Browser, url: string, linkWallet: boolean) =>
+  Effect.gen(function* () {
+    const person = yield* walletContext(browser)
+    const { pubkey } = yield* nostrExtension(person.context)
+    const opened = yield* openPage(person.context, url)
+    yield* useExtension(opened.page, pubkey)
+    if (linkWallet) yield* clickThenSee(opened.page, 'Link your wallet', 'Your wallet is linked to your key.')
+    return { ...person, ...opened, pubkey }
+  })
+
+/** Fill the fields labelled as `fields` names them, in order. */
+export const fillIn = (page: Page, fields: Readonly<Record<string, string>>) =>
+  Effect.forEach(Object.entries(fields), ([name, value]) =>
+    Effect.promise(() => page.getByLabel(name, { exact: true }).fill(value)),
+  )
+
+/** Open `path` in `page` afresh, as a person following a link from elsewhere would, and wait until it hydrated. */
+export const reopen = (page: Page, target: string) =>
+  Effect.gen(function* () {
+    yield* Effect.promise(() => page.goto(target, { waitUntil: 'networkidle' }))
+    yield* hydrated(page)
+  })
+
 /** Press the button named `button`, then wait until the page says `text`. */
 export const clickThenSee = (page: Page, button: string, text: string) =>
   Effect.gen(function* () {
