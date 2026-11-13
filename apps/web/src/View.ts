@@ -8,14 +8,24 @@ import * as ConnectionsView from './page/ConnectionsView.ts'
 import * as ConnectView from './page/ConnectView.ts'
 import type { Model as ConnectModel } from './page/Connect.ts'
 import type { Model as ConnectionsModel } from './page/Connections.ts'
+import type { Model as IdentityModel } from './page/Identity.ts'
 import * as Home from './page/Home.ts'
+import * as IdentityView from './page/IdentityView.ts'
 import * as Inbox from './page/Inbox.ts'
 import * as JobPage from './page/job/JobPage.ts'
 import * as ListingPage from './page/ListingPage.ts'
 import * as NewListing from './page/NewListing.ts'
 import * as NewRequest from './page/NewRequest.ts'
 import * as SignIn from './page/SignIn.ts'
-import { AppRoute, agentsRouter, homeRouter, inboxRouter, newRequestRouter, signInHref } from './route.ts'
+import {
+  AppRoute,
+  agentsRouter,
+  homeRouter,
+  identityRouter,
+  inboxRouter,
+  newRequestRouter,
+  signInHref,
+} from './route.ts'
 import { accountOf, addressOf, Session } from './Session.ts'
 import { styled } from './Styled.ts'
 import { say, shortHex } from './Text.ts'
@@ -31,6 +41,7 @@ const navLink = (h: Html.HtmlBuilder<Message>, href: string, label: string, curr
 const sessionArea = (h: Html.HtmlBuilder<Message>, model: Model) => {
   const language = model.flags.language
   return h.div(styled(h, vs.session()), [
+    navLink(h, identityRouter(), say(language, 'shell.identity'), AppRoute.guards.Identity(model.route)),
     Session.match(model.session, {
       Checking: () => h.span(styled(h, vs.sessionNote()), [say(language, 'shell.checking')]),
       SignedOut: () =>
@@ -101,6 +112,15 @@ const connectionsPage = (
     view: ConnectionsView.view,
     viewInputs: { session, timeZone },
     toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
+  })
+
+/** The person's Nostr identity. */
+const identityPage = (h: Html.HtmlBuilder<Message>, identity: IdentityModel) =>
+  h.submodel({
+    slotId: 'identity',
+    model: identity,
+    view: IdentityView.view,
+    toParentMessage: (message) => Message.GotIdentityMessage({ message }),
   })
 
 const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
@@ -174,6 +194,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
       }),
     Connect: ({ connect }) => connectPage(h, connect, session, timeZone),
     Connections: ({ connections }) => connectionsPage(h, connections, session, timeZone),
+    Identity: ({ identity }) => identityPage(h, identity),
     NotFound: () => notFound(h, model),
   })
 }
@@ -191,6 +212,7 @@ const pageTitle = (model: Model): string => {
     Agents: () => say(language, 'agents.title'),
     Connect: () => say(language, 'connect.title'),
     Connections: () => say(language, 'connections.title'),
+    Identity: () => say(language, 'identity.title'),
     NotFound: () => say(language, 'notFound.title'),
   })
 }

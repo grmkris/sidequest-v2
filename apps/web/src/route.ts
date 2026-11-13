@@ -15,6 +15,7 @@ export const AppRoute = defineRouteUnion({
   Agents: {},
   Connect: { request: ConnectRequestId },
   Connections: {},
+  Identity: {},
   NotFound: { path: Schema.String },
 })
 export type AppRoute = typeof AppRoute.Type
@@ -53,6 +54,9 @@ export const connectRouter = pipe(
   Route.mapTo(AppRoute.Connect),
 )
 
+/** The person's Nostr identity: their signer, their profile and their wallet's link. */
+export const identityRouter = pipe(literal('identity'), Route.mapTo(AppRoute.Identity))
+
 const routeParser = Route.oneOf(
   newListingRouter,
   listingRouter,
@@ -62,6 +66,7 @@ const routeParser = Route.oneOf(
   connectionsRouter,
   agentsRouter,
   connectRouter,
+  identityRouter,
   signInRouter,
   homeRouter,
 )
@@ -81,6 +86,7 @@ const pathOf = (route: AppRoute): string =>
     Agents: () => agentsRouter(),
     Connect: ({ request }) => connectRouter({ request }),
     Connections: () => connectionsRouter(),
+    Identity: () => identityRouter(),
     NotFound: ({ path }) => path,
   })
 

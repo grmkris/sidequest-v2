@@ -10,6 +10,7 @@ import * as Agents from './page/Agents.ts'
 import * as Connect from './page/Connect.ts'
 import * as Connections from './page/Connections.ts'
 import * as Home from './page/Home.ts'
+import * as Identity from './page/Identity.ts'
 import * as Inbox from './page/Inbox.ts'
 import * as Job from './page/job/Job.ts'
 import * as ListingPage from './page/ListingPage.ts'
@@ -18,11 +19,12 @@ import * as NewRequest from './page/NewRequest.ts'
 import * as SignIn from './page/SignIn.ts'
 import { AppRoute, jobRouter, listingRouter } from './route.ts'
 import { addressOf, Session } from './Session.ts'
+import type { Signers } from './Signer.ts'
 import type { Wallet } from './Wallet.ts'
 
 // Which page a route opens, and how each page's Messages and OutMessages fold into the app.
 
-export type Services = SidequestClient | Wallet
+export type Services = SidequestClient | Wallet | Signers
 type Step = Update.Step<Model, Message, Services>
 
 /** Whether a page may read what only a signed-in person can: not when the browser is known to be signed out, which
@@ -32,6 +34,13 @@ const mayRead = (session: Session): boolean => !Session.guards.SignedOut(session
 /** The wallet of the signed-in person, which signs their steps on a job. */
 const signerOf = (session: Session): Option.Option<string> =>
   Session.guards.SignedIn(session) ? Option.some(addressOf(session.session)) : Option.none()
+
+/** The identity page, which reads nothing from the server: the signer lives in the browser. */
+const openIdentity = (flags: Flags): Update.Return<Page, Message, Services> =>
+  Update.foldChildInit(Identity.init(flags.language), {
+    toParentModel: (identity) => Page.Identity({ identity }),
+    toParentMessage: (message) => Message.GotIdentityMessage({ message }),
+  })
 
 /** The page a route opens: from the data the server read for it, or with the Commands that read its data. */
 export const openPage = (
@@ -109,6 +118,7 @@ export const openPage = (
         toParentModel: (connections) => Page.Connections({ connections }),
         toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
       }),
+    Identity: () => openIdentity(flags),
     NotFound: () => ({ model: Page.NotFound() }),
   })
 
@@ -221,4 +231,11 @@ export const foldConnections = Update.foldChild({
   read: (model: Model) => (Page.guards.Connections(model.page) ? Option.some(model.page.connections) : Option.none()),
   write: (model: Model, next: Connections.Model) => writePage(model, Page.Connections({ connections: next })),
   toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
+})
+
+export const foldIdentity = Update.foldChild({
+  update: Identity.update,
+  read: (model: Model) => (Page.guards.Identity(model.page) ? Option.some(model.page.identity) : Option.none()),
+  write: (model: Model, nextIdentity: Identity.Model) => writePage(model, Page.Identity({ identity: nextIdentity })),
+  toParentMessage: (message) => Message.GotIdentityMessage({ message }),
 })

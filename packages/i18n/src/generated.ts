@@ -97,6 +97,35 @@ export interface MessageArgumentsByKey<_T = string> {
   'home.requests.title': Readonly<Record<string, never>>
   'home.requests.until': { readonly date: string | number }
   'home.title': Readonly<Record<string, never>>
+  'identity.connectingWallet': Readonly<Record<string, never>>
+  'identity.lede': Readonly<Record<string, never>>
+  'identity.person.name': Readonly<Record<string, never>>
+  'identity.person.noName': Readonly<Record<string, never>>
+  'identity.person.noWallets': Readonly<Record<string, never>>
+  'identity.person.reading': Readonly<Record<string, never>>
+  'identity.person.title': Readonly<Record<string, never>>
+  'identity.person.unknown': Readonly<Record<string, never>>
+  'identity.person.unverified': Readonly<Record<string, never>>
+  'identity.person.verified': Readonly<Record<string, never>>
+  'identity.person.wallets': Readonly<Record<string, never>>
+  'identity.profile.name': Readonly<Record<string, never>>
+  'identity.profile.nameHint': Readonly<Record<string, never>>
+  'identity.profile.submit': Readonly<Record<string, never>>
+  'identity.profile.title': Readonly<Record<string, never>>
+  'identity.published.profile': Readonly<Record<string, never>>
+  'identity.published.walletLink': Readonly<Record<string, never>>
+  'identity.publishing': Readonly<Record<string, never>>
+  'identity.refused.content': Readonly<Record<string, never>>
+  'identity.refused.kind': Readonly<Record<string, never>>
+  'identity.refused.rateLimited': { readonly seconds: number }
+  'identity.refused.signature': Readonly<Record<string, never>>
+  'identity.refused.tooLarge': Readonly<Record<string, never>>
+  'identity.signingInWallet': Readonly<Record<string, never>>
+  'identity.title': Readonly<Record<string, never>>
+  'identity.wallet.lede': Readonly<Record<string, never>>
+  'identity.wallet.link': Readonly<Record<string, never>>
+  'identity.wallet.title': Readonly<Record<string, never>>
+  'identity.walletDeclined': Readonly<Record<string, never>>
   'inbox.empty': Readonly<Record<string, never>>
   'inbox.kind.changeRequested': Readonly<Record<string, never>>
   'inbox.kind.deliveryRecorded': Readonly<Record<string, never>>
@@ -359,6 +388,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'shell.agents': Readonly<Record<string, never>>
   'shell.checking': Readonly<Record<string, never>>
   'shell.home': Readonly<Record<string, never>>
+  'shell.identity': Readonly<Record<string, never>>
   'shell.inbox': Readonly<Record<string, never>>
   'shell.nav': Readonly<Record<string, never>>
   'shell.postRequest': Readonly<Record<string, never>>
@@ -387,6 +417,51 @@ export interface MessageArgumentsByKey<_T = string> {
   'signIn.verifying': Readonly<Record<string, never>>
   'signIn.wallet': Readonly<Record<string, never>>
   'signIn.wrongNetwork': Readonly<Record<string, never>>
+  'signer.back': Readonly<Record<string, never>>
+  'signer.backup.continue': Readonly<Record<string, never>>
+  'signer.backup.download': Readonly<Record<string, never>>
+  'signer.backup.label': Readonly<Record<string, never>>
+  'signer.backup.lede': Readonly<Record<string, never>>
+  'signer.backup.saved': Readonly<Record<string, never>>
+  'signer.backup.warning': Readonly<Record<string, never>>
+  'signer.choose.withExtension': Readonly<Record<string, never>>
+  'signer.choose.withoutExtension': Readonly<Record<string, never>>
+  'signer.connecting': Readonly<Record<string, never>>
+  'signer.create.confirmation': Readonly<Record<string, never>>
+  'signer.create.lede': Readonly<Record<string, never>>
+  'signer.create.password': Readonly<Record<string, never>>
+  'signer.create.passwordHint': { readonly minimum: string | number }
+  'signer.create.submit': Readonly<Record<string, never>>
+  'signer.create.working': Readonly<Record<string, never>>
+  'signer.createKey': Readonly<Record<string, never>>
+  'signer.detecting': Readonly<Record<string, never>>
+  'signer.forget': Readonly<Record<string, never>>
+  'signer.key': Readonly<Record<string, never>>
+  'signer.kind.local': Readonly<Record<string, never>>
+  'signer.kind.nip07': Readonly<Record<string, never>>
+  'signer.opening': Readonly<Record<string, never>>
+  'signer.password': Readonly<Record<string, never>>
+  'signer.problem.backupMissing': Readonly<Record<string, never>>
+  'signer.problem.backupNotSaved': Readonly<Record<string, never>>
+  'signer.problem.extensionRefused': Readonly<Record<string, never>>
+  'signer.problem.extensionUntrusted': Readonly<Record<string, never>>
+  'signer.problem.locked': Readonly<Record<string, never>>
+  'signer.problem.noExtension': Readonly<Record<string, never>>
+  'signer.problem.notABackup': Readonly<Record<string, never>>
+  'signer.problem.notLoaded': Readonly<Record<string, never>>
+  'signer.problem.nothingStored': Readonly<Record<string, never>>
+  'signer.problem.passwordTooShort': { readonly minimum: string | number }
+  'signer.problem.passwordsDiffer': Readonly<Record<string, never>>
+  'signer.problem.wrongPassword': Readonly<Record<string, never>>
+  'signer.restore.backup': Readonly<Record<string, never>>
+  'signer.restore.backupHint': Readonly<Record<string, never>>
+  'signer.restore.submit': Readonly<Record<string, never>>
+  'signer.restoreKey': Readonly<Record<string, never>>
+  'signer.signer': Readonly<Record<string, never>>
+  'signer.title': Readonly<Record<string, never>>
+  'signer.unlock.lede': Readonly<Record<string, never>>
+  'signer.unlock.submit': Readonly<Record<string, never>>
+  'signer.useExtension': Readonly<Record<string, never>>
   'slip.escrow': Readonly<Record<string, never>>
   'slip.expiry': { readonly date: string | number }
   'slip.fee': { readonly percent: string | number; readonly fee: string | number; readonly worker: string | number }
@@ -410,4 +485,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'cf3e52677f1ef31583f914d5b41aff1e1782def6d9869b6bacee8e12b263a838'
+export const catalogVersion = 'b970d7567559423685f91616b37d835caf7e27f8a05cb5a2a6c7cb9ebc446dd2'

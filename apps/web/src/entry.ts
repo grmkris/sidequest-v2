@@ -6,6 +6,7 @@ import { sidequestClientLayer } from './Api.ts'
 import { Flags, Message, Model, init, subscriptions, update } from './App.ts'
 import { routing } from './Navigation.ts'
 import { view } from './View.ts'
+import { signersLayer } from './Signer.ts'
 import { walletLayer } from './Wallet.ts'
 // oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles.
 import './GlobalStyles.ts'
@@ -25,6 +26,7 @@ const application = Runtime.makeApplication({
   resources: Layer.mergeAll(
     sidequestClientLayer(window.location.origin).pipe(Layer.provide(FetchHttpClient.layer)),
     walletLayer(window),
+    signersLayer(window),
   ),
 })
 Runtime.hydrate(application)

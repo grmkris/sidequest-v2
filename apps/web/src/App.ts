@@ -14,6 +14,7 @@ import {
   foldConnections,
   foldHome,
   foldHomeSearch,
+  foldIdentity,
   foldInbox,
   foldJob,
   foldListing,
@@ -154,6 +155,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotAgentsMessage: ({ message: agentsMessage }) => foldAgents(model, agentsMessage),
     GotConnectMessage: ({ message: connectMessage }) => foldConnect(model, connectMessage),
     GotConnectionsMessage: ({ message: connectionsMessage }) => foldConnections(model, connectionsMessage),
+    GotIdentityMessage: ({ message: identityMessage }) => foldIdentity(model, identityMessage),
   })
 
 // SUBSCRIPTION

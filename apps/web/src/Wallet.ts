@@ -41,6 +41,13 @@ export class Wallet extends Context.Service<
     readonly signMessage: (address: WalletAddress, message: string) => Effect.Effect<WalletSignature, WalletError>
     /** `eth_signTypedData_v4` of typed data the server prepared, on the chain its domain names. */
     readonly signTypedData: (address: WalletAddress, data: TypedData) => Effect.Effect<WalletSignature, WalletError>
+    /** `eth_signTypedData_v4` of typed data already in the wallet's JSON, `EIP712Domain` type included, on `chainId`:
+     * a statement with no verifying contract, such as the link of a Nostr key. */
+    readonly signTypedDataJson: (
+      address: WalletAddress,
+      chainId: number,
+      json: string,
+    ) => Effect.Effect<WalletSignature, WalletError>
   }
 >()('@sidequest/web/Wallet') {}
 
@@ -109,6 +116,11 @@ export const makeWallet = (findProvider: Effect.Effect<Option.Option<Eip1193Prov
   )
   const ensureChain = (target: number) =>
     Effect.flatMap(chainId, (current) => (current === target || target !== arcChainId ? Effect.void : switchToArc))
+  const signJson = (address: WalletAddress, onChain: number, json: string) =>
+    ensureChain(onChain).pipe(
+      Effect.andThen(call('eth_signTypedData_v4', [address, json])),
+      Effect.flatMap(decodeSignature),
+    )
   return Wallet.of({
     connect: Effect.gen(function* () {
       const accounts = yield* call('eth_requestAccounts').pipe(Effect.flatMap(decodeAccounts))
@@ -121,11 +133,11 @@ export const makeWallet = (findProvider: Effect.Effect<Option.Option<Eip1193Prov
         Effect.withSpan('Sidequest.Web.Wallet.signMessage'),
       ),
     signTypedData: (address, data) =>
-      ensureChain(data.domain.chainId).pipe(
-        Effect.andThen(call('eth_signTypedData_v4', [address, typedDataJson(data)])),
-        Effect.flatMap(decodeSignature),
+      signJson(address, data.domain.chainId, typedDataJson(data)).pipe(
         Effect.withSpan('Sidequest.Web.Wallet.signTypedData'),
       ),
+    signTypedDataJson: (address, onChain, json) =>
+      signJson(address, onChain, json).pipe(Effect.withSpan('Sidequest.Web.Wallet.signTypedDataJson')),
   })
 }
 

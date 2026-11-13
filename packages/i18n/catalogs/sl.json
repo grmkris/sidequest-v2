@@ -90,7 +90,8 @@
     "signingOut": "Odjavljamo …",
     "account": "Denarnica {address}",
     "testnet": "Samo testno omrežje Arc: testni USDC nima vrednosti.",
-    "title": "{page} – Sidequest"
+    "title": "{page} – Sidequest",
+    "identity": "Identiteta"
   },
   "foundation": {
     "release": "Izdaja {release}"
@@ -474,5 +475,107 @@
     "agent": "Agent",
     "since": "Povezana",
     "revoke": "Prekliči"
+  },
+  "signer": {
+    "title": "Vaš ključ Nostr",
+    "detecting": "Iščemo podpisnika v tem brskalniku …",
+    "choose": {
+      "withExtension": "Na Sidequestu vas predstavlja vaš ključ Nostr. Ta brskalnik ima razširitev Nostr: uporabite jo ali ustvarite ključ tukaj.",
+      "withoutExtension": "Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ tukaj ali ga obnovite iz varnostne kopije."
+    },
+    "useExtension": "Uporabi razširitev Nostr",
+    "createKey": "Ustvari ključ v tem brskalniku",
+    "restoreKey": "Obnovi ključ iz varnostne kopije",
+    "back": "Nazaj",
+    "connecting": "Čakamo na razširitev …",
+    "create": {
+      "lede": "Izberite geslo. Ključ je v tem brskalniku shranjen le šifriran z njim, potrebuje ga tudi varnostna kopija. Sidequest ključa in gesla nikoli ne vidi in ju ne more obnoviti.",
+      "password": "Geslo",
+      "passwordHint": "Vsaj {minimum} znakov.",
+      "confirmation": "Ponovite geslo",
+      "submit": "Ustvari ključ",
+      "working": "Ustvarjamo in šifriramo ključ …"
+    },
+    "backup": {
+      "lede": "Preden nadaljujete, shranite to varnostno kopijo: to je vaš ključ, šifriran z vašim geslom.",
+      "warning": "Če jo izgubite ali pozabite geslo, vam ključa nihče ne more vrniti, tudi Sidequest ne.",
+      "label": "Varnostna kopija",
+      "download": "Prenesi varnostno kopijo",
+      "saved": "Varnostno kopijo imam shranjeno na varnem mestu",
+      "continue": "Nadaljuj"
+    },
+    "key": "Ključ",
+    "password": "Geslo",
+    "restore": {
+      "backup": "Varnostna kopija",
+      "backupHint": "Besedilo, ki se začne z ncryptsec1.",
+      "submit": "Obnovi ključ"
+    },
+    "opening": "Odpiramo ključ …",
+    "unlock": {
+      "lede": "Ta brskalnik hrani vaš ključ šifriran. Za uporabo vnesite njegovo geslo.",
+      "submit": "Odkleni"
+    },
+    "forget": "Pozabi ta ključ v tem brskalniku",
+    "signer": "Podpisnik",
+    "kind": {
+      "nip07": "Razširitev Nostr",
+      "local": "Ključ v tem brskalniku"
+    },
+    "problem": {
+      "noExtension": "V tem brskalniku ni razširitve Nostr.",
+      "extensionRefused": "Razširitev je zavrnila ali ni odgovorila. Poskusite znova.",
+      "extensionUntrusted": "Razširitev je odgovorila z nečim, kar ni bilo zahtevano, zato je nismo uporabili.",
+      "locked": "Ključ je zaklenjen. Odklenite ga in poskusite znova.",
+      "wrongPassword": "To geslo ne odpre tega ključa.",
+      "notABackup": "To ni varnostna kopija, ki jo ta stran zna odpreti. Začne se z ncryptsec1.",
+      "nothingStored": "Ta brskalnik nima ključa. Ustvarite ga ali ga obnovite iz varnostne kopije.",
+      "notLoaded": "Podpisnika ni bilo mogoče naložiti. Preverite povezavo in poskusite znova.",
+      "passwordTooShort": "Geslo potrebuje vsaj {minimum} znakov.",
+      "passwordsDiffer": "Gesli se razlikujeta.",
+      "backupNotSaved": "Najprej potrdite, da ste shranili varnostno kopijo.",
+      "backupMissing": "Najprej prilepite varnostno kopijo."
+    }
+  },
+  "identity": {
+    "title": "Identiteta",
+    "lede": "Na Sidequestu vas predstavlja vaš ključ Nostr. Z njim objavite ime in povežite denarnico, s katero plačujete in prejemate plačila.",
+    "publishing": "Objavljamo …",
+    "connectingWallet": "Čakamo na denarnico …",
+    "signingInWallet": "Podpišite povezavo v denarnici …",
+    "published": {
+      "profile": "Vaš profil je objavljen.",
+      "walletLink": "Vaša denarnica je povezana s ključem."
+    },
+    "refused": {
+      "signature": "Sidequest je dogodek zavrnil: njegov podpis ni veljaven.",
+      "content": "Sidequest je dogodek zavrnil: njegova vsebina ni takšna, kot jo ima ta vrsta dogodka.",
+      "kind": "Sidequest te vrste dogodkov ne hrani.",
+      "tooLarge": "Dogodek je večji, kot ga Sidequest hrani.",
+      "rateLimited": "V zadnjem času je bilo preveč dogodkov. Poskusite znova čez {seconds, plural, one {# sekundo} two {# sekundi} few {# sekunde} other {# sekund}}."
+    },
+    "walletDeclined": "V denarnici ste zavrnili, zato ni bilo nič povezano. Poskusite znova, kadar želite.",
+    "profile": {
+      "title": "Profil",
+      "name": "Ime",
+      "nameHint": "Prikazano ob vaših naročilih, ponudbah in ocenah.",
+      "submit": "Objavi profil"
+    },
+    "wallet": {
+      "title": "Denarnica",
+      "lede": "Denarnica podpiše izjavo, da je ta ključ vaš, ključ pa jo podpiše nazaj. Nič ne gre na verigo in nič ne stane provizije.",
+      "link": "Poveži denarnico"
+    },
+    "person": {
+      "title": "Kaj Sidequest ve o vašem ključu",
+      "name": "Ime",
+      "noName": "Imena še ni",
+      "wallets": "Povezane denarnice",
+      "verified": "Preverjeno",
+      "unverified": "Nepreverjeno",
+      "noWallets": "Nobena denarnica še ni povezana.",
+      "reading": "Beremo …",
+      "unknown": "Sidequest še ni videl ničesar, kar bi podpisal ta ključ."
+    }
   }
 }

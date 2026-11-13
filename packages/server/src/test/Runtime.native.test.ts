@@ -6,6 +6,7 @@ import {
   ConnectDecision,
   IssuedAgentToken,
   JobId,
+  LinkedWallet,
   ListingId,
   Person,
   SessionView,
@@ -22,7 +23,23 @@ import * as HttpClientRequest from 'effect/http/HttpClientRequest'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
-import { apiReadsDuring, headlessChromium, openPage, reloadUntilShown, walletContext } from './ChromiumWorld.ts'
+import {
+  apiReadsDuring,
+  clickThenSee,
+  confirmBackup,
+  createLocalKey,
+  headlessChromium,
+  nostrExtension,
+  openPage,
+  publishProfile,
+  reloadThenUnlock,
+  reloadUntilShown,
+  storedItems,
+  storedLocalKey,
+  unexplainedProblems,
+  useExtension,
+  walletContext,
+} from './ChromiumWorld.ts'
 import WakeWorkerLive, { millis, sleeps, WakeWorker } from './WakeWorker.ts'
 import {
   browserOf,
@@ -383,6 +400,67 @@ test(
       expect(home.problems).toEqual([])
     }),
   ),
+  { timeout: 120000 },
+)
+
+test(
+  'publishes a profile with a NIP-07 extension and links the wallet, which the index then shows as verified',
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { url } = yield* stack
+      const person = yield* walletContext(yield* headlessChromium)
+      const { pubkey } = yield* nostrExtension(person.context)
+      const { page, problems, notFound } = yield* openPage(person.context, url)
+      yield* useExtension(page, pubkey)
+
+      const name = `Acceptance ${generatePrivateKey().slice(2, 10)}`
+      yield* publishProfile(page, name)
+      yield* Effect.promise(() => page.getByRole('definition').filter({ hasText: name }).waitFor({ timeout: 15000 }))
+
+      yield* clickThenSee(page, 'Link your wallet', 'Your wallet is linked to your key.')
+      const account = `eip155:5042002:${person.wallet.address.toLowerCase()}`
+      const row = page.getByRole('list', { name: 'Linked wallets' }).getByRole('listitem').filter({ hasText: account })
+      yield* Effect.promise(() => row.getByText('Verified', { exact: true }).waitFor({ timeout: 15000 }))
+      const linked = yield* until(HttpClient.get(`${url}/api/wallets/${account}`), LinkedWallet)
+      expect(linked).toMatchObject({ pubkey, verification: 'verified' })
+      expect(yield* storedItems(page)).toEqual([['sidequest.signer', JSON.stringify({ signerKind: 'nip07', pubkey })]])
+      expect(unexplainedProblems(problems, notFound, pubkey)).toEqual([])
+    }),
+  ).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 120000 },
+)
+
+test(
+  'makes a key in the browser behind a confirmed backup, unlocks it after a reload, and keeps no secret in storage',
+  Effect.scoped(
+    Effect.gen(function* () {
+      const { url } = yield* stack
+      const { context } = yield* walletContext(yield* headlessChromium)
+      const { page, problems, notFound } = yield* openPage(context, `${url}/identity`)
+      yield* Effect.promise(() => page.getByText('No Nostr extension was found', { exact: false }).waitFor())
+      const password = 'a long acceptance password'
+      const ncryptsec = yield* createLocalKey(page, password)
+      expect(ncryptsec).toMatch(/^ncryptsec1[02-9ac-hj-np-z]+$/u)
+      expect(yield* storedItems(page)).toEqual([])
+
+      // Not without confirming the backup.
+      yield* clickThenSee(page, 'Continue', 'Confirm that you saved your backup first.')
+      expect(yield* Effect.promise(() => page.getByLabel('Name', { exact: true }).count())).toBe(0)
+      yield* confirmBackup(page)
+
+      // No raw secret anywhere: the only 64-hex value kept is the public key, and nothing is an nsec.
+      const { pubkey, ...kept } = yield* storedLocalKey(page)
+      expect(kept).toEqual({ ncryptsec, otherHex: [], nsec: false })
+
+      yield* reloadThenUnlock(page, password)
+      const name = `Local ${generatePrivateKey().slice(2, 10)}`
+      yield* publishProfile(page, name)
+      const indexed = yield* until(HttpClient.get(`${url}/api/people/${pubkey}`), Person)
+      expect(indexed.profile).toMatchObject({ name })
+      expect(yield* storedLocalKey(page)).toEqual({ pubkey, ncryptsec, otherHex: [], nsec: false })
+      expect(unexplainedProblems(problems, notFound, pubkey)).toEqual([])
+    }),
+  ).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 120000 },
 )
 

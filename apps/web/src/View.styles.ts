@@ -48,7 +48,13 @@ export const brand = style({
   alignItems: 'center',
 })
 /** The session's corner keeps one height whatever it says, so nothing moves when the session is read. */
-export const session = style({ display: 'flex', alignItems: 'center', minBlockSize: '44px', minInlineSize: '0' })
+export const session = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '14px',
+  minBlockSize: '44px',
+  minInlineSize: '0',
+})
 export const account = style({
   display: 'flex',
   alignItems: 'center',

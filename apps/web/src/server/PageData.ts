@@ -104,6 +104,8 @@ const preloadFor = (api: SidequestApiClient, route: AppRoute, signedIn: boolean)
     // The consent page and the connected apps read after hydration, as their own person.
     Connect: () => Effect.succeed(Preload.Nothing()),
     Connections: () => Effect.succeed(Preload.Nothing()),
+    // The signer lives in the browser; nothing about it is known before hydration.
+    Identity: () => Effect.succeed(Preload.Nothing()),
     NotFound: () => Effect.succeed(Preload.Nothing()),
   })
 

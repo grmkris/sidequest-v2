@@ -90,7 +90,8 @@
     "signingOut": "Signing out…",
     "account": "Wallet {address}",
     "testnet": "Arc testnet only: test USDC has no value.",
-    "title": "{page} – Sidequest"
+    "title": "{page} – Sidequest",
+    "identity": "Identity"
   },
   "foundation": {
     "release": "Release {release}"
@@ -474,5 +475,107 @@
     "agent": "Agent",
     "since": "Connected",
     "revoke": "Revoke"
+  },
+  "signer": {
+    "title": "Your Nostr key",
+    "detecting": "Looking for a signer in this browser…",
+    "choose": {
+      "withExtension": "On Sidequest you are your Nostr key. This browser has a Nostr extension: use it, or make a key here.",
+      "withoutExtension": "On Sidequest you are your Nostr key. No Nostr extension was found in this browser, so make a key here, or restore one from its backup."
+    },
+    "useExtension": "Use the Nostr extension",
+    "createKey": "Create a key in this browser",
+    "restoreKey": "Restore a key from its backup",
+    "back": "Back",
+    "connecting": "Waiting for your extension…",
+    "create": {
+      "lede": "Choose a password. Your key is kept in this browser only encrypted with it, and its backup needs it too. Sidequest never sees the key or the password, and cannot recover either.",
+      "password": "Password",
+      "passwordHint": "At least {minimum} characters.",
+      "confirmation": "Password again",
+      "submit": "Create key",
+      "working": "Creating and encrypting your key…"
+    },
+    "backup": {
+      "lede": "Save this backup before you go on: it is your key, encrypted with your password.",
+      "warning": "If you lose it, or forget the password, nobody can give the key back to you, Sidequest included.",
+      "label": "Backup",
+      "download": "Download the backup",
+      "saved": "I saved my backup somewhere safe",
+      "continue": "Continue"
+    },
+    "key": "Key",
+    "password": "Password",
+    "restore": {
+      "backup": "Backup",
+      "backupHint": "The text that starts with ncryptsec1.",
+      "submit": "Restore key"
+    },
+    "opening": "Opening your key…",
+    "unlock": {
+      "lede": "This browser keeps your key encrypted. Enter its password to use it.",
+      "submit": "Unlock"
+    },
+    "forget": "Forget this key in this browser",
+    "signer": "Signer",
+    "kind": {
+      "nip07": "Nostr extension",
+      "local": "Key in this browser"
+    },
+    "problem": {
+      "noExtension": "No Nostr extension was found in this browser.",
+      "extensionRefused": "The extension said no, or did not answer. Try again.",
+      "extensionUntrusted": "The extension answered with something that is not what was asked for, so it was not used.",
+      "locked": "Your key is locked. Unlock it, then try again.",
+      "wrongPassword": "That password does not open this key.",
+      "notABackup": "That is not a backup this site can open. It starts with ncryptsec1.",
+      "nothingStored": "This browser holds no key to use. Create one or restore it from its backup.",
+      "notLoaded": "The signer could not load. Check your connection and try again.",
+      "passwordTooShort": "The password needs at least {minimum} characters.",
+      "passwordsDiffer": "The two passwords differ.",
+      "backupNotSaved": "Confirm that you saved your backup first.",
+      "backupMissing": "Paste your backup first."
+    }
+  },
+  "identity": {
+    "title": "Identity",
+    "lede": "Your Nostr key is who you are on Sidequest. Publish a name with it, and link the wallet you pay and get paid with.",
+    "publishing": "Publishing…",
+    "connectingWallet": "Waiting for your wallet…",
+    "signingInWallet": "Sign the link in your wallet…",
+    "published": {
+      "profile": "Your profile is published.",
+      "walletLink": "Your wallet is linked to your key."
+    },
+    "refused": {
+      "signature": "Sidequest refused the event: its signature does not check out.",
+      "content": "Sidequest refused the event: its content is not what this kind of event carries.",
+      "kind": "Sidequest does not keep this kind of event.",
+      "tooLarge": "The event is larger than Sidequest keeps.",
+      "rateLimited": "Too many events lately. Try again in {seconds, plural, one {# second} other {# seconds}}."
+    },
+    "walletDeclined": "You declined in your wallet, so nothing was linked. Try again whenever you like.",
+    "profile": {
+      "title": "Profile",
+      "name": "Name",
+      "nameHint": "Shown with your requests, proposals and reviews.",
+      "submit": "Publish profile"
+    },
+    "wallet": {
+      "title": "Wallet",
+      "lede": "Your wallet signs a statement that this key is yours, and your key signs it back. Nothing goes on chain and nothing costs gas.",
+      "link": "Link your wallet"
+    },
+    "person": {
+      "title": "What Sidequest knows of your key",
+      "name": "Name",
+      "noName": "No name yet",
+      "wallets": "Linked wallets",
+      "verified": "Verified",
+      "unverified": "Unverified",
+      "noWallets": "No wallet is linked yet.",
+      "reading": "Reading…",
+      "unknown": "Sidequest has seen nothing signed by this key yet."
+    }
   }
 }

@@ -35,6 +35,7 @@ export const Page = defineTaggedUnion({
   Agents: { agents: Pages.Agents.Model },
   Connect: { connect: Pages.Connect.Model },
   Connections: { connections: Pages.Connections.Model },
+  Identity: { identity: Pages.Identity.Model },
   NotFound: {},
 })
 export type Page = typeof Page.Type
