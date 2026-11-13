@@ -140,7 +140,7 @@ const relaysOf = (report: PollReport) => report.relays.map(({ relay, outcome }) 
 /** `read_room_messages`: what arrived since the last read, once each, in each room's order. */
 export const readRoomMessages = Effect.gen(function* () {
   const { agent } = yield* discussing(true)
-  return yield* withRooms(agent, (rooms) =>
+  const read = yield* withRooms(agent, (rooms) =>
     Effect.gen(function* () {
       const report = yield* polled(rooms)
       const foundings = new Map((yield* rooms.rooms).map((founding) => [founding.room, founding]))
@@ -152,6 +152,15 @@ export const readRoomMessages = Effect.gen(function* () {
       return { messages, relays: relaysOf(report) }
     }),
   )
+  // Two calls that overlapped read the same messages from the relays; each answers only those it claimed first.
+  const claimed = yield* store(
+    (yield* AgentRoomState).claimReads(
+      agent,
+      read.messages.map((message) => message.id),
+      yield* nowSeconds,
+    ),
+  )
+  return { ...read, messages: read.messages.filter((message) => claimed.has(message.id)) }
 })
 
 /** `set_inbox_relays`: the agent's kind-10050 list, signed, sent to those relays and published through the core,

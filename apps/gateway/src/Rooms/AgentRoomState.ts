@@ -31,6 +31,9 @@ export const strippedState = (state: RoomState): RoomState => ({
   messages: state.messages.map(strippedMessage),
 })
 
+/** How long a read's claim on a message is kept: a week, longer than any poll's look-back. */
+const readsKeptSeconds = 7 * 24 * 60 * 60
+
 const StateJson = Schema.fromJsonString(RoomState)
 const encodeState = Schema.encodeSync(StateJson)
 const decodeState = Schema.decodeUnknownOption(StateJson)
@@ -44,6 +47,12 @@ export class AgentRoomState extends Context.Service<
     readonly save: (agent: PublicKey, state: RoomState, now: UnixSeconds) => Effect.Effect<void, Unavailable>
     readonly paused: (agent: PublicKey) => Effect.Effect<boolean, Unavailable>
     readonly setPaused: (agent: PublicKey, paused: boolean, now: UnixSeconds) => Effect.Effect<void, Unavailable>
+    /** Claims messages for one read: answers those no earlier read claimed, so overlapping reads never share one. */
+    readonly claimReads: (
+      agent: PublicKey,
+      messages: ReadonlyArray<string>,
+      now: UnixSeconds,
+    ) => Effect.Effect<ReadonlySet<string>, Unavailable>
   }
 >()('Sidequest/Gateway/AgentRoomState') {
   /** On D1; needs the database's `SqlClient`. */
@@ -77,6 +86,18 @@ export class AgentRoomState extends Context.Service<
             Effect.asVoid,
           ),
         paused: (agent) => Effect.map(stored(pauseOf(agent)), Option.isSome),
+        claimReads: (agent, messages, now) =>
+          Effect.gen(function* () {
+            yield* stored(
+              sql`DELETE FROM agent_room_reads WHERE agent = ${agent} AND read_at < ${now - readsKeptSeconds}`,
+            )
+            const claimed = yield* Effect.forEach(messages, (message) =>
+              stored(sql<{ readonly message: string }>`
+                INSERT INTO agent_room_reads (agent, message, read_at) VALUES (${agent}, ${message}, ${now})
+                ON CONFLICT (agent, message) DO NOTHING RETURNING message`),
+            )
+            return new Set(claimed.flat().map((row) => row.message))
+          }),
         setPaused: (agent, paused, now) =>
           stored(
             paused

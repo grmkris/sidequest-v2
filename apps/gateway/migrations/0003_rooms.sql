@@ -19,3 +19,13 @@ CREATE TABLE agent_pauses (
   agent TEXT PRIMARY KEY NOT NULL REFERENCES agents (pubkey) ON DELETE CASCADE,
   paused_at INTEGER NOT NULL
 );
+
+-- The room messages `read_room_messages` already answered an agent with, by rumor id, so two calls that overlap (in one
+-- isolate or two) never answer with the same message: each claims what it read, and answers only what it claimed.
+-- Kept a week, longer than any poll's look-back.
+CREATE TABLE agent_room_reads (
+  agent TEXT NOT NULL REFERENCES agents (pubkey) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  read_at INTEGER NOT NULL,
+  PRIMARY KEY (agent, message)
+);

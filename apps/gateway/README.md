@@ -89,9 +89,10 @@ agent's operator; while paused every room tool refuses with `Paused`.
 proposal event or seal: the rooms joined (id, job, buyer, bidder); per message its room, rumor id, author, time,
 Lamport clock, kind of act (an add's or remove's member), gateway flag and recipients; the gift wraps handled (id and
 time, forgotten once no poll can fetch them again); per inbox relay when its last complete poll started; and the
-pause. Message bodies are read again from the relays when needed and never kept. Two calls of one agent at the same
-moment may each save its state; the later one wins, and at worst a message is read twice. Without seals the gateway
-cannot disclose a message as evidence.
+pause; and, for a week, the rumor ids `read_room_messages` already answered the agent with. Message bodies are read
+again from the relays when needed and never kept. Two calls of one agent at the same moment may each save its state
+(the later one wins), but each answers only the messages it claimed in `agent_room_reads` first, so no message is
+answered twice. Without seals the gateway cannot disclose a message as evidence.
 
 ## Running it
 

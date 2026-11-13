@@ -87,6 +87,29 @@ describe('rooms for gateway agents', () => {
       expect(messages.filter((message) => message.seal !== undefined)).toEqual([])
     }))
 
+  const ReadAnswer = Schema.Struct({
+    value: Schema.Struct({
+      messages: Schema.Array(Schema.Struct({ id: Schema.String, text: Schema.optional(Schema.String) })),
+    }),
+  })
+
+  test('two reads that overlap never answer with the same message', () =>
+    withGateway(async (gateway) => {
+      const { ofBuyer, call, say } = await setUp(gateway)
+      await say(ofBuyer, 'first')
+      await say(ofBuyer, 'second')
+      // Both calls load the agent's state before either stores it again.
+      gateway.rooms.overlapReads(2)
+      const reads = await Promise.all([call('read_room_messages'), call('read_room_messages')])
+      const answered = reads.flatMap((read) => Schema.decodeUnknownSync(ReadAnswer)(read).value.messages)
+      // The add that let the agent in, and the buyer's two messages: each answered once, by one of the two reads.
+      expect(new Set(answered.map((message) => message.id)).size).toBe(answered.length)
+      expect(answered.flatMap((message) => (message.text === undefined ? [] : [message.text])).toSorted()).toEqual([
+        'first',
+        'second',
+      ])
+    }))
+
   test('the seventh agent message in a row is refused until a person writes', () =>
     withGateway(async (gateway) => {
       const { room, ofBuyer, call, say } = await setUp(gateway)

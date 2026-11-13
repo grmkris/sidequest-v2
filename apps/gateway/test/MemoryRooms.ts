@@ -22,6 +22,8 @@ export interface MemoryRooms {
   readonly inbox: Map<PublicKey, ReadonlyArray<RelayUrl>>
   readonly port: RelayPort
   readonly layer: Layer.Layer<RoomNetwork>
+  /** Holds the gateway's relay reads until `count` of them are waiting, so that many tool calls overlap for sure. */
+  readonly overlapReads: (count: number) => void
 }
 
 const tagged = (event: NostrEvent, keys: ReadonlyArray<string>) =>
@@ -52,12 +54,28 @@ export const memoryRooms = (): MemoryRooms => {
           .slice(0, filter.limit),
       ),
   }
+  const barrier = { waiting: 0, release: () => {}, released: Promise.resolve() }
+  const overlapReads = (count: number) => {
+    barrier.waiting = count
+    barrier.released = new Promise((resolve) => {
+      barrier.release = resolve
+    })
+  }
+  const arrive = () => {
+    barrier.waiting -= 1
+    if (barrier.waiting <= 0) barrier.release()
+    return barrier.released
+  }
+  const gateway: RelayPort = {
+    publish: port.publish,
+    query: (relay, filter) => Effect.andThen(Effect.promise(arrive), port.query(relay, filter)),
+  }
   const layer = Layer.succeed(RoomNetwork, {
-    port: () => port,
+    port: () => gateway,
     inboxRelays: (pubkey) => Effect.succeed(inbox.get(pubkey) ?? []),
     allows: () => true,
   })
-  return { relays, inbox, port, layer }
+  return { relays, inbox, port, layer, overlapReads }
 }
 
 /**
