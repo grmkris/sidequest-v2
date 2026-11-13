@@ -271,7 +271,7 @@ const noRefunds =
 const PaidListing = Schema.Struct({
   seller: PublicKey,
   slug: Schema.String,
-  version: EventId,
+  version: Schema.String,
   resource: Schema.String,
   amount: Schema.String,
   asset: Schema.String,

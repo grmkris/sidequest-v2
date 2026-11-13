@@ -62,7 +62,7 @@ const record = (txHash: string, outcome: TxOutcome) =>
   Effect.flatMap(PayPerCall, (store) => store.record({ network, txHash } satisfies DueCheck, outcome))
 
 /** The receipts' labels and the listing's x402 block, after `steps` in order. */
-const labelsAfter = (steps: ReadonlyArray<Effect.Effect<unknown, unknown, Ingest | PayPerCall>>) => {
+const labelsAfter = (steps: ReadonlyArray<Effect.Effect<unknown, unknown, Ingest | PayPerCall | EventStore>>) => {
   const { layer } = indexWorld()
   return Effect.gen(function* () {
     for (const step of steps) yield* step

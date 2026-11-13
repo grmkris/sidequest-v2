@@ -2,7 +2,7 @@ import { publicKeyOf } from '@sidequest/nostr'
 import { envelopeTag, paymentReceipt } from '@sidequest/nostr/vocabulary'
 import {
   AccountRef,
-  type IndexListingDetail,
+  IndexListingDetail,
   UsdcOnArcTestnet,
   x402Header,
   X402PaymentRequired,
@@ -25,24 +25,25 @@ const sellerWallet = Schema.decodeSync(AccountRef)(`${UsdcOnArcTestnet.network}:
 const operatorWallet = Schema.decodeSync(AccountRef)(`${UsdcOnArcTestnet.network}:0x${'ab'.repeat(20)}`)
 const token = UsdcOnArcTestnet.id.slice(UsdcOnArcTestnet.id.lastIndexOf(':') + 1)
 
-const listingOf = (seller: string, change: Partial<IndexListingDetail> = {}): IndexListingDetail => ({
-  pubkey: seller,
-  slug: 'weather',
-  event: 'f5'.repeat(32),
-  createdAt: 1_800_000_000,
-  title: 'Weather now',
-  summary: 'The weather, as JSON.',
-  description: 'One call, one forecast.',
-  topics: ['weather'],
-  price: { amount: '10000', asset: UsdcOnArcTestnet.id },
-  network: UsdcOnArcTestnet.network,
-  status: 'active',
-  publishedAt: 1_800_000_000,
-  author: { name: 'Bea', walletVerified: true },
-  rail: 'x402',
-  payPerCall: { resource, payTo: sellerWallet, payToLinked: true, verifiedReceipts: 0 },
-  ...change,
-})
+const listingOf = (seller: string, change: Partial<IndexListingDetail> = {}): IndexListingDetail =>
+  Schema.decodeSync(IndexListingDetail)({
+    pubkey: seller,
+    slug: 'weather',
+    event: 'f5'.repeat(32),
+    createdAt: 1_800_000_000,
+    title: 'Weather now',
+    summary: 'The weather, as JSON.',
+    description: 'One call, one forecast.',
+    topics: ['weather'],
+    price: { amount: '10000', asset: UsdcOnArcTestnet.id },
+    network: UsdcOnArcTestnet.network,
+    status: 'active',
+    publishedAt: 1_800_000_000,
+    author: { name: 'Bea', walletVerified: true },
+    rail: 'x402',
+    payPerCall: { resource, payTo: sellerWallet, payToLinked: true, verifiedReceipts: 0 },
+    ...change,
+  })
 
 /** A seller's resource answering 402 with an exact offer of `amount` to `payTo`. */
 const sellerAsking =
