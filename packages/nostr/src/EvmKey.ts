@@ -1,6 +1,7 @@
 import { secp256k1 } from '@noble/curves/secp256k1.js'
 import { keccak_256 } from '@noble/hashes/sha3.js'
 import { concatBytes } from '@noble/hashes/utils.js'
+import type { TypedData } from '@sidequest/protocol'
 import { Option } from 'effect'
 import { attempt } from './Attempt.ts'
 import { bytesOf, hexOf } from './Hex.ts'
@@ -50,7 +51,9 @@ export const evmAddressOf = (publicKey: PublicKey): Option.Option<`0x${string}`>
 export const signDigestAsEvm = (digest: string, secret: SecretKey): Option.Option<`0x${string}`> => {
   if (!/^0x[0-9a-fA-F]{64}$/u.test(digest)) return Option.none()
   const signature = secp256k1.sign(bytesOf(digest.slice(2)), evenScalar(secret), { lowS: true })
-  return Option.some(`0x${hexOf(signature.toCompactRawBytes())}${(27 + signature.recovery).toString(16)}`)
+  return Option.some<`0x${string}`>(
+    `0x${hexOf(signature.toCompactRawBytes())}${(27 + signature.recovery).toString(16)}`,
+  )
 }
 
 const utf8 = (text: string) => new TextEncoder().encode(text)
@@ -61,7 +64,7 @@ const domainType = keccak(utf8('EIP712Domain(string name,string version,uint256 
 const deliveryType = keccak(utf8('Delivery(bytes32 paymentInfoHash,bytes32 deliveryHash)'))
 
 /** Where a `SidequestOperator` checks a delivery: its chain and address, and the payment and delivered artefact. */
-export interface OperatorDelivery {
+interface OperatorDelivery {
   readonly chainId: number
   readonly operator: string
   readonly paymentInfoHash: string
@@ -76,7 +79,7 @@ const bytes32 = /^0x[0-9a-fA-F]{64}$/u
  * `{name: "SidequestOperator", version: "1", chainId, verifyingContract: operator}`, as `deliveryDigest` computes it:
  * what a worker, or the delegate of their delivery, signs. `None` for a malformed address or word.
  */
-export const operatorDeliveryDigest = (delivery: OperatorDelivery): Option.Option<`0x${string}`> => {
+const operatorDeliveryDigest = (delivery: OperatorDelivery): Option.Option<`0x${string}`> => {
   const { chainId, operator, paymentInfoHash, deliveryHash } = delivery
   if (!address.test(operator) || !bytes32.test(paymentInfoHash) || !bytes32.test(deliveryHash)) return Option.none()
   if (!Number.isSafeInteger(chainId) || chainId < 0) return Option.none()
@@ -88,5 +91,32 @@ export const operatorDeliveryDigest = (delivery: OperatorDelivery): Option.Optio
     bytesOf(operator.slice(2).padStart(64, '0')),
   )
   const message = keccak(deliveryType, bytesOf(paymentInfoHash.slice(2)), bytesOf(deliveryHash.slice(2)))
-  return Option.some(`0x${hexOf(keccak(Uint8Array.of(0x19, 0x01), domain, message))}`)
+  return Option.some<`0x${string}`>(`0x${hexOf(keccak(Uint8Array.of(0x19, 0x01), domain, message))}`)
+}
+
+const isField = (field: { readonly name: string; readonly type: string } | undefined, name: string) =>
+  field?.name === name && field.type === 'bytes32'
+
+/**
+ * The digest of typed data the index serves for a delivery (`GET /api/index/jobs/:id/delivery`), if it is exactly a
+ * `SidequestOperator` `Delivery`: that primary type with exactly its two `bytes32` fields, in the operator's domain.
+ * Anything else answers `None`, so a key that signs only through this signs deliveries and nothing else.
+ */
+export const deliveryDigestOfTypedData = (typed: TypedData): Option.Option<`0x${string}`> => {
+  const fields = typed.types['Delivery'] ?? []
+  const shaped =
+    typed.primaryType === 'Delivery' &&
+    typed.domain.name === 'SidequestOperator' &&
+    typed.domain.version === '1' &&
+    Object.keys(typed.types).filter((name) => name !== 'EIP712Domain').length === 1 &&
+    fields.length === 2 &&
+    isField(fields[0], 'paymentInfoHash') &&
+    isField(fields[1], 'deliveryHash')
+  if (!shaped) return Option.none()
+  return operatorDeliveryDigest({
+    chainId: typed.domain.chainId,
+    operator: typed.domain.verifyingContract,
+    paymentInfoHash: typed.message['paymentInfoHash'] ?? '',
+    deliveryHash: typed.message['deliveryHash'] ?? '',
+  })
 }

@@ -4,7 +4,7 @@ import { Option, Schema } from 'effect'
 import { hashTypedData, type Hex, recoverAddress as viemRecoverAddress } from 'viem'
 import { privateKeyToAccount, publicKeyToAddress } from 'viem/accounts'
 import { describe, expect, it } from 'vitest'
-import { evmAddressOf, operatorDeliveryDigest, signDigestAsEvm } from '../src/EvmKey.ts'
+import { deliveryDigestOfTypedData, evmAddressOf, signDigestAsEvm } from '../src/EvmKey.ts'
 import { publicKeyOf, SecretKey } from '../src/Keys.ts'
 import { recoverAddress } from '../src/RecoverAddress.ts'
 
@@ -60,36 +60,40 @@ describe('a Nostr key as an EVM key', () => {
 })
 
 describe("SidequestOperator's Delivery digest", () => {
-  const delivery = {
-    chainId: 5042002,
-    operator: '0x6AE5E129054a5dBFCeBb9Dfcb1CE1AA229fB1Ddb',
-    paymentInfoHash: `0x${'66'.repeat(32)}`,
-    deliveryHash: `0x${'2c'.repeat(32)}`,
+  const typed = {
+    domain: {
+      name: 'SidequestOperator',
+      version: '1',
+      chainId: 5042002,
+      verifyingContract: '0x6AE5E129054a5dBFCeBb9Dfcb1CE1AA229fB1Ddb',
+    },
+    types: {
+      Delivery: [
+        { name: 'paymentInfoHash', type: 'bytes32' },
+        { name: 'deliveryHash', type: 'bytes32' },
+      ],
+    },
+    primaryType: 'Delivery',
+    message: { paymentInfoHash: `0x${'66'.repeat(32)}`, deliveryHash: `0x${'2c'.repeat(32)}` },
   } as const
 
   it('is the EIP-712 digest viem computes for the same typed data', () => {
-    const typed = {
-      domain: {
-        name: 'SidequestOperator',
-        version: '1',
-        chainId: delivery.chainId,
-        verifyingContract: delivery.operator,
-      },
-      types: {
-        Delivery: [
-          { name: 'paymentInfoHash', type: 'bytes32' },
-          { name: 'deliveryHash', type: 'bytes32' },
-        ],
-      },
-      primaryType: 'Delivery',
-      message: { paymentInfoHash: delivery.paymentInfoHash, deliveryHash: delivery.deliveryHash },
-    } as const
-    expect(operatorDeliveryDigest(delivery)).toEqual(Option.some(hashTypedData(typed)))
+    expect(deliveryDigestOfTypedData(typed)).toEqual(Option.some(hashTypedData(typed)))
   })
 
-  it('refuses a malformed operator, word or chain', () => {
-    expect(operatorDeliveryDigest({ ...delivery, operator: '0x1234' })).toEqual(Option.none())
-    expect(operatorDeliveryDigest({ ...delivery, deliveryHash: '0x12' })).toEqual(Option.none())
-    expect(operatorDeliveryDigest({ ...delivery, chainId: -1 })).toEqual(Option.none())
+  it('refuses anything but exactly a SidequestOperator Delivery', () => {
+    const refused = [
+      { ...typed, primaryType: 'Approval' },
+      { ...typed, domain: { ...typed.domain, name: 'Other' } },
+      { ...typed, domain: { ...typed.domain, version: '2' } },
+      { ...typed, domain: { ...typed.domain, chainId: -1 } },
+      { ...typed, domain: { ...typed.domain, verifyingContract: '0x1234' } },
+      { ...typed, types: { ...typed.types, Approval: typed.types.Delivery } },
+      { ...typed, types: { Delivery: typed.types.Delivery.toReversed() } },
+      { ...typed, types: { Delivery: [{ name: 'paymentInfoHash', type: 'bytes32' }] } },
+      { ...typed, message: { ...typed.message, deliveryHash: '0x12' } },
+      { ...typed, message: { paymentInfoHash: typed.message.paymentInfoHash } },
+    ]
+    for (const each of refused) expect(deliveryDigestOfTypedData(each)).toEqual(Option.none())
   })
 })
