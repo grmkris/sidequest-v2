@@ -1,0 +1,3700 @@
+{
+  "rehearsal": "phase-2-deployed-gate",
+  "mode": "arc-testnet-deployed",
+  "startedAt": "2026-11-13T14:26:58.507Z",
+  "release": "98abaeb",
+  "chain": {
+    "chainId": 5042002,
+    "escrow": "0xf96815976523E00e65Be8f34cA5e64b4f41EB19c",
+    "token": "0x3600000000000000000000000000000000000000",
+    "operator": "0xA515f69EcAE571B1c7BC0911b3D1550f9eDb974b",
+    "treasury": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+    "amount": "100000",
+    "buyer": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+    "buyerKey": "29d8a7c45be29284ab2874f5e247ca63944e8e143d80e10fc5f5de898c0507e0",
+    "worker": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+    "workerKey": "d52c10e925e2c9a3837bd0ef46ba2ccbab177817b997b45d22ecc73c11fd4a63",
+    "workerAgentKey": "d22d044388a3fb11b072156751ee7772ae4cf7e179139c6282cd80f49b163642",
+    "workerAgentGrant": "6d71e5626ea8567719c7988dce507808c96c76f7fb9d3fe3ada0a9a76662ffeb",
+    "workerAgentScopes": "propose deliver",
+    "workerAgentDelegate": "0x89cc6c647df83ba99e19e8d27eaeab36992cbce9",
+    "arbitrationKey": "423ce386a3e044b1b76f26dc72a955de4b05ec0d7e5fb14b26786b94951fb66f"
+  },
+  "steps": [
+    {
+      "case": "setup",
+      "step": "the target answered as sidequest-v2 and its gateway as sidequest-gateway; both wallets linked; the worker made an agent through the /gateway proxy (NIP-98), granted it and connected an MCP client over OAuth",
+      "detail": {
+        "release": "98abaeb",
+        "gatewayRelease": "98abaeb"
+      },
+      "at": 3926,
+      "calls": [
+        {
+          "at": 451,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/status",
+          "status": 200,
+          "ms": 71
+        },
+        {
+          "at": 522,
+          "method": "GET",
+          "url": "agents.v2.sidequest.exchange/status",
+          "status": 200,
+          "ms": 58
+        },
+        {
+          "at": 581,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/gateway/api/agents",
+          "status": 401,
+          "ms": 63
+        },
+        {
+          "at": 847,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 1253,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/wallets/eip155:5042002:0x0e7c3e0ba833fab8bc031f4f27e15fdea1882b03",
+          "status": 200,
+          "ms": 68
+        },
+        {
+          "at": 1358,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 339
+        },
+        {
+          "at": 1697,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/wallets/eip155:5042002:0x24587e657bbfc52c9860fa51374db695a0a1f422",
+          "status": 200,
+          "ms": 43
+        },
+        {
+          "at": 1764,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/gateway/api/agents",
+          "status": 201,
+          "ms": 439
+        },
+        {
+          "at": 2230,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 345
+        },
+        {
+          "at": 2578,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/oauth/register",
+          "status": 201,
+          "ms": 121
+        },
+        {
+          "at": 2699,
+          "method": "GET",
+          "url": "agents.v2.sidequest.exchange/oauth/authorize",
+          "status": 302,
+          "ms": 133
+        },
+        {
+          "at": 2832,
+          "method": "GET",
+          "url": "agents.v2.sidequest.exchange/consent/connect_01M7AMVZZRE0PYVCFE8P7XK5A8",
+          "status": 200,
+          "ms": 74
+        },
+        {
+          "at": 2918,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/consent/connect_01M7AMVZZRE0PYVCFE8P7XK5A8/allow",
+          "status": 200,
+          "ms": 661
+        },
+        {
+          "at": 3588,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/oauth/token",
+          "status": 200,
+          "ms": 230
+        },
+        {
+          "at": 3824,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/gateway/api/agents/d22d044388a3fb11b072156751ee7772ae4cf7e179139c6282cd80f49b163642/delegations",
+          "status": 200,
+          "ms": 100
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "buyer published a request (POST /api/events); the worker’s agent found it and proposed over MCP; buyer accepted",
+      "detail": {
+        "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+        "proposal": "37fdac0868fc6ba0bd57a37f70bb9cc1992262984604104fef11d064cb8fe7e4",
+        "request": "buyer’s key",
+        "proposalSignedBy": "worker’s agent’s key (gateway)",
+        "proposalGrant": "6d71e5626ea8567719c7988dce507808c96c76f7fb9d3fe3ada0a9a76662ffeb",
+        "payTo": "eip155:5042002:0x24587e657bbfc52c9860fa51374db695a0a1f422",
+        "accept": "buyer’s key",
+        "gateway": "MCP list_open_requests, propose"
+      },
+      "at": 5963,
+      "calls": [
+        {
+          "at": 4011,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 310
+        },
+        {
+          "at": 4343,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 65
+        },
+        {
+          "at": 4428,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 66
+        },
+        {
+          "at": 4509,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 146
+        },
+        {
+          "at": 4672,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 52
+        },
+        {
+          "at": 4729,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 61
+        },
+        {
+          "at": 4801,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 819
+        },
+        {
+          "at": 5634,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/events/37fdac0868fc6ba0bd57a37f70bb9cc1992262984604104fef11d064cb8fe7e4",
+          "status": 200,
+          "ms": 44
+        },
+        {
+          "at": 5696,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 266
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the index's fold says accepted",
+      "detail": {
+        "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+        "seconds": 0.3
+      },
+      "at": 6312,
+      "calls": [
+        {
+          "at": 5964,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 343
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "buyer’s wallet signed the authorization; the relayer funded the escrow to the worker’s wallet (no session)",
+      "transactionHash": "0x38b7443808a0614ef3d4debb5a258f32c616c16f85b2b6207aaf3f0ae4e7c07a",
+      "detail": {
+        "paymentHash": "0x7e7646da6ca64833cf5df8ecb06d17309a7de8642fa2f0844996d3b661a7b31e",
+        "authorizationExpiry": 1794724022
+      },
+      "at": 7698,
+      "calls": [
+        {
+          "at": 6313,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/proposals/37fdac0868fc6ba0bd57a37f70bb9cc1992262984604104fef11d064cb8fe7e4/funding",
+          "status": 200,
+          "ms": 252
+        },
+        {
+          "at": 6570,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/proposals/37fdac0868fc6ba0bd57a37f70bb9cc1992262984604104fef11d064cb8fe7e4/funding",
+          "status": 200,
+          "ms": 1119
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x38b7443808a0614ef3d4debb5a258f32c616c16f85b2b6207aaf3f0ae4e7c07a",
+      "detail": {
+        "block": 72200847,
+        "seconds": 18.6
+      },
+      "at": 26287,
+      "calls": [
+        {
+          "at": 26287,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 359
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the index's fold says funded",
+      "detail": {
+        "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+        "seconds": 49.3
+      },
+      "at": 75552,
+      "calls": [
+        {
+          "at": 28651,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 300
+        },
+        {
+          "at": 30965,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 311
+        },
+        {
+          "at": 33278,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 324
+        },
+        {
+          "at": 35606,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 320
+        },
+        {
+          "at": 37929,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 354
+        },
+        {
+          "at": 40285,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 322
+        },
+        {
+          "at": 42611,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 314
+        },
+        {
+          "at": 44927,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 305
+        },
+        {
+          "at": 47234,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 330
+        },
+        {
+          "at": 49566,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 320
+        },
+        {
+          "at": 51888,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 337
+        },
+        {
+          "at": 54227,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 293
+        },
+        {
+          "at": 56527,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 300
+        },
+        {
+          "at": 58829,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 356
+        },
+        {
+          "at": 61200,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 301
+        },
+        {
+          "at": 63503,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 323
+        },
+        {
+          "at": 65828,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 315
+        },
+        {
+          "at": 68149,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 309
+        },
+        {
+          "at": 70465,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 321
+        },
+        {
+          "at": 72788,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 304
+        },
+        {
+          "at": 75095,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 456
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the worker’s agent published a delivery note over MCP; the worker’s wallet signed the typed data it answered, relayed",
+      "transactionHash": "0x5fb6c98c2297fc136eefddfe50d8b0636d26423796ddde1eb1df01b0df268e54",
+      "detail": {
+        "note": "72c02d9ef0012d04df2d84ea64ec8a60c968ac1af6bdaafd620b5b37ae752ca5",
+        "noteSignedBy": "worker’s agent’s key (gateway)",
+        "gateway": "MCP deliver"
+      },
+      "at": 77634,
+      "calls": [
+        {
+          "at": 75556,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 50
+        },
+        {
+          "at": 75611,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 61
+        },
+        {
+          "at": 75687,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 1137
+        },
+        {
+          "at": 76831,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/delivery",
+          "status": 200,
+          "ms": 802
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the delivery (3 blocks deep)",
+      "transactionHash": "0x5fb6c98c2297fc136eefddfe50d8b0636d26423796ddde1eb1df01b0df268e54",
+      "detail": {
+        "block": 72200893,
+        "seconds": 8.3
+      },
+      "at": 85930
+    },
+    {
+      "case": "a",
+      "step": "the index's fold says delivered",
+      "detail": {
+        "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+        "seconds": 51.3
+      },
+      "at": 137239,
+      "calls": [
+        {
+          "at": 85931,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 445
+        },
+        {
+          "at": 88379,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 416
+        },
+        {
+          "at": 90802,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 432
+        },
+        {
+          "at": 93236,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 416
+        },
+        {
+          "at": 95659,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 415
+        },
+        {
+          "at": 98076,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 100494,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 102905,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 443
+        },
+        {
+          "at": 105352,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 107762,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 429
+        },
+        {
+          "at": 110195,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 112606,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 444
+        },
+        {
+          "at": 115053,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 418
+        },
+        {
+          "at": 117474,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 398
+        },
+        {
+          "at": 119875,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 432
+        },
+        {
+          "at": 122309,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 447
+        },
+        {
+          "at": 124758,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 428
+        },
+        {
+          "at": 127189,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 427
+        },
+        {
+          "at": 129618,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 406
+        },
+        {
+          "at": 132027,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 394
+        },
+        {
+          "at": 134424,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 426
+        },
+        {
+          "at": 136852,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 386
+        },
+        {
+          "at": 137239,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/approval",
+          "status": 200,
+          "ms": 155
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "buyer’s wallet signed the approval, relayed",
+      "transactionHash": "0x18c872baa1505ed3f4117c50429ec4b810851e66d65d1c6f5571d08a73831b2a",
+      "at": 138187,
+      "calls": [
+        {
+          "at": 137402,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/approval",
+          "status": 200,
+          "ms": 785
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the approval (3 blocks deep)",
+      "transactionHash": "0x18c872baa1505ed3f4117c50429ec4b810851e66d65d1c6f5571d08a73831b2a",
+      "detail": {
+        "block": 72200938,
+        "seconds": 4.2
+      },
+      "at": 142364,
+      "calls": [
+        {
+          "at": 142364,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 415
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the index's fold says released",
+      "detail": {
+        "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+        "seconds": 53.8
+      },
+      "at": 196210,
+      "calls": [
+        {
+          "at": 144781,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 147209,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 443
+        },
+        {
+          "at": 149654,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 425
+        },
+        {
+          "at": 152099,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 154516,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 421
+        },
+        {
+          "at": 156939,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 159361,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 161779,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 164205,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 406
+        },
+        {
+          "at": 166613,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 459
+        },
+        {
+          "at": 169074,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 452
+        },
+        {
+          "at": 171531,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 374
+        },
+        {
+          "at": 173907,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 401
+        },
+        {
+          "at": 176310,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 434
+        },
+        {
+          "at": 178747,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 181173,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 418
+        },
+        {
+          "at": 183595,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 450
+        },
+        {
+          "at": 186048,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 426
+        },
+        {
+          "at": 188476,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 450
+        },
+        {
+          "at": 190929,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 433
+        },
+        {
+          "at": 193364,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 423
+        },
+        {
+          "at": 195790,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+          "status": 200,
+          "ms": 418
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the signed request and the agent’s proposal are served verbatim",
+      "at": 196721,
+      "calls": [
+        {
+          "at": 196287,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/terms",
+          "status": 200,
+          "ms": 434
+        }
+      ]
+    },
+    {
+      "case": "a",
+      "step": "the stage's payment status reads Settled Approved and lists every relayed transaction",
+      "detail": {
+        "operator": "not named by this stage",
+        "relayed": "fund mined 0x38b7443808a0614ef3d4debb5a258f32c616c16f85b2b6207aaf3f0ae4e7c07a; delivery mined 0x5fb6c98c2297fc136eefddfe50d8b0636d26423796ddde1eb1df01b0df268e54; approval mined 0x18c872baa1505ed3f4117c50429ec4b810851e66d65d1c6f5571d08a73831b2a"
+      },
+      "at": 196941,
+      "calls": [
+        {
+          "at": 196722,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51/payment",
+          "status": 200,
+          "ms": 217
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "buyer published a request (POST /api/events); the worker’s agent found it and proposed over MCP; buyer accepted",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "proposal": "0069b5525a1f6108e61bbaa9b6ec97a219ce06c327a4d88611d063d24e092b67",
+        "request": "buyer’s key",
+        "proposalSignedBy": "worker’s agent’s key (gateway)",
+        "proposalGrant": "6d71e5626ea8567719c7988dce507808c96c76f7fb9d3fe3ada0a9a76662ffeb",
+        "payTo": "eip155:5042002:0x24587e657bbfc52c9860fa51374db695a0a1f422",
+        "accept": "buyer’s key",
+        "gateway": "MCP list_open_requests, propose"
+      },
+      "at": 198883,
+      "calls": [
+        {
+          "at": 197018,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 269
+        },
+        {
+          "at": 197290,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 95
+        },
+        {
+          "at": 197389,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 47
+        },
+        {
+          "at": 197447,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 277
+        },
+        {
+          "at": 197732,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 52
+        },
+        {
+          "at": 197788,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 46
+        },
+        {
+          "at": 197840,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 733
+        },
+        {
+          "at": 198577,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/events/0069b5525a1f6108e61bbaa9b6ec97a219ce06c327a4d88611d063d24e092b67",
+          "status": 200,
+          "ms": 40
+        },
+        {
+          "at": 198625,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 258
+        },
+        {
+          "at": 198883,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 299
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the index's fold says accepted",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "seconds": 0.3
+      },
+      "at": 199182
+    },
+    {
+      "case": "b",
+      "step": "buyer’s wallet signed the authorization; the relayer funded the escrow to the worker’s wallet (no session)",
+      "transactionHash": "0x92f021e78eae2b3ed6007ae4bfa46c4571ec1e9628b381a88b1e03d9c69cd269",
+      "detail": {
+        "paymentHash": "0x56edd36cd5b5b750f636ec72ddefc754fa7e0a828ce2c432521fca4778e905f0",
+        "authorizationExpiry": 1794724215
+      },
+      "at": 200350,
+      "calls": [
+        {
+          "at": 199183,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/proposals/0069b5525a1f6108e61bbaa9b6ec97a219ce06c327a4d88611d063d24e092b67/funding",
+          "status": 200,
+          "ms": 241
+        },
+        {
+          "at": 199427,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/proposals/0069b5525a1f6108e61bbaa9b6ec97a219ce06c327a4d88611d063d24e092b67/funding",
+          "status": 200,
+          "ms": 923
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x92f021e78eae2b3ed6007ae4bfa46c4571ec1e9628b381a88b1e03d9c69cd269",
+      "detail": {
+        "block": 72200994,
+        "seconds": 16.4
+      },
+      "at": 216791,
+      "calls": [
+        {
+          "at": 216791,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 332
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the index's fold says funded",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "seconds": 39.8
+      },
+      "at": 256640,
+      "calls": [
+        {
+          "at": 219125,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 318
+        },
+        {
+          "at": 221445,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 297
+        },
+        {
+          "at": 223745,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 327
+        },
+        {
+          "at": 226074,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 321
+        },
+        {
+          "at": 228398,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 343
+        },
+        {
+          "at": 230743,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 318
+        },
+        {
+          "at": 233063,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 322
+        },
+        {
+          "at": 235387,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 330
+        },
+        {
+          "at": 237719,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 316
+        },
+        {
+          "at": 240037,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 311
+        },
+        {
+          "at": 242351,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 327
+        },
+        {
+          "at": 244680,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 320
+        },
+        {
+          "at": 247002,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 281
+        },
+        {
+          "at": 249285,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 303
+        },
+        {
+          "at": 251590,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 303
+        },
+        {
+          "at": 253896,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 339
+        },
+        {
+          "at": 256237,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the worker’s agent published a delivery note over MCP; the worker’s wallet signed the typed data it answered, relayed",
+      "transactionHash": "0x07354c80a3cf033773ec6caad880f073bf5fccb1d13a03455208dae0023ffaf2",
+      "detail": {
+        "note": "0c41ded46e9cfa2306d3d5474a29016175ce586b596eac87c6bbee2370feb3a7",
+        "noteSignedBy": "worker’s agent’s key (gateway)",
+        "gateway": "MCP deliver"
+      },
+      "at": 258701,
+      "calls": [
+        {
+          "at": 256642,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 55
+        },
+        {
+          "at": 256700,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 88
+        },
+        {
+          "at": 256797,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 1079
+        },
+        {
+          "at": 257883,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/delivery",
+          "status": 200,
+          "ms": 818
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the delivery (3 blocks deep)",
+      "transactionHash": "0x07354c80a3cf033773ec6caad880f073bf5fccb1d13a03455208dae0023ffaf2",
+      "detail": {
+        "block": 72201037,
+        "seconds": 12.3
+      },
+      "at": 270971
+    },
+    {
+      "case": "b",
+      "step": "the index's fold says delivered",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "seconds": 46.5
+      },
+      "at": 317425,
+      "calls": [
+        {
+          "at": 270972,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 421
+        },
+        {
+          "at": 273397,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 464
+        },
+        {
+          "at": 275863,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 420
+        },
+        {
+          "at": 278285,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 431
+        },
+        {
+          "at": 280719,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 419
+        },
+        {
+          "at": 283143,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 442
+        },
+        {
+          "at": 285587,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 432
+        },
+        {
+          "at": 288021,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 409
+        },
+        {
+          "at": 290433,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 440
+        },
+        {
+          "at": 292875,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 449
+        },
+        {
+          "at": 295327,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 440
+        },
+        {
+          "at": 297769,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 300198,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 399
+        },
+        {
+          "at": 302601,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 382
+        },
+        {
+          "at": 304985,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 439
+        },
+        {
+          "at": 307427,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 309843,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 390
+        },
+        {
+          "at": 312235,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 375
+        },
+        {
+          "at": 314615,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 404
+        },
+        {
+          "at": 317022,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 317425,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/rejection",
+          "status": 200,
+          "ms": 163
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "buyer’s wallet signed the rejection, relayed",
+      "transactionHash": "0x0db5cd70a9d7da4d58c0c2943ba7c83e4c453c3b27daa6a0751e015839cd0067",
+      "at": 318395,
+      "calls": [
+        {
+          "at": 317594,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/rejection",
+          "status": 200,
+          "ms": 800
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the rejection (3 blocks deep)",
+      "transactionHash": "0x0db5cd70a9d7da4d58c0c2943ba7c83e4c453c3b27daa6a0751e015839cd0067",
+      "detail": {
+        "block": 72201079,
+        "seconds": 10.3
+      },
+      "at": 328730
+    },
+    {
+      "case": "b",
+      "step": "the index's fold says rejected",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "seconds": 46.3
+      },
+      "at": 375332,
+      "calls": [
+        {
+          "at": 328734,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 252
+        },
+        {
+          "at": 328986,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 407
+        },
+        {
+          "at": 331399,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 407
+        },
+        {
+          "at": 333808,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 478
+        },
+        {
+          "at": 336288,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 396
+        },
+        {
+          "at": 338686,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 341096,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 434
+        },
+        {
+          "at": 343534,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 345951,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 348366,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 442
+        },
+        {
+          "at": 350811,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 413
+        },
+        {
+          "at": 353230,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 404
+        },
+        {
+          "at": 355637,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 389
+        },
+        {
+          "at": 358028,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 415
+        },
+        {
+          "at": 360448,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 362865,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 403
+        },
+        {
+          "at": 365271,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 409
+        },
+        {
+          "at": 367683,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 370090,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 397
+        },
+        {
+          "at": 372491,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 374901,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 430
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "a ruling authorized by the buyer’s key was refused (401); the arbitration key’s 6000 bps ruling relayed",
+      "transactionHash": "0x2abe4dc2e10cd60e8ea92b5c1f90856c93ee6b379dd98829d7faafa343c8f13f",
+      "at": 376142,
+      "calls": [
+        {
+          "at": 375337,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/ruling",
+          "status": 401,
+          "ms": 75
+        },
+        {
+          "at": 375415,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/ruling",
+          "status": 200,
+          "ms": 726
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the ruling (3 blocks deep)",
+      "transactionHash": "0x2abe4dc2e10cd60e8ea92b5c1f90856c93ee6b379dd98829d7faafa343c8f13f",
+      "detail": {
+        "block": 72201122,
+        "seconds": 8.2
+      },
+      "at": 384362,
+      "calls": [
+        {
+          "at": 384362,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 390
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the index's fold says ruled",
+      "detail": {
+        "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+        "seconds": 113.7
+      },
+      "at": 498077,
+      "calls": [
+        {
+          "at": 386755,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 386
+        },
+        {
+          "at": 389143,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 385
+        },
+        {
+          "at": 391531,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 407
+        },
+        {
+          "at": 393942,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 396370,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 398774,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 503
+        },
+        {
+          "at": 401280,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 409
+        },
+        {
+          "at": 403691,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 406
+        },
+        {
+          "at": 406101,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 403
+        },
+        {
+          "at": 408507,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 371
+        },
+        {
+          "at": 410881,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 384
+        },
+        {
+          "at": 413268,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 411
+        },
+        {
+          "at": 415683,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 421
+        },
+        {
+          "at": 418106,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 406
+        },
+        {
+          "at": 420524,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 392
+        },
+        {
+          "at": 422920,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 425328,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 381
+        },
+        {
+          "at": 427711,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 413
+        },
+        {
+          "at": 430127,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 421
+        },
+        {
+          "at": 432551,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 434959,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 381
+        },
+        {
+          "at": 437343,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 439747,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 441
+        },
+        {
+          "at": 442191,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 371
+        },
+        {
+          "at": 444565,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 446979,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 388
+        },
+        {
+          "at": 449369,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 387
+        },
+        {
+          "at": 451760,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 427
+        },
+        {
+          "at": 454189,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 456593,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 459012,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 430
+        },
+        {
+          "at": 461447,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 416
+        },
+        {
+          "at": 463867,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 459
+        },
+        {
+          "at": 466329,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 395
+        },
+        {
+          "at": 468727,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 471132,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 399
+        },
+        {
+          "at": 473533,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 393
+        },
+        {
+          "at": 475929,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 394
+        },
+        {
+          "at": 478325,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 415
+        },
+        {
+          "at": 480748,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 389
+        },
+        {
+          "at": 483140,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 431
+        },
+        {
+          "at": 485573,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 488000,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 407
+        },
+        {
+          "at": 490410,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 394
+        },
+        {
+          "at": 492808,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 495218,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 459
+        },
+        {
+          "at": 497680,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+          "status": 200,
+          "ms": 397
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "step": "the stage's payment status reads Settled Ruled and lists every relayed transaction",
+      "detail": {
+        "operator": "not named by this stage",
+        "relayed": "fund mined 0x92f021e78eae2b3ed6007ae4bfa46c4571ec1e9628b381a88b1e03d9c69cd269; delivery mined 0x07354c80a3cf033773ec6caad880f073bf5fccb1d13a03455208dae0023ffaf2; rejection mined 0x0db5cd70a9d7da4d58c0c2943ba7c83e4c453c3b27daa6a0751e015839cd0067; ruling mined 0x2abe4dc2e10cd60e8ea92b5c1f90856c93ee6b379dd98829d7faafa343c8f13f"
+      },
+      "at": 498418,
+      "calls": [
+        {
+          "at": 498197,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1/payment",
+          "status": 200,
+          "ms": 221
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "buyer published a request (POST /api/events); the worker’s agent found it and proposed over MCP; buyer accepted",
+      "detail": {
+        "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+        "proposal": "eb66a1c29e3f9ff168624c653ecc92e5ebef8b81eaaf5b5c4865766e03b150da",
+        "request": "buyer’s key",
+        "proposalSignedBy": "worker’s agent’s key (gateway)",
+        "proposalGrant": "6d71e5626ea8567719c7988dce507808c96c76f7fb9d3fe3ada0a9a76662ffeb",
+        "payTo": "eip155:5042002:0x24587e657bbfc52c9860fa51374db695a0a1f422",
+        "accept": "buyer’s key",
+        "gateway": "MCP list_open_requests, propose"
+      },
+      "at": 500368,
+      "calls": [
+        {
+          "at": 498509,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 234
+        },
+        {
+          "at": 498746,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 103
+        },
+        {
+          "at": 498853,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 60
+        },
+        {
+          "at": 498921,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 261
+        },
+        {
+          "at": 499188,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 40
+        },
+        {
+          "at": 499231,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 60
+        },
+        {
+          "at": 499297,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 784
+        },
+        {
+          "at": 500084,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/events/eb66a1c29e3f9ff168624c653ecc92e5ebef8b81eaaf5b5c4865766e03b150da",
+          "status": 200,
+          "ms": 44
+        },
+        {
+          "at": 500136,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 231
+        },
+        {
+          "at": 500368,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 287
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the index's fold says accepted",
+      "detail": {
+        "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+        "seconds": 0.3
+      },
+      "at": 500656,
+      "calls": [
+        {
+          "at": 500656,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/proposals/eb66a1c29e3f9ff168624c653ecc92e5ebef8b81eaaf5b5c4865766e03b150da/funding",
+          "status": 200,
+          "ms": 243
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "buyer’s wallet signed the authorization; the relayer funded the escrow to the worker’s wallet (no session)",
+      "transactionHash": "0x352f4b7b472ef3f67822ad388032718b5b98ff935727455075d52d9e1575dca8",
+      "detail": {
+        "paymentHash": "0x9e8e93041f2e1b102832be1f9b34a6c3b25074bb69f560c155ecefcf81afe336",
+        "authorizationExpiry": 1794724517
+      },
+      "at": 501766,
+      "calls": [
+        {
+          "at": 500902,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/proposals/eb66a1c29e3f9ff168624c653ecc92e5ebef8b81eaaf5b5c4865766e03b150da/funding",
+          "status": 200,
+          "ms": 864
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x352f4b7b472ef3f67822ad388032718b5b98ff935727455075d52d9e1575dca8",
+      "detail": {
+        "block": 72201223,
+        "seconds": 4.1
+      },
+      "at": 505890,
+      "calls": [
+        {
+          "at": 505890,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 291
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the index's fold says funded",
+      "detail": {
+        "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+        "seconds": 51.5
+      },
+      "at": 557357,
+      "calls": [
+        {
+          "at": 508184,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 314
+        },
+        {
+          "at": 510506,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 302
+        },
+        {
+          "at": 512817,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 324
+        },
+        {
+          "at": 515143,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 305
+        },
+        {
+          "at": 517451,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 295
+        },
+        {
+          "at": 519748,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 312
+        },
+        {
+          "at": 522063,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 377
+        },
+        {
+          "at": 524445,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 293
+        },
+        {
+          "at": 526739,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 302
+        },
+        {
+          "at": 529046,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 374
+        },
+        {
+          "at": 531421,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 316
+        },
+        {
+          "at": 533739,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 357
+        },
+        {
+          "at": 536099,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 344
+        },
+        {
+          "at": 538445,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 327
+        },
+        {
+          "at": 540778,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 316
+        },
+        {
+          "at": 543096,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 287
+        },
+        {
+          "at": 545386,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 296
+        },
+        {
+          "at": 547684,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 332
+        },
+        {
+          "at": 550019,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 302
+        },
+        {
+          "at": 552323,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 301
+        },
+        {
+          "at": 554627,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 312
+        },
+        {
+          "at": 556940,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 417
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "worker’s wallet signed one DeliveryDelegate to the agent’s key; the worker stored it at the gateway (NIP-98)",
+      "detail": {
+        "delegate": "0x89cc6c647df83ba99e19e8d27eaeab36992cbce9",
+        "expiry": 1794587775
+      },
+      "at": 557832,
+      "calls": [
+        {
+          "at": 557386,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/delivery-delegation",
+          "status": 200,
+          "ms": 158
+        },
+        {
+          "at": 557550,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/gateway/api/agents/d22d044388a3fb11b072156751ee7772ae4cf7e179139c6282cd80f49b163642/delegations",
+          "status": 201,
+          "ms": 282
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the worker’s agent delivered over MCP, unattended: its key signed the delivery, relayed with no wallet signature",
+      "transactionHash": "0x3a5c636cee6034a20dc5c574fa0587655b5253159e7d9e5bf953aa879816041c",
+      "detail": {
+        "note": "977ac0aa817b72137021931f2bd778fd9c540ea5d1c08c88dfda4c4ef6fe0e0a",
+        "noteSignedBy": "worker’s agent’s key (gateway)",
+        "gateway": "MCP deliver (agent-delegate)"
+      },
+      "at": 559806,
+      "calls": [
+        {
+          "at": 557835,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 53
+        },
+        {
+          "at": 557891,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 49
+        },
+        {
+          "at": 557945,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 1859
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the chain confirmed the delegated delivery (3 blocks deep)",
+      "transactionHash": "0x3a5c636cee6034a20dc5c574fa0587655b5253159e7d9e5bf953aa879816041c",
+      "detail": {
+        "block": 72201268,
+        "seconds": 14.3
+      },
+      "at": 574155
+    },
+    {
+      "case": "e",
+      "step": "JobDeliveryDelegated names the agent’s key as the delegate",
+      "at": 574223,
+      "calls": [
+        {
+          "at": 574223,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 436
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the index's fold says delivered",
+      "detail": {
+        "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+        "seconds": 41.6
+      },
+      "at": 615857,
+      "calls": [
+        {
+          "at": 576661,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 579081,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 581495,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 462
+        },
+        {
+          "at": 583959,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 391
+        },
+        {
+          "at": 586353,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 419
+        },
+        {
+          "at": 588775,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 399
+        },
+        {
+          "at": 591177,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 415
+        },
+        {
+          "at": 593595,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 452
+        },
+        {
+          "at": 596051,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 406
+        },
+        {
+          "at": 598459,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 600877,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 385
+        },
+        {
+          "at": 603265,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 439
+        },
+        {
+          "at": 605706,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 439
+        },
+        {
+          "at": 608148,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 437
+        },
+        {
+          "at": 610587,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 438
+        },
+        {
+          "at": 613027,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 428
+        },
+        {
+          "at": 615457,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 399
+        },
+        {
+          "at": 615857,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/approval",
+          "status": 200,
+          "ms": 162
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "buyer’s wallet signed the approval, relayed",
+      "transactionHash": "0xddebfe8529d9740f9bea1ac1b2961c606a4c5fec9ee76075de8ee94d3b86ad3d",
+      "at": 616801,
+      "calls": [
+        {
+          "at": 616024,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/approval",
+          "status": 200,
+          "ms": 777
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the chain confirmed the approval (3 blocks deep)",
+      "transactionHash": "0xddebfe8529d9740f9bea1ac1b2961c606a4c5fec9ee76075de8ee94d3b86ad3d",
+      "detail": {
+        "block": 72201310,
+        "seconds": 12.3
+      },
+      "at": 629083,
+      "calls": [
+        {
+          "at": 629083,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 459
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the index's fold says released",
+      "detail": {
+        "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+        "seconds": 48.8
+      },
+      "at": 677867,
+      "calls": [
+        {
+          "at": 631549,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 418
+        },
+        {
+          "at": 633970,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 444
+        },
+        {
+          "at": 636417,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 386
+        },
+        {
+          "at": 638806,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 418
+        },
+        {
+          "at": 641227,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 413
+        },
+        {
+          "at": 643643,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 398
+        },
+        {
+          "at": 646043,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 404
+        },
+        {
+          "at": 648449,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 433
+        },
+        {
+          "at": 650884,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 388
+        },
+        {
+          "at": 653274,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 431
+        },
+        {
+          "at": 655707,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 420
+        },
+        {
+          "at": 658130,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 660536,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 662943,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 398
+        },
+        {
+          "at": 665343,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 396
+        },
+        {
+          "at": 667742,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 402
+        },
+        {
+          "at": 670146,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 422
+        },
+        {
+          "at": 672570,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 439
+        },
+        {
+          "at": 675012,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 432
+        },
+        {
+          "at": 677446,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+          "status": 200,
+          "ms": 420
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "step": "the stage's payment status reads Settled Approved and lists every relayed transaction",
+      "detail": {
+        "operator": "not named by this stage",
+        "relayed": "fund mined 0x352f4b7b472ef3f67822ad388032718b5b98ff935727455075d52d9e1575dca8; delegated-delivery mined 0x3a5c636cee6034a20dc5c574fa0587655b5253159e7d9e5bf953aa879816041c; approval mined 0xddebfe8529d9740f9bea1ac1b2961c606a4c5fec9ee76075de8ee94d3b86ad3d"
+      },
+      "at": 678158,
+      "calls": [
+        {
+          "at": 677930,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9/payment",
+          "status": 200,
+          "ms": 227
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "buyer published a request (POST /api/events); the worker’s agent found it and proposed over MCP; buyer accepted",
+      "detail": {
+        "job": "d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+        "proposal": "1e41a03172fd165e6d54946e5ceddf4a64a8d49b1fab8456c0831ef6ed7c484e",
+        "request": "buyer’s key",
+        "proposalSignedBy": "worker’s agent’s key (gateway)",
+        "proposalGrant": "6d71e5626ea8567719c7988dce507808c96c76f7fb9d3fe3ada0a9a76662ffeb",
+        "payTo": "eip155:5042002:0x24587e657bbfc52c9860fa51374db695a0a1f422",
+        "accept": "buyer’s key",
+        "gateway": "MCP list_open_requests, propose"
+      },
+      "at": 680083,
+      "calls": [
+        {
+          "at": 678223,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 230
+        },
+        {
+          "at": 678456,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 108
+        },
+        {
+          "at": 678569,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 43
+        },
+        {
+          "at": 678616,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 278
+        },
+        {
+          "at": 678898,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 52
+        },
+        {
+          "at": 678954,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 44
+        },
+        {
+          "at": 679003,
+          "method": "POST",
+          "url": "agents.v2.sidequest.exchange/mcp",
+          "status": 200,
+          "ms": 796
+        },
+        {
+          "at": 679804,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/events/1e41a03172fd165e6d54946e5ceddf4a64a8d49b1fab8456c0831ef6ed7c484e",
+          "status": 200,
+          "ms": 41
+        },
+        {
+          "at": 679849,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/events",
+          "status": 200,
+          "ms": 234
+        },
+        {
+          "at": 680083,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 309
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the index's fold says accepted",
+      "detail": {
+        "job": "d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+        "seconds": 0.3
+      },
+      "at": 680392,
+      "calls": [
+        {
+          "at": 680392,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2/proposals/1e41a03172fd165e6d54946e5ceddf4a64a8d49b1fab8456c0831ef6ed7c484e/funding",
+          "status": 200,
+          "ms": 252
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "buyer’s wallet signed the authorization; the relayer funded the escrow to the worker’s wallet (no session)",
+      "transactionHash": "0x5edd2bbb9767dd96264ed0643e3deccad696d02ff4106a4b2bb9027d9f548df8",
+      "detail": {
+        "paymentHash": "0xe46a5fddb624100ebccedd61ce988faebb36a38415e8a957ca93dc64ac343325",
+        "authorizationExpiry": 1794717736
+      },
+      "at": 681576,
+      "calls": [
+        {
+          "at": 680646,
+          "method": "POST",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2/proposals/1e41a03172fd165e6d54946e5ceddf4a64a8d49b1fab8456c0831ef6ed7c484e/funding",
+          "status": 200,
+          "ms": 930
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x5edd2bbb9767dd96264ed0643e3deccad696d02ff4106a4b2bb9027d9f548df8",
+      "detail": {
+        "block": 72201353,
+        "seconds": 6.3
+      },
+      "at": 687908,
+      "calls": [
+        {
+          "at": 687908,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 297
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the index's fold says funded",
+      "detail": {
+        "job": "d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+        "seconds": 49
+      },
+      "at": 736879,
+      "calls": [
+        {
+          "at": 690207,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 314
+        },
+        {
+          "at": 692523,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 309
+        },
+        {
+          "at": 694833,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 306
+        },
+        {
+          "at": 697140,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 298
+        },
+        {
+          "at": 699441,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 303
+        },
+        {
+          "at": 701747,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 315
+        },
+        {
+          "at": 704066,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 306
+        },
+        {
+          "at": 706374,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 296
+        },
+        {
+          "at": 708672,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 320
+        },
+        {
+          "at": 710995,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 315
+        },
+        {
+          "at": 713312,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 273
+        },
+        {
+          "at": 715588,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 291
+        },
+        {
+          "at": 717888,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 317
+        },
+        {
+          "at": 720207,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 299
+        },
+        {
+          "at": 722509,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 296
+        },
+        {
+          "at": 724807,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 339
+        },
+        {
+          "at": 727148,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 309
+        },
+        {
+          "at": 729462,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 341
+        },
+        {
+          "at": 731805,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 321
+        },
+        {
+          "at": 734128,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 317
+        },
+        {
+          "at": 736450,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 429
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the delivery deadline passed on chain",
+      "detail": {
+        "deadline": 1794580936
+      },
+      "at": 928093,
+      "calls": [
+        {
+          "at": 928093,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 428
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the index's fold says refunded",
+      "detail": {
+        "job": "d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+        "seconds": 168.7
+      },
+      "at": 1096743,
+      "calls": [
+        {
+          "at": 930561,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 438
+        },
+        {
+          "at": 933002,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 445
+        },
+        {
+          "at": 935449,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 438
+        },
+        {
+          "at": 937892,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 467
+        },
+        {
+          "at": 940363,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 942773,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 425
+        },
+        {
+          "at": 945201,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 428
+        },
+        {
+          "at": 947632,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 394
+        },
+        {
+          "at": 950028,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 411
+        },
+        {
+          "at": 952441,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 389
+        },
+        {
+          "at": 954832,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 416
+        },
+        {
+          "at": 957250,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 468
+        },
+        {
+          "at": 959721,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 428
+        },
+        {
+          "at": 962166,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 460
+        },
+        {
+          "at": 964629,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 389
+        },
+        {
+          "at": 967020,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 398
+        },
+        {
+          "at": 969421,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 383
+        },
+        {
+          "at": 971806,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 425
+        },
+        {
+          "at": 974234,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 1179
+        },
+        {
+          "at": 977415,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 417
+        },
+        {
+          "at": 979836,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 982252,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 392
+        },
+        {
+          "at": 984646,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 420
+        },
+        {
+          "at": 987074,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 386
+        },
+        {
+          "at": 989461,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 437
+        },
+        {
+          "at": 991904,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 994319,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 529
+        },
+        {
+          "at": 996850,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 429
+        },
+        {
+          "at": 999282,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 449
+        },
+        {
+          "at": 1001733,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 1004150,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 434
+        },
+        {
+          "at": 1006587,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 399
+        },
+        {
+          "at": 1008988,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 435
+        },
+        {
+          "at": 1011425,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 420
+        },
+        {
+          "at": 1013848,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 411
+        },
+        {
+          "at": 1016261,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 437
+        },
+        {
+          "at": 1018700,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 408
+        },
+        {
+          "at": 1021112,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 404
+        },
+        {
+          "at": 1023518,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 1025947,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 405
+        },
+        {
+          "at": 1028355,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 451
+        },
+        {
+          "at": 1030809,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 429
+        },
+        {
+          "at": 1033242,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 419
+        },
+        {
+          "at": 1035666,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 424
+        },
+        {
+          "at": 1038094,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 435
+        },
+        {
+          "at": 1040533,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 423
+        },
+        {
+          "at": 1042958,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 432
+        },
+        {
+          "at": 1045392,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 430
+        },
+        {
+          "at": 1047825,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 431
+        },
+        {
+          "at": 1050258,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 392
+        },
+        {
+          "at": 1052654,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 442
+        },
+        {
+          "at": 1055098,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 1057515,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 409
+        },
+        {
+          "at": 1059927,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 414
+        },
+        {
+          "at": 1062344,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 437
+        },
+        {
+          "at": 1064784,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 426
+        },
+        {
+          "at": 1067213,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 451
+        },
+        {
+          "at": 1069667,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 444
+        },
+        {
+          "at": 1072113,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 388
+        },
+        {
+          "at": 1074504,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 398
+        },
+        {
+          "at": 1076904,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 447
+        },
+        {
+          "at": 1079354,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 404
+        },
+        {
+          "at": 1081764,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 426
+        },
+        {
+          "at": 1084193,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 450
+        },
+        {
+          "at": 1086644,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 403
+        },
+        {
+          "at": 1089049,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 410
+        },
+        {
+          "at": 1091461,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 407
+        },
+        {
+          "at": 1093871,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 412
+        },
+        {
+          "at": 1096286,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+          "status": 200,
+          "ms": 456
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "step": "the settler refunded it on its Cron Trigger; the chain log poller recorded the refund",
+      "detail": {
+        "secondsAfterDeadline": 169,
+        "budget": 480
+      },
+      "at": 1096743
+    },
+    {
+      "case": "c",
+      "step": "the stage's payment status reads Settled Undelivered and lists every relayed transaction",
+      "detail": {
+        "operator": "not named by this stage",
+        "relayed": "fund mined 0x5edd2bbb9767dd96264ed0643e3deccad696d02ff4106a4b2bb9027d9f548df8; refundUndelivered mined 0x8e88aea28fa90e4789006af713e227f18af6525510a6ae2c69bb597951a75b81"
+      },
+      "at": 1097209,
+      "calls": [
+        {
+          "at": 1096851,
+          "method": "GET",
+          "url": "v2.sidequest.exchange/api/index/jobs/d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2/payment",
+          "status": 200,
+          "ms": 299
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "a",
+      "title": "agent proposes, released on approval with the exact fee",
+      "status": "passed",
+      "job": "714a8ca101fca823358665cdcceb34d9a21400fd609fac982509d89d0594fe51",
+      "paymentHash": "0x7e7646da6ca64833cf5df8ecb06d17309a7de8642fa2f0844996d3b661a7b31e",
+      "outcome": "released",
+      "settlement": [
+        "{\"_tag\":\"Settled\",\"at\":{\"block\":72200938,\"logIndex\":0},\"paymentHash\":\"0x7e7646da6ca64833cf5df8ecb06d17309a7de8642fa2f0844996d3b661a7b31e\",\"outcome\":\"Approved\",\"workerShareBps\":10000,\"capturedAmount\":\"100000\",\"feeAmount\":\"5000\",\"refundedAmount\":\"0\",\"settledAt\":1794580156}"
+      ],
+      "durationMs": 193014,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "18500000",
+          "after": "18400000",
+          "change": "-100000",
+          "expected": "-100000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "1045000",
+          "after": "1140000",
+          "change": "95000",
+          "expected": "95000"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "55000",
+          "after": "60000",
+          "change": "5000",
+          "expected": "5000"
+        }
+      ]
+    },
+    {
+      "case": "b",
+      "title": "rejected, then ruled through NIP-98",
+      "status": "passed",
+      "job": "21083d4edaa18963cb8e1eaa02631fc8dfb4633168bd94f7baf9e8bda7bfeea1",
+      "paymentHash": "0x56edd36cd5b5b750f636ec72ddefc754fa7e0a828ce2c432521fca4778e905f0",
+      "outcome": "ruled",
+      "settlement": [
+        "{\"_tag\":\"Settled\",\"at\":{\"block\":72201122,\"logIndex\":94},\"paymentHash\":\"0x56edd36cd5b5b750f636ec72ddefc754fa7e0a828ce2c432521fca4778e905f0\",\"outcome\":\"Ruled\",\"workerShareBps\":6000,\"capturedAmount\":\"60000\",\"feeAmount\":\"3000\",\"refundedAmount\":\"40000\",\"settledAt\":1794580398}"
+      ],
+      "durationMs": 301477,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "18400000",
+          "after": "18340000",
+          "change": "-60000",
+          "expected": "-60000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "1140000",
+          "after": "1197000",
+          "change": "57000",
+          "expected": "57000"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "60000",
+          "after": "63000",
+          "change": "3000",
+          "expected": "3000"
+        }
+      ]
+    },
+    {
+      "case": "e",
+      "title": "delivered by the agent’s key under one delegation, approved",
+      "status": "passed",
+      "job": "69a5e333d18ac210ccc6efa80e69a2ac7560e6dd2d92a21d02343697c398a6a9",
+      "paymentHash": "0x9e8e93041f2e1b102832be1f9b34a6c3b25074bb69f560c155ecefcf81afe336",
+      "outcome": "released",
+      "settlement": [
+        "{\"_tag\":\"Settled\",\"at\":{\"block\":72201310,\"logIndex\":187},\"paymentHash\":\"0x9e8e93041f2e1b102832be1f9b34a6c3b25074bb69f560c155ecefcf81afe336\",\"outcome\":\"Approved\",\"workerShareBps\":10000,\"capturedAmount\":\"100000\",\"feeAmount\":\"5000\",\"refundedAmount\":\"0\",\"settledAt\":1794580641}"
+      ],
+      "durationMs": 179739,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "18340000",
+          "after": "18240000",
+          "change": "-100000",
+          "expected": "-100000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "1197000",
+          "after": "1292000",
+          "change": "95000",
+          "expected": "95000"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "63000",
+          "after": "68000",
+          "change": "5000",
+          "expected": "5000"
+        }
+      ]
+    },
+    {
+      "case": "c",
+      "title": "never delivered, refunded by the settler",
+      "status": "passed",
+      "job": "d73d1f4591713ec60da54ece6461d50679d2e1aa6aef617a70fcb7ca0df466d2",
+      "paymentHash": "0xe46a5fddb624100ebccedd61ce988faebb36a38415e8a957ca93dc64ac343325",
+      "outcome": "refunded",
+      "settlement": [
+        "{\"_tag\":\"Settled\",\"at\":{\"block\":72201626,\"logIndex\":77},\"paymentHash\":\"0xe46a5fddb624100ebccedd61ce988faebb36a38415e8a957ca93dc64ac343325\",\"outcome\":\"Undelivered\",\"workerShareBps\":0,\"capturedAmount\":\"0\",\"feeAmount\":\"0\",\"refundedAmount\":\"100000\",\"settledAt\":1794581058}"
+      ],
+      "durationMs": 360329,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "18140000",
+          "after": "18240000",
+          "change": "100000",
+          "expected": "100000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "1292000",
+          "after": "1292000",
+          "change": "0",
+          "expected": "0"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "68000",
+          "after": "68000",
+          "change": "0",
+          "expected": "0"
+        }
+      ]
+    },
+    {
+      "case": "d",
+      "title": "settlement withheld until expiry, reclaimed by the buyer",
+      "status": "not run",
+      "reason": "the escrow expires at least 38 h after funding (review 1 h + dispute 1 h + arbitration 12 h + 24 h margin); and a deployed stage's calls cannot be withheld"
+    }
+  ],
+  "stage": {
+    "target": "https://v2.sidequest.exchange",
+    "gateway": "https://agents.v2.sidequest.exchange",
+    "release": "98abaeb",
+    "protocolVersion": "0.3-phase2",
+    "gatewayRelease": "98abaeb",
+    "requests": 417,
+    "byStatus": "200: 411, 401: 2, 201: 3, 302: 1",
+    "rateLimited": 0,
+    "slowest": "POST agents.v2.sidequest.exchange/mcp 1859 ms"
+  },
+  "durationMs": 1097213
+}
