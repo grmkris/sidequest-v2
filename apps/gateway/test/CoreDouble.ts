@@ -168,7 +168,14 @@ export const coreDouble = (): CoreDouble => {
     job: (id) => Effect.map(readAll(events), (readings) => viewOf(readings, funded, id)),
     listings: () => Effect.succeed({ items: [], next: null }),
     payment: () =>
-      Effect.succeed({ paymentHash: null, chainTime: nowSeconds(), stage: 'Unfunded', outcome: null, relayed: [] }),
+      Effect.succeed({
+        escrow: '0x0000000000000000000000000000000000000001',
+        paymentHash: null,
+        chainTime: nowSeconds(),
+        stage: 'Unfunded',
+        outcome: null,
+        relayed: [],
+      }),
     deliveryToSign: (job, deliveryHash) =>
       funded.has(job)
         ? Effect.succeed(deliveryTypedData(job, deliveryHash))
