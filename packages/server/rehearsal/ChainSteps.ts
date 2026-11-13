@@ -1,7 +1,7 @@
 import { type Address, encodeFunctionData, isHex, parseAbi } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
 import type { PaymentInfo } from '@sidequest/settlement/Payment'
-import type { RehearsalChain } from './Chain.ts'
+import type { CaseChain } from './Chain.ts'
 import { type Balance, type Evidence, step } from './Evidence.ts'
 import { eventually } from './Surfaces.ts'
 
@@ -9,14 +9,14 @@ import { eventually } from './Surfaces.ts'
 // to be confirmed, move or wait out the chain's clock, and reclaim from the escrow as a payer's own wallet would.
 
 interface OnChain {
-  readonly chain: RehearsalChain
+  readonly chain: CaseChain
 }
 
 type Party = 'buyer' | 'worker' | 'treasury'
 
 /** Whose balances a case measures: the buyer's and the worker's wallets, and the chain's treasury. */
 export interface Wallets {
-  readonly chain: RehearsalChain
+  readonly chain: CaseChain
   readonly buyer: { readonly wallet: { readonly address: Address } }
   readonly worker: { readonly wallet: { readonly address: Address } }
 }

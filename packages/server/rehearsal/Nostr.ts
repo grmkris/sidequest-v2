@@ -42,9 +42,13 @@ export interface NostrPerson {
   readonly account: string
 }
 
-/** A fresh Nostr key, and the wallet `walletKey` (a fresh one without). */
-export const nostrPerson = (name: string, walletKey: Hex = generatePrivateKey()): NostrPerson => {
-  const key = Schema.decodeSync(SecretKey)(generatePrivateKey().slice(2))
+/** The Nostr key `nostrKey` (a fresh one without), and the wallet `walletKey` (a fresh one without). */
+export const nostrPerson = (
+  name: string,
+  walletKey: Hex = generatePrivateKey(),
+  nostrKey: SecretKey = Schema.decodeSync(SecretKey)(generatePrivateKey().slice(2)),
+): NostrPerson => {
+  const key = nostrKey
   const wallet = privateKeyToAccount(walletKey)
   return { name, key, pubkey: publicKeyOf(key), wallet, account: `${arc}:${wallet.address.toLowerCase()}` }
 }
@@ -137,8 +141,14 @@ export const anyone = (url: string) => ({
   },
 })
 
-/** The index's fold of `job`, once it shows what `done` waits for. */
-export const foldedJob = (url: string, job: string, done: (view: JobView) => boolean, seconds = 150) =>
+/** The index's fold of `job`, once it shows what `done` waits for, read every `everyMillis` for at most `seconds`. */
+export const foldedJob = (
+  url: string,
+  job: string,
+  done: (view: JobView) => boolean,
+  seconds = 150,
+  everyMillis = 100,
+) =>
   eventually(
     async () => {
       const reply = await send(url, 'GET', `/api/index/jobs/${job}`)
@@ -146,6 +156,7 @@ export const foldedJob = (url: string, job: string, done: (view: JobView) => boo
     },
     (view) => view !== undefined && done(view),
     seconds,
+    everyMillis,
   ).then((view) => {
     if (view === undefined) throw new Error(`The index never folded ${job}`)
     return view

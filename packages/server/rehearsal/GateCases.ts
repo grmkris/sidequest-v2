@@ -1,23 +1,16 @@
 import type { JobView } from '@sidequest/fold'
 import { NostrEvent } from '@sidequest/nostr'
-import {
-  FundedTerms,
-  EscrowFunding,
-  EscrowPaymentStatus,
-  Relayed,
-  Terms,
-  TypedData,
-  UsdcOnArcTestnet,
-} from '@sidequest/protocol'
+import { FundedTerms, EscrowFunding, Relayed, Terms, TypedData, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { sidequestOperatorAbi } from '@sidequest/settlement/abi/SidequestOperator'
 import type { PaymentInfo } from '@sidequest/settlement/Payment'
 import { Predicate, Schema } from 'effect'
 import { getAddress, isHex } from 'viem'
 import { balances, confirmedOnChain, passTime, reclaimFromEscrow, settled, type Wallets } from './ChainSteps.ts'
-import type { RehearsalChain } from './Chain.ts'
+import type { CaseChain } from './Chain.ts'
 import { type CaseResult, type Evidence, step } from './Evidence.ts'
 import type { GatewayAgent } from './GatewayAgent.ts'
 import { anyone, foldedJob, type NostrPerson, sign } from './Nostr.ts'
+import { paymentReadBack } from './PaymentReadBack.ts'
 import type { RpcProxy } from './RpcProxy.ts'
 import { bodyOf, eventually, signTyped } from './Surfaces.ts'
 
@@ -30,16 +23,30 @@ import { bodyOf, eventually, signTyped } from './Surfaces.ts'
 
 export interface GateWorld extends Wallets {
   readonly url: string
-  readonly chain: RehearsalChain
-  readonly proxy: RpcProxy
+  readonly chain: CaseChain
+  /** The node proxy the stack reaches the chain through, where the rehearsal deployed it; none on a deployed stage. */
+  readonly proxy: RpcProxy | undefined
   readonly buyer: NostrPerson
   readonly worker: NostrPerson
   /** The worker's agent at the gateway, granted `propose` and `deliver`. */
   readonly workerAgent: GatewayAgent
-  /** Holds the stage's arbitration key, the only key whose NIP-98 authorization asks for a ruling. */
-  readonly arbitration: NostrPerson
+  /** Holds the stage's arbitration key, the only key whose NIP-98 authorization asks for a ruling; none, (b) cannot run. */
+  readonly arbitration: NostrPerson | undefined
+  readonly pace: Pace
   readonly evidence: Evidence
 }
+
+/**
+ * How the rehearsal waits on the stage: it reads every `readMillis` while it waits, and gives the stage `factSeconds`
+ * to show a chain fact the chain has confirmed.
+ */
+export interface Pace {
+  readonly readMillis: number
+  readonly factSeconds: number
+}
+
+/** A stack the rehearsal deployed itself, in local workerd: read it every 100 ms, give it 150 s for a chain fact. */
+export const localPace: Pace = { readMillis: 100, factSeconds: 150 }
 
 const hour = 3600
 const deliveryHash = '0x9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'
@@ -52,11 +59,21 @@ interface Deal {
   readonly terms: Terms
 }
 
-const folded = (world: GateWorld, deal: Deal, label: string, stage: JobView['stage'], seconds?: number) =>
-  foldedJob(world.url, deal.request.id, (view) => view.stage === stage, seconds).then((view) => {
-    step(world.evidence, { case: label, step: `the index's fold says ${stage}`, detail: { job: deal.request.id } })
+/** The index's fold of the deal once it says `stage`, within `seconds` (the pace's time for a chain fact). */
+const folded = (world: GateWorld, deal: Deal, label: string, stage: JobView['stage'], seconds?: number) => {
+  const started = Date.now()
+  const { readMillis, factSeconds } = world.pace
+  const done = (view: JobView) => view.stage === stage
+  return foldedJob(world.url, deal.request.id, done, seconds ?? factSeconds, readMillis).then((view) => {
+    const waited = Math.round((Date.now() - started) / 100) / 10
+    step(world.evidence, {
+      case: label,
+      step: `the index's fold says ${stage}`,
+      detail: { job: deal.request.id, seconds: waited },
+    })
     return view
   })
+}
 
 /** Which key signed an event, by role, for the evidence. */
 const signer = (world: GateWorld, pubkey: string) =>
@@ -95,6 +112,8 @@ const agreed = async (world: GateWorld, label: string, deadlineIn: number): Prom
   await eventually(
     async () => Schema.decodeUnknownSync(OpenPage)(await world.workerAgent.call('list_open_requests', { limit: 50 })),
     (page) => page.items.some(({ job }) => job === request.id),
+    60,
+    world.pace.readMillis,
   )
   const proposed = Schema.decodeUnknownSync(Proposed)(
     await world.workerAgent.call('propose', {
@@ -129,7 +148,11 @@ const agreed = async (world: GateWorld, label: string, deadlineIn: number): Prom
   return deal
 }
 
-/** The buyer's wallet signs the authorization the server quotes and the server relays `fund`; the fold says funded. */
+/**
+ * The buyer's wallet signs the authorization the server quotes and the server relays `fund`; the fold says funded.
+ * Before it signs, the quote must name the expected parties, operator, fee receiver, escrow and chain: on a stage the
+ * rehearsal did not deploy, this is what keeps it from signing for another chain or operator.
+ */
 const funded = async (world: GateWorld, label: string, deal: Deal) => {
   const api = anyone(world.url)
   const path = `/api/index/jobs/${deal.request.id}/proposals/${deal.proposal.id}/funding`
@@ -141,6 +164,9 @@ const funded = async (world: GateWorld, label: string, deal: Deal) => {
     ['feeReceiver', quote.paymentInfo.feeReceiver, world.chain.treasury],
     ['amount', quote.amount, String(world.chain.amount)],
     ['jobId', quote.jobParams.jobId, `0x${deal.request.id}`],
+    ['escrow', quote.escrow, world.chain.escrow],
+    ['network', quote.network, UsdcOnArcTestnet.network],
+    ['chainId', String(quote.typedData.domain.chainId), '5042002'],
   ]
   for (const [field, actual, expected] of shown)
     if (actual.toLowerCase() !== expected.toLowerCase()) throw new Error(`The quote's ${field} is ${actual}`)
@@ -252,15 +278,13 @@ export const releasedOnApproval = async (world: GateWorld): Promise<CaseResult> 
   const terms = await eventually(
     () => api.get(`/api/index/jobs/${deal.request.id}/terms`),
     (reply) => reply.status === 200,
+    60,
+    world.pace.readMillis,
   )
   if (!Bun.deepEquals(bodyOf(FundedTerms, terms, 'terms'), { request: deal.request, proposal: deal.proposal }))
     throw new Error('The kept terms are not the signed events')
-  const status = bodyOf(EscrowPaymentStatus, await api.get(`/api/index/jobs/${deal.request.id}/payment`), 'payment')
-  step(world.evidence, {
-    case: 'a',
-    step: 'the signed request and the agent’s proposal are served verbatim; the payment reads Settled',
-    detail: { stage: status.stage, outcome: status.outcome ?? 'none', relayed: status.relayed.length },
-  })
+  step(world.evidence, { case: 'a', step: 'the signed request and the agent’s proposal are served verbatim' })
+  await paymentReadBack(world, 'a', deal.request.id, 'Approved')
   return result('a', 'agent proposes, released on approval with the exact fee', started, deal, view, quote)(rows)
 }
 
@@ -276,6 +300,7 @@ export const ruledAfterRejection = async (world: GateWorld): Promise<CaseResult>
   await api.publish(await sign.rejectionReason(world.buyer, deal.request))
   await folded(world, deal, 'b', 'rejected')
   const path = `/api/index/jobs/${deal.request.id}/ruling`
+  if (world.arbitration === undefined) throw new Error('(b) needs the stage’s arbitration key')
   const refused = await api.postAuthorized(path, { workerShareBps: 6000 }, world.buyer.key)
   if (refused.status !== 401) throw new Error(`A ruling by the buyer's key answered ${refused.status}`)
   const ruled = bodyOf(
@@ -299,6 +324,7 @@ export const ruledAfterRejection = async (world: GateWorld): Promise<CaseResult>
     worker: captured - fee(captured),
     treasury: fee(captured),
   })
+  await paymentReadBack(world, 'b', deal.request.id, 'Ruled')
   return result('b', 'rejected, then ruled through NIP-98', started, deal, view, quote)(rows)
 }
 
@@ -359,6 +385,7 @@ export const releasedAfterDelegatedDelivery = async (world: GateWorld): Promise<
   const view = await folded(world, deal, 'e', 'released')
   const { amount } = world.chain
   const rows = await settled(world, before, { buyer: -amount, worker: amount - fee(amount), treasury: fee(amount) })
+  await paymentReadBack(world, 'e', deal.request.id, 'Approved')
   return result('e', 'delivered by the agent’s key under one delegation, approved', started, deal, view, quote)(rows)
 }
 
@@ -383,6 +410,7 @@ export const fundUndeliveredDeals = async (
   const reclaimDeal = await agreed(world, 'd', deadlineIn)
   const reclaimQuote = await funded(world, 'd', reclaimDeal)
   if (!isHex(reclaimQuote.paymentHash)) throw new Error('A payment hash is hex')
+  if (world.proxy === undefined) throw new Error('(d) withholds calls at the node proxy, and there is none')
   world.proxy.withheld.add(reclaimQuote.paymentHash)
   step(world.evidence, {
     case: 'd',
@@ -421,6 +449,7 @@ export const refundedBySettler = async (
   if (!Predicate.isTagged(ending, 'Settled') || ending.outcome !== 'Undelivered')
     throw new Error(`Refunded, yet ${JSON.stringify(view.ending)}`)
   const rows = await settled(world, before, { buyer: world.chain.amount, worker: 0n, treasury: 0n })
+  await paymentReadBack(world, 'c', deal.request.id, 'Undelivered')
   return result('c', 'never delivered, refunded by the settler', started, deal, view, quote)(rows)
 }
 
@@ -443,8 +472,10 @@ export const reclaimedByBuyer = async (world: GateWorld, deals: UndeliveredDeals
   if (deals.reclaim === undefined) throw new Error('The job of (d) was not funded')
   const { deal, quote } = deals.reclaim
   await passTime(world, deal.terms.deliveryDeadline)
+  const { proxy } = world
+  if (proxy === undefined) throw new Error('(d) withholds calls at the node proxy, and there is none')
   await eventually(
-    async () => world.proxy.sent.filter((sent) => sent.withheld).length,
+    async () => proxy.sent.filter((sent) => sent.withheld).length,
     (count) => count > 0,
     300,
   )

@@ -2,10 +2,10 @@ import { LinkedWallet } from '@sidequest/protocol'
 import { Effect } from 'effect'
 import type { RehearsalChain } from './Chain.ts'
 import { evidenceFor } from './Evidence.ts'
-import type { GateWorld } from './GateCases.ts'
+import { type GateWorld, localPace } from './GateCases.ts'
 import { gatewayAgent } from './GatewayAgent.ts'
 import { anyone, type NostrPerson, nostrPerson, sign } from './Nostr.ts'
-import { startProxy } from './RpcProxy.ts'
+import { type RpcProxy, startProxy } from './RpcProxy.ts'
 import { chainEvidence, type rehearsalStage, settlementFor } from './Stage.ts'
 import { bodyOf, eventually } from './Surfaces.ts'
 
@@ -13,8 +13,14 @@ import { bodyOf, eventually } from './Surfaces.ts'
 // and the worker as fresh Nostr keys with their wallets linked, and the worker's agent at the gateway, granted and
 // connected over OAuth. Every Nostr key is made for the run; the wallets are the chain's keys.
 
+/** The world of a stack the rehearsal deployed: the chain with the stack's keys, and the node proxy before it. */
+export interface LocalGateWorld extends GateWorld {
+  readonly chain: RehearsalChain
+  readonly proxy: RpcProxy
+}
+
 /** Each person links their wallet to their key with a signed event; the index shows the link verified. */
-const linkWallet = async (url: string, person: NostrPerson) => {
+export const linkWallet = async (url: string, person: NostrPerson) => {
   const api = anyone(url)
   await api.publish(await sign.link(person))
   const linked = await eventually(
@@ -24,6 +30,21 @@ const linkWallet = async (url: string, person: NostrPerson) => {
   const link = bodyOf(LinkedWallet, linked, `${person.name}'s wallet`)
   if (link.pubkey !== person.pubkey || link.verification !== 'verified') throw new Error('The link is not verified')
 }
+
+/** The people, the worker's agent and the arbitration key, by address and public key, for the evidence. */
+export const partiesEvidence = (
+  world: Pick<GateWorld, 'buyer' | 'worker' | 'workerAgent' | 'arbitration'>,
+): Readonly<Record<string, string>> => ({
+  buyer: world.buyer.wallet.address,
+  buyerKey: world.buyer.pubkey,
+  worker: world.worker.wallet.address,
+  workerKey: world.worker.pubkey,
+  workerAgentKey: world.workerAgent.pubkey,
+  workerAgentGrant: world.workerAgent.grant,
+  workerAgentScopes: world.workerAgent.scopes.join(' '),
+  workerAgentDelegate: world.workerAgent.delegate,
+  arbitrationKey: world.arbitration?.pubkey ?? 'not given',
+})
 
 /** How many jobs a run funds: (a), (b), (e) and (c), and (d) where it runs. */
 const fundedJobs = (chain: RehearsalChain) => (chain.mode === 'anvil' ? 5n : 4n)
@@ -62,18 +83,20 @@ export const startGateWorld = (
       {
         ...chainEvidence(chain),
         deployBlock,
-        buyer: buyer.wallet.address,
-        buyerKey: buyer.pubkey,
-        worker: worker.wallet.address,
-        workerKey: worker.pubkey,
-        workerAgentKey: workerAgent.pubkey,
-        workerAgentGrant: workerAgent.grant,
-        workerAgentScopes: workerAgent.scopes.join(' '),
-        workerAgentDelegate: workerAgent.delegate,
-        arbitrationKey: arbitration.pubkey,
+        ...partiesEvidence({ buyer, worker, workerAgent, arbitration }),
       },
       'phase-2-events-gate',
     )
-    const world: GateWorld = { url, chain, proxy, buyer, worker, workerAgent, arbitration, evidence }
+    const world: LocalGateWorld = {
+      url,
+      chain,
+      proxy,
+      buyer,
+      worker,
+      workerAgent,
+      arbitration,
+      pace: localPace,
+      evidence,
+    }
     return world
   })

@@ -8,7 +8,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { type SettlementVariables, settlementVariablesOf } from '../src/Settlement/SettlementStage.ts'
 import { compatibility, sidequestWorkers } from '../src/Stack.ts'
 import type { RehearsalChain } from './Chain.ts'
-import { type CaseResult, type Evidence, summaryOf, writeEvidence } from './Evidence.ts'
+import { type CaseResult, type Evidence, recordCase, summaryOf, writeEvidence } from './Evidence.ts'
 import { relayerSettled } from './RelayerCheck.ts'
 import type { RpcProxy } from './RpcProxy.ts'
 
@@ -156,13 +156,7 @@ export const rehearsalRun = <W extends Rehearsed>(
   const rehearse = (name: string, title: string, run: (current: W) => Promise<CaseResult>) =>
     Effect.gen(function* () {
       const current = yield* world
-      const outcome = yield* Effect.promise(() =>
-        run(current).then(
-          (result) => result,
-          (cause: unknown): CaseResult => ({ case: name, title, status: 'failed', reason: String(cause) }),
-        ),
-      )
-      current.evidence.cases.push(outcome)
+      const outcome = yield* Effect.promise(() => recordCase(current.evidence, name, title, () => run(current)))
       expect(outcome).toMatchObject({ status: 'passed' })
     })
   const finish = Effect.gen(function* () {

@@ -39,27 +39,32 @@ export interface Keys {
   readonly worker: Hex
 }
 
-export interface RehearsalChain {
+/** What the cases read of a chain beside the stack: its contracts, balances and time. No key is in it. */
+export interface CaseChain {
   readonly mode: 'anvil' | 'arc-testnet'
-  /** Where the chain answers; the stack reaches it only through the rehearsal's proxy. */
-  readonly rpcUrl: string
   readonly client: PublicClient
   readonly escrow: Address
-  readonly collector: Address
   readonly token: Address
-  readonly tokenDomain: { readonly name: string; readonly version: string }
   readonly operator: Address
   readonly treasury: Address
   readonly confirmations: number
   /** The job amount, in the token's atomic units. */
   readonly amount: bigint
-  readonly keys: Keys
   readonly balanceOf: (owner: Address) => Promise<bigint>
-  /** Give `to` the token, where the rehearsal can (the local mock lets anyone mint); on Arc the keys come funded. */
-  readonly mint: ((to: Address, amount: bigint) => Promise<void>) | undefined
   readonly now: () => Promise<number>
   /** Move the chain's clock forward and mine a block; undefined where the clock cannot be moved. */
   readonly advance: ((seconds: number) => Promise<void>) | undefined
+}
+
+/** The chain a rehearsal deploys the stack against: the cases' chain, and the stack's keys and settings. */
+export interface RehearsalChain extends CaseChain {
+  /** Where the chain answers; the stack reaches it only through the rehearsal's proxy. */
+  readonly rpcUrl: string
+  readonly collector: Address
+  readonly tokenDomain: { readonly name: string; readonly version: string }
+  readonly keys: Keys
+  /** Give `to` the token, where the rehearsal can (the local mock lets anyone mint); on Arc the keys come funded. */
+  readonly mint: ((to: Address, amount: bigint) => Promise<void>) | undefined
   readonly stop: () => void
 }
 
@@ -249,12 +254,14 @@ export const startAnvil = async (amount: bigint): Promise<RehearsalChain> => {
   }
 }
 
-const required = (environment: Readonly<Record<string, string | undefined>>, name: string) => {
+/** A variable the mode cannot run without. */
+export const required = (environment: Readonly<Record<string, string | undefined>>, name: string) => {
   const value = environment[name]
   if (value === undefined || value.length === 0) throw new Error(`Arc testnet mode needs ${name}`)
   return value
 }
-const keyIn = (environment: Readonly<Record<string, string | undefined>>, name: string): Hex => {
+/** A private key from the environment, checked for its shape and never shown. */
+export const keyIn = (environment: Readonly<Record<string, string | undefined>>, name: string): Hex => {
   const value = required(environment, name)
   if (!isHex(value) || value.length !== 66) throw new Error(`${name} is not a private key (0x and 64 hex digits)`)
   return value
@@ -269,35 +276,49 @@ const keyIn = (environment: Readonly<Record<string, string | undefined>>, name: 
  */
 export const arcTestnetFromEnvironment = async (
   environment: Readonly<Record<string, string | undefined>>,
-): Promise<RehearsalChain> => {
-  const url = required(environment, 'ARC_TESTNET_RPC_URL')
-  const client = createPublicClient({ transport: http(url, { retryCount: 2 }) })
+): Promise<RehearsalChain> => ({
+  ...(await arcTestnetReads(environment, async () => getAddress(required(environment, 'REHEARSAL_TREASURY_ADDRESS')))),
+  rpcUrl: required(environment, 'ARC_TESTNET_RPC_URL'),
+  collector: arcTestnetCollector,
+  tokenDomain: arcTestnetUsdcDomain,
+  keys: {
+    relayer: keyIn(environment, 'REHEARSAL_RELAYER_KEY'),
+    arbitrator: keyIn(environment, 'REHEARSAL_ARBITRATOR_KEY'),
+    buyer: keyIn(environment, 'REHEARSAL_BUYER_KEY'),
+    worker: keyIn(environment, 'REHEARSAL_WORKER_KEY'),
+  },
+  mint: undefined,
+  stop: () => undefined,
+})
+
+/**
+ * Arc testnet as the cases read it, from `ARC_TESTNET_RPC_URL` (refusing any chain id but Arc testnet's), the deployed
+ * `REHEARSAL_OPERATOR_ADDRESS` and its fee receiver, which `treasuryOf` finds; `REHEARSAL_AMOUNT` (atomic units,
+ * default 100000, 0.1 USDC) and `REHEARSAL_CONFIRMATIONS` (default 3).
+ */
+export const arcTestnetReads = async (
+  environment: Readonly<Record<string, string | undefined>>,
+  treasuryOf: (client: PublicClient, operator: Address) => Promise<Address>,
+): Promise<CaseChain> => {
+  const client = createPublicClient({
+    transport: http(required(environment, 'ARC_TESTNET_RPC_URL'), { retryCount: 2 }),
+  })
   const chainId = await client.getChainId()
   if (chainId !== 5042002) throw new Error(`ARC_TESTNET_RPC_URL answers chain ${chainId}, not Arc testnet (5042002)`)
   const token = usdc
+  const operator = getAddress(required(environment, 'REHEARSAL_OPERATOR_ADDRESS'))
   return {
     mode: 'arc-testnet',
-    rpcUrl: url,
     client,
     escrow: arcTestnetEscrow,
-    collector: arcTestnetCollector,
     token,
-    tokenDomain: arcTestnetUsdcDomain,
-    operator: getAddress(required(environment, 'REHEARSAL_OPERATOR_ADDRESS')),
-    treasury: getAddress(required(environment, 'REHEARSAL_TREASURY_ADDRESS')),
+    operator,
+    treasury: await treasuryOf(client, operator),
     confirmations: Number(environment['REHEARSAL_CONFIRMATIONS'] ?? '3'),
     amount: BigInt(environment['REHEARSAL_AMOUNT'] ?? '100000'),
-    keys: {
-      relayer: keyIn(environment, 'REHEARSAL_RELAYER_KEY'),
-      arbitrator: keyIn(environment, 'REHEARSAL_ARBITRATOR_KEY'),
-      buyer: keyIn(environment, 'REHEARSAL_BUYER_KEY'),
-      worker: keyIn(environment, 'REHEARSAL_WORKER_KEY'),
-    },
     balanceOf: (owner) =>
       client.readContract({ address: token, abi: tokenAbi, functionName: 'balanceOf', args: [owner] }),
-    mint: undefined,
     now: async () => Number((await client.getBlock()).timestamp),
     advance: undefined,
-    stop: () => undefined,
   }
 }

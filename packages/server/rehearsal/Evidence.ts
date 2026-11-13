@@ -11,6 +11,21 @@ export interface Step {
   readonly at: number
   readonly transactionHash?: string
   readonly detail?: Readonly<Record<string, string | number | boolean>>
+  /** The requests to a deployed stage since the step before, up to this one. */
+  readonly calls?: ReadonlyArray<StageCall>
+}
+
+/** One request to a deployed stage: when it was sent, what, how it answered and how long it took. */
+export interface StageCall {
+  /** Milliseconds since the rehearsal started, when the request was sent. */
+  readonly at: number
+  readonly method: string
+  /** The host and path, without the query. */
+  readonly url: string
+  readonly status: number
+  readonly ms: number
+  /** Seconds the rehearsal waited before sending it again, when the stage answered 429. */
+  readonly retryAfter?: number
 }
 
 export interface Balance {
@@ -57,11 +72,12 @@ export interface RelayerAccount {
 
 /** Which rehearsal of the phase 2 gate: through signed events, the escrow endpoints and the gateway from a script, or
  * on the website in Chromium. Evidence files carry the name. */
-export type Rehearsal = 'phase-2-events-gate' | 'phase-2-browser-gate'
+export type Rehearsal = 'phase-2-events-gate' | 'phase-2-browser-gate' | 'phase-2-deployed-gate'
 
 const titles: Readonly<Record<Rehearsal, string>> = {
   'phase-2-events-gate': 'Phase 2 gate rehearsal through signed events',
   'phase-2-browser-gate': 'Phase 2 gate rehearsal on the website, in Chromium',
+  'phase-2-deployed-gate': 'Phase 2 gate rehearsal against a deployed stage',
 }
 
 export interface Evidence {
@@ -75,6 +91,8 @@ export interface Evidence {
   relayer?: RelayerAccount
   /** Every JSON-RPC request the stack and the rehearsal sent through the proxy, by method. */
   rpc?: Readonly<Record<string, MethodCensus>>
+  /** A deployed stage: what it reported of itself, and its requests' answers by status. */
+  stage?: Readonly<Record<string, string | number>>
   durationMs?: number
 }
 
@@ -96,9 +114,27 @@ export const evidenceFor = (
   cases: [],
 })
 
+/** Milliseconds since the rehearsal started. */
+export const sinceStart = () => Date.now() - started
+
 /** Record one step of a case. */
 export const step = (evidence: Evidence, entry: Omit<Step, 'at'>) => {
-  evidence.steps.push({ ...entry, at: Date.now() - started })
+  evidence.steps.push({ ...entry, at: sinceStart() })
+}
+
+/** Runs one case and records its result, passed or failed (a thrown error is the reason it failed). */
+export const recordCase = async (
+  evidence: Evidence,
+  name: string,
+  title: string,
+  run: () => Promise<CaseResult>,
+): Promise<CaseResult> => {
+  const outcome = await run().then(
+    (result) => result,
+    (cause: unknown): CaseResult => ({ case: name, title, status: 'failed', reason: String(cause) }),
+  )
+  evidence.cases.push(outcome)
+  return outcome
 }
 
 /** Where a mode's evidence is written: under `.artifacts/`, which git ignores. */
@@ -144,5 +180,7 @@ export const summaryOf = (evidence: Evidence) => {
       `  relayer ${relayer.address}: ${relayer.transactions} sent (${relayer.calls} calls, ${relayer.releases} releases, ${relayer.withheld} withheld by the node); nonce ${relayer.latestNonce} mined, ${relayer.pendingNonce} pending; intents ${typeof relayer.intents === 'string' ? relayer.intents : JSON.stringify(relayer.intents)}`,
     )
   lines.push(...rpcLines(evidence))
+  const stage = Object.entries(evidence.stage ?? {})
+  if (stage.length > 0) lines.push(`  stage: ${stage.map(([name, value]) => `${name} ${value}`).join('; ')}`)
   return lines.join('\n')
 }

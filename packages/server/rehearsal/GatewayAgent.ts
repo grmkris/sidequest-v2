@@ -27,15 +27,20 @@ export interface GatewayAgent {
 
 const Delegate = Schema.Struct({ delegate: Schema.TemplateLiteral(['0x', Schema.String]) })
 
-/** `operator` makes an agent at the gateway, grants it `scopes` for six hours and connects an MCP client to it. */
+/**
+ * `operator` makes an agent at the gateway, grants it `scopes` for six hours and connects an MCP client to it. The
+ * operator API is called at `operatorApi`: the gateway's own URL, or the core's `/gateway` proxy, which is how the
+ * website reaches it on a stage with a site domain (the gateway accepts NIP-98 signed for either).
+ */
 export const gatewayAgent = async (
   coreUrl: string,
   gatewayUrl: string,
   operator: NostrPerson,
   scopes: ReadonlyArray<GrantScope>,
+  operatorApi = gatewayUrl,
 ): Promise<GatewayAgent> => {
   const label = `${operator.name}’s agent`
-  const agent = await createAgent(gatewayUrl, operator.key, label)
+  const agent = await createAgent(operatorApi, operator.key, label)
   const now = Math.floor(Date.now() / 1000)
   const grant = await signedBy(operator.key, agentGrant, {
     agent,
@@ -46,7 +51,7 @@ export const gatewayAgent = async (
   })
   await anyone(coreUrl).publish(grant)
   const tokens = await connectOverOAuth(gatewayUrl, operator.key, agent)
-  const delegations = `${gatewayUrl}/api/agents/${agent}/delegations`
+  const delegations = `${operatorApi}/api/agents/${agent}/delegations`
   const shown = await authorized(operator.key, delegations, 'GET')
   const { delegate } = Schema.decodeUnknownSync(Delegate)(await json(shown))
   return {
