@@ -107,12 +107,12 @@ describe('matching a challenge against its listing', () => {
     const challenge = readRequired(vectors.paymentRequired)
     const offer = challenge.accepts[0]
     if (offer === undefined) throw new Error('The example has an offer')
-    const with_ = (change: Partial<typeof offer>) => ({ ...challenge, accepts: [{ ...offer, ...change }] })
-    expect(reasonOf(terms, with_({ extra: { name: 'USDC', version: '2', assetTransferMethod: 'permit2' } }))).toBe(
+    const changed = (change: Partial<typeof offer>) => ({ ...challenge, accepts: [{ ...offer, ...change }] })
+    expect(reasonOf(terms, changed({ extra: { name: 'USDC', version: '2', assetTransferMethod: 'permit2' } }))).toBe(
       'transferMethod',
     )
-    expect(reasonOf(terms, with_({ extra: { name: 'USDC' } }))).toBe('tokenDomain')
-    expect(reasonOf(terms, with_({ maxTimeoutSeconds: 86_401 }))).toBe('timeout')
+    expect(reasonOf(terms, changed({ extra: { name: 'USDC' } }))).toBe('tokenDomain')
+    expect(reasonOf(terms, changed({ maxTimeoutSeconds: 86_401 }))).toBe('timeout')
   })
 
   test('the authorization to sign pays the offer’s amount to its payTo, on the token’s EIP-712 domain', () => {

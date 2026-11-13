@@ -1,7 +1,7 @@
 import { it } from '@effect/vitest'
 import { EventId, publicKeyOf } from '@sidequest/nostr'
 import { UsdcOnArcTestnet } from '@sidequest/protocol'
-import { Effect, Option, Schema } from 'effect'
+import { Effect, Option } from 'effect'
 import { describe, expect } from 'vitest'
 import { EventStore } from '../src/Index/EventStore.ts'
 import { Ingest } from '../src/Index/Ingest.ts'
@@ -50,6 +50,13 @@ const confirmed = (...transfers: ReadonlyArray<ReturnType<typeof transfer>>): Tx
   transfers,
 })
 
+/** Labels in the order of their receipts' ids. */
+const byEvent = (left: readonly [string, boolean], right: readonly [string, boolean]) => left[0].localeCompare(right[0])
+
+/** A's receipt of `amount` paid by `payer` in `txHash`. */
+const pay = (txHash: string, amount = '10000', payer = buyerWallet) =>
+  receiptBy(alice, { version: listing, payer, amount, transaction: txHash }, at + 60)
+
 const ingest = (event: unknown) => Effect.flatMap(Ingest, (index) => index.ingest(event, 'publish'))
 const record = (txHash: string, outcome: TxOutcome) =>
   Effect.flatMap(PayPerCall, (store) => store.record({ network, txHash } satisfies DueCheck, outcome))
@@ -62,7 +69,7 @@ const labelsAfter = (steps: ReadonlyArray<Effect.Effect<unknown, unknown, Ingest
     const receipts = yield* (yield* PayPerCall).receipts(publicKeyOf(bob), 'weather')
     const shown = yield* (yield* Listings).get(publicKeyOf(bob), 'weather')
     return {
-      receipts: receipts.map(({ event, verified }) => [event, verified]).toSorted(),
+      receipts: receipts.map(({ event, verified }) => [event, verified] as const).toSorted(byEvent),
       payPerCall: Option.getOrNull(Option.map(shown, ({ rail, payPerCall }) => ({ rail, payPerCall }))),
     }
   }).pipe(Effect.provide(layer))
@@ -108,9 +115,6 @@ describe('pay-per-call listings in the index', () => {
 })
 
 describe('a receipt is verified only when the chain agrees with it', () => {
-  const pay = (txHash: string, amount = '10000', payer = buyerWallet) =>
-    receiptBy(alice, { version: listing, payer, amount, transaction: txHash }, at + 60)
-
   it.effect('a transfer of the price from the author’s linked wallet to the listing’s payTo verifies', () =>
     Effect.gen(function* () {
       const buyerLink = yield* Effect.promise(() => linked(alice, walletOne, at))
@@ -133,27 +137,32 @@ describe('a receipt is verified only when the chain agrees with it', () => {
       const stranger = accountOf(walletTwo)
       const cases = {
         // The chain moved the money from another wallet than the receipt's payer.
-        wrongPayer: [pay(tx('b1')), confirmed(transfer(stranger, sellerWallet, '10000'))],
+        wrongPayer: [tx('b1'), '10000', buyerWallet, confirmed(transfer(stranger, sellerWallet, '10000'))],
         // The receipt claims the price, the chain moved less.
-        wrongAmount: [pay(tx('b2')), confirmed(transfer(buyerWallet, sellerWallet, '9999'))],
+        wrongAmount: [tx('b2'), '10000', buyerWallet, confirmed(transfer(buyerWallet, sellerWallet, '9999'))],
         // The receipt claims less than the price, and the chain agrees with it.
-        underPrice: [pay(tx('b3'), '9999'), confirmed(transfer(buyerWallet, sellerWallet, '9999'))],
+        underPrice: [tx('b3'), '9999', buyerWallet, confirmed(transfer(buyerWallet, sellerWallet, '9999'))],
         // The money went to someone else than the listing's payTo.
-        wrongPayTo: [pay(tx('b4')), confirmed(transfer(buyerWallet, accountOf(walletOne, 1), '10000'))],
-        pending: [pay(tx('b5')), { state: 'pending' }],
-        reverted: [pay(tx('b6')), { state: 'reverted', block: 9 }],
+        wrongPayTo: [
+          tx('b4'),
+          '10000',
+          buyerWallet,
+          confirmed(transfer(buyerWallet, accountOf(walletOne, 1), '10000')),
+        ],
+        pending: [tx('b5'), '10000', buyerWallet, { state: 'pending' }],
+        reverted: [tx('b6'), '10000', buyerWallet, { state: 'reverted', block: 9 }],
         // The receipt's payer is a wallet its author never linked.
-        unlinked: [pay(tx('b7'), '10000', stranger), confirmed(transfer(stranger, sellerWallet, '10000'))],
+        unlinked: [tx('b7'), '10000', stranger, confirmed(transfer(stranger, sellerWallet, '10000'))],
       } as const
       const labels = yield* labelsAfter([
         ingest(listing),
         ingest(buyerLink),
-        ...Object.values(cases).flatMap(([event, outcome]) => {
-          const hash = Schema.decodeUnknownSync(Schema.String)(JSON.parse(event.content).transaction)
-          return [ingest(event), record(hash, outcome)]
-        }),
+        ...Object.values(cases).flatMap(([hash, amount, payer, outcome]) => [
+          ingest(pay(hash, amount, payer)),
+          record(hash, outcome),
+        ]),
       ])
-      expect(labels.receipts.every(([, verified]) => verified === false)).toBe(true)
+      expect(labels.receipts.every(([, verified]) => !verified)).toBe(true)
       expect(labels.receipts).toHaveLength(Object.keys(cases).length)
       expect(labels.payPerCall?.payPerCall?.verifiedReceipts).toBe(0)
     }),
@@ -184,13 +193,10 @@ describe('a receipt is verified only when the chain agrees with it', () => {
         record(tx('c2'), confirmed(transfer(buyerWallet, sellerWallet, '10000'))),
       ]
       expect((yield* labelsAfter(steps)).receipts).toEqual(
-        [
-          [byAgent.id, true],
-          [outOfScope.id, false],
-        ].toSorted(),
+        [[byAgent.id, true] as const, [outOfScope.id, false] as const].toSorted(byEvent),
       )
       const revoked = yield* labelsAfter([...steps, ingest(revocation(alice, given.id, at + 7200))])
-      expect(revoked.receipts.every(([, verified]) => verified === false)).toBe(true)
+      expect(revoked.receipts.every(([, verified]) => !verified)).toBe(true)
     }),
   )
 
@@ -215,10 +221,7 @@ describe('a receipt is verified only when the chain agrees with it', () => {
           ),
         ]
         const expected = {
-          receipts: [
-            [good.id, true],
-            [bad.id, false],
-          ].toSorted(),
+          receipts: [[good.id, true] as const, [bad.id, false] as const].toSorted(byEvent),
           payPerCall: {
             rail: 'x402',
             payPerCall: {

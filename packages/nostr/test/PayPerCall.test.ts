@@ -1,6 +1,6 @@
 import { it } from '@effect/vitest'
 import { UsdcOnArcTestnet } from '@sidequest/protocol'
-import { Effect, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import { describe, expect } from 'vitest'
 import type { EventTemplate } from '../src/Event.ts'
 import { publicKeyOf } from '../src/Keys.ts'
@@ -37,7 +37,10 @@ const outcome = <A>(effect: Effect.Effect<A, { readonly reason: string }>) =>
     Effect.catch((error) => Effect.succeed(error.reason)),
   )
 const escrowListing = Schema.decodeSync(ServiceListing)(priced)
-const decodes = (input: unknown) => Schema.decodeUnknownExit(ServiceListing)(input)._tag === 'Success'
+const decodes = (input: unknown) => Option.isSome(Schema.decodeUnknownOption(ServiceListing)(input))
+const buildReceipt = (content: PaymentReceiptContent) =>
+  buildSidequestEvent(paymentReceipt, content, { createdAt: 1_800_000_200 })
+const decodeReceipt = (input: object) => Schema.decodeUnknownEffect(PaymentReceiptContent)(input).pipe(Effect.orDie)
 
 describe('a pay-per-call listing', () => {
   it.effect('carries its resource and payTo as tags beside its exact price, and reads back the same', () =>
@@ -114,21 +117,21 @@ describe('a payment receipt', () => {
 
   it.effect('refuses an unregistered asset, a payer on another network, a zero amount and a stray tag', () =>
     Effect.gen(function* () {
-      const build = (content: PaymentReceiptContent) =>
-        buildSidequestEvent(paymentReceipt, content, { createdAt: 1_800_000_200 })
-      const decode = (input: object) => Schema.decodeUnknownEffect(PaymentReceiptContent)(input).pipe(Effect.orDie)
       expect(
         yield* outcome(
-          build(
-            yield* decode({ ...receipt, asset: 'eip155:5042002/erc20:0x0000000000000000000000000000000000000001' }),
+          buildReceipt(
+            yield* decodeReceipt({
+              ...receipt,
+              asset: 'eip155:5042002/erc20:0x0000000000000000000000000000000000000001',
+            }),
           ),
         ),
       ).toBe('inconsistentContent')
-      expect(yield* outcome(build(yield* decode({ ...receipt, payer: `eip155:8453:0x${'cd'.repeat(20)}` })))).toBe(
-        'inconsistentContent',
-      )
-      expect(Schema.decodeUnknownExit(PaymentReceiptContent)({ ...receipt, amount: '0' })._tag).toBe('Failure')
-      const template = yield* build(receipt)
+      expect(
+        yield* outcome(buildReceipt(yield* decodeReceipt({ ...receipt, payer: `eip155:8453:0x${'cd'.repeat(20)}` }))),
+      ).toBe('inconsistentContent')
+      expect(Option.isNone(Schema.decodeUnknownOption(PaymentReceiptContent)({ ...receipt, amount: '0' }))).toBe(true)
+      const template = yield* buildReceipt(receipt)
       const stray = sign({ ...template, tags: [...template.tags, ['p', publicKeyOf(alice)]] }, alice)
       expect(yield* outcome(parseSidequestEvent(paymentReceipt, stray))).toBe('tagMismatch')
     }),
