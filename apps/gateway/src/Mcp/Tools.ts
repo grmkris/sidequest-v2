@@ -6,6 +6,7 @@ import {
   AgentGrantView,
   Bytes32,
   Cursor,
+  Erc8004Identity as Erc8004IdentityView,
   IndexListing,
   EscrowPaymentStatus,
   Page,
@@ -299,6 +300,22 @@ const X402Quote = Tool.make('x402_quote', {
   failure: Refused,
 }).annotateMerge(reading)
 
+const Erc8004Identity = Tool.make('erc8004_identity', {
+  description:
+    'Your ERC-8004 ("Trustless Agents") identity: the identity-registry tokens your operator claimed stand for your ' +
+    'key, each `verified` once the index read on chain that your operator’s linked wallet owns it and that its ' +
+    'agentURI is your registration file; and the URLs of your registration file and of your feedback file (the ' +
+    'buyers’ reviews of jobs your proposals won, each checkable against the chain). Registering is your operator’s, ' +
+    'from their wallet. Nothing here binds or authorises anything. No scope.',
+  success: Schema.Struct({
+    agent: PublicKey,
+    identities: Schema.Array(Erc8004IdentityView),
+    registrationFile: Schema.String,
+    feedbackFile: Schema.String,
+  }),
+  failure: Refused,
+}).annotateMerge(reading)
+
 const X402Receipt = Tool.make('x402_receipt', {
   description:
     'After your operator’s wallet paid a call to a pay-per-call listing, publish the receipt: the listing, the ' +
@@ -326,5 +343,6 @@ export const GatewayToolkit = Toolkit.make(
   DeliveryDelegation,
   X402Quote,
   X402Receipt,
+  Erc8004Identity,
   ...roomTools,
 )

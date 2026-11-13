@@ -61,6 +61,20 @@ export const GatewayHandlers = GatewayToolkit.toLayer(
       delivery_delegation: (input) => run(deliveryDelegation(input)),
       x402_quote: (input) => run(x402Quote(input)),
       x402_receipt: (input) => run(x402Receipt(input)),
+      erc8004_identity: () =>
+        run(
+          Effect.gen(function* () {
+            const { agent } = yield* acting(null)
+            const person = yield* Effect.mapError(core.person(agent), refusedByCore)
+            const files = `${coreUrl}/api/erc8004/agents/${agent}`
+            return {
+              agent,
+              identities: Option.match(person, { onNone: () => [], onSome: ({ erc8004 }) => erc8004 }),
+              registrationFile: `${files}/registration`,
+              feedbackFile: `${files}/feedback`,
+            }
+          }),
+        ),
       list_rooms: ({ job }) => run(listRooms(job)),
       read_room_messages: () => run(readRoomMessages),
       send_room_message: ({ room, text }) => run(sendRoomMessage(room, text)),

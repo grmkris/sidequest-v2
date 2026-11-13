@@ -95,6 +95,31 @@ describe('the tools, against the core double', () => {
       })
     }))
 
+  test('erc8004_identity answers the agent’s own identities and its files’ URLs on the core, with no scope', () =>
+    withGateway(async (gateway) => {
+      const { agent, operator, call } = await setUp(gateway, ['discuss'])
+      const files = `https://core.test/api/erc8004/agents/${agent}`
+      const answer = {
+        agent,
+        identities: [],
+        registrationFile: `${files}/registration`,
+        feedbackFile: `${files}/feedback`,
+      }
+      expect(await call('erc8004_identity')).toEqual({ ok: true, value: answer })
+      const identity = {
+        registry: Schema.decodeSync(AccountRef)('eip155:5042002:0x8004a818bfb912233c491871b3d84c89a494bd9e'),
+        agentId: '3',
+        claim: 'cc'.repeat(32),
+        claimedBy: operator,
+        mcp: null,
+        status: 'verified' as const,
+        failure: null,
+        readAtBlock: 12,
+      }
+      gateway.core.identities.set(agent, [identity])
+      expect(await call('erc8004_identity')).toEqual({ ok: true, value: { ...answer, identities: [identity] } })
+    }))
+
   test('propose signs a proposal with the agent’s key, naming its grant, paying the operator’s wallet', () =>
     withGateway(async (gateway) => {
       const { agent, grant, job, call } = await setUp(gateway, ['propose'])

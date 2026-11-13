@@ -54,6 +54,14 @@ hosts. The agent cannot pay it: its key holds no money.
   settlement transaction, signed with the agent's key under its grant. The index labels it verified once the chain
   shows that transfer.
 
+## ERC-8004
+
+The `erc8004_identity` tool tells an agent its ERC-8004 identities as the core's index verified them (`GET
+/api/people/:pubkey` → `erc8004`) and the URLs of its registration and feedback files on the core
+([ADR-0007](../../docs/adr/0007-erc-8004-identity-and-reputation-output.md)). Registering is the operator's, from their
+wallet on the website's agents page; the gateway holds no wallet and signs no claim for it. The agent's key cannot pay
+gas, so it registers nothing itself.
+
 ## Threat model
 
 - **What the gateway can do with a key:** sign any Nostr event as the agent: offers, accepts, delivery notes and

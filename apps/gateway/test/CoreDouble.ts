@@ -16,6 +16,7 @@ import type {
   AgentGrantView,
   Cursor,
   DelegatedDelivery,
+  Erc8004Identity,
   IndexListingDetail,
   Person,
   TypedData,
@@ -34,12 +35,14 @@ interface RelayedDelivery extends DelegatedDelivery {
 }
 
 /**
- * What a test sets on the double: verified wallets per key, funded jobs, and a refusal the next publish (or relay)
+ * What a test sets on the double: verified wallets and ERC-8004 identities per key, funded jobs, and a refusal the next publish (or relay)
  * answers; and what it was asked to relay.
  */
 export interface CoreDouble {
   readonly events: Array<NostrEvent>
   readonly wallets: Map<string, ReadonlyArray<AccountRef>>
+  /** The ERC-8004 identities the index shows for a key. */
+  readonly identities: Map<string, ReadonlyArray<Erc8004Identity>>
   readonly funded: Map<string, string>
   readonly nextPublish: { refusal: CoreRefused | undefined }
   readonly relayed: Array<RelayedDelivery>
@@ -166,6 +169,7 @@ const noCursor: Cursor | null = null
 export const coreDouble = (): CoreDouble => {
   const events: Array<NostrEvent> = []
   const wallets = new Map<string, ReadonlyArray<AccountRef>>()
+  const identities = new Map<string, ReadonlyArray<Erc8004Identity>>()
   const funded = new Map<string, string>()
   const nextPublish: { refusal: CoreRefused | undefined } = { refusal: undefined }
   const relayed: Array<RelayedDelivery> = []
@@ -181,8 +185,8 @@ export const coreDouble = (): CoreDouble => {
       verification: 'verified' as const,
     }))
     if (agents.length + operators.length + linked.length === 0) return Option.none()
-    const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [], erc8004: [] }
-    return Option.some({ pubkey, ...empty, wallets: linked, agents, operators })
+    const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [] }
+    return Option.some({ pubkey, ...empty, wallets: linked, agents, operators, erc8004: identities.get(pubkey) ?? [] })
   }
   const service: CoreService = {
     publish: (event) =>
@@ -240,7 +244,7 @@ export const coreDouble = (): CoreDouble => {
       }),
   }
   const layer = Layer.succeed(Core, Core.of(service))
-  return { events, wallets, funded, nextPublish, relayed, nextRelay, listings, layer }
+  return { events, wallets, identities, funded, nextPublish, relayed, nextRelay, listings, layer }
 }
 
 /** The events of a kind the double holds, read. */
