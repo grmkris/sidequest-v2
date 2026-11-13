@@ -22,6 +22,7 @@ import {
 import { Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
 import { GrantRefusalReason } from '../Grants/GrantGate.ts'
+import { roomTools } from './RoomTools.ts'
 
 /**
  * Why a tool refused. The grant gate's reasons; the agent's own rate limit; what the gateway checks before it signs
@@ -254,4 +255,5 @@ export const GatewayToolkit = Toolkit.make(
   Accept,
   Deliver,
   DeliveryDelegation,
+  ...roomTools,
 )

@@ -9,6 +9,7 @@ import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { CoreLive } from './Core/Core.ts'
 import { GatewayDatabase } from './Resources.ts'
+import { RoomNetwork } from './Rooms/RoomNetwork.ts'
 import { gatewayRoutes } from './Routes.ts'
 import { type GatewayConfig, GatewaySettings, settingsFrom } from './Settings.ts'
 
@@ -34,6 +35,7 @@ const Runtime = GatewaySql.pipe(Layer.provideMerge(Platform))
 const servedWith = (settings: GatewayConfig) =>
   gatewayRoutes(settings.release).pipe(
     Layer.provide(AlchemyHttp.Platform),
+    Layer.provide(RoomNetwork.layer),
     Layer.provide(Layer.mergeAll(CoreLive, ClientDocuments.layer)),
     Layer.provide(Layer.succeed(GatewaySettings, settings)),
   )

@@ -19,14 +19,14 @@ import { OperatorAuth, type Unauthorized } from './Nip98.ts'
 const agentsPath = '/api/agents'
 
 /** CORS for the operator's API: any origin, the NIP-98 header, no credentials. */
-const cors = {
+export const cors = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, POST, DELETE, OPTIONS',
   'access-control-allow-headers': 'authorization, content-type',
   'access-control-max-age': '600',
 } as const
 
-const reply = (body: unknown, status = 200) =>
+export const reply = (body: unknown, status = 200) =>
   HttpServerResponse.jsonUnsafe(body, { status, headers: { ...cors, 'cache-control': 'no-store' } })
 const refusal = (status: number, error: string, reason?: string) =>
   reply(reason === undefined ? { error } : { error, reason }, status)

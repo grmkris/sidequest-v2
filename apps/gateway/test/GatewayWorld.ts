@@ -19,6 +19,7 @@ import { GatewaySecret } from '../src/Keys/KeyEnvelope.ts'
 import { gatewayRoutes } from '../src/Routes.ts'
 import { GatewaySettings } from '../src/Settings.ts'
 import { type CoreDouble, coreDouble } from './CoreDouble.ts'
+import { type MemoryRooms, memoryRooms } from './MemoryRooms.ts'
 
 // The gateway in process: its routes over a fresh local D1 (its own migrations), with the core as an in-memory double.
 // Operators are keys the test holds; they sign NIP-98 authorizations and grant events here, as a browser's signer would.
@@ -69,6 +70,8 @@ const replyOf = async (response: Response): Promise<Reply> => {
 
 export interface Gateway {
   readonly core: CoreDouble
+  /** The relays and inbox lists room tools reach. */
+  readonly rooms: MemoryRooms
   readonly fetch: (path: string, init?: RequestInit) => Promise<Response>
   readonly sqlite: ReturnType<typeof localSqlOf>['sqlite']
   /** A request with the operator's NIP-98 authorization of exactly it. */
@@ -103,6 +106,7 @@ export const nip98 = (key: SecretKey, url: string, method: string, body?: string
 /** Run `test` against a fresh gateway. `grantCacheSeconds` is the grant gate's window (0: read the core every call). */
 export const withGateway = async (test: (gateway: Gateway) => Promise<void>, grantCacheSeconds = 0) => {
   const core = coreDouble()
+  const rooms = memoryRooms()
   const { sqlite, layer: sql } = localSqlOf(new URL('../migrations/', import.meta.url))
   const settings = Layer.succeed(GatewaySettings, {
     coreUrl: 'https://core.test',
@@ -111,7 +115,7 @@ export const withGateway = async (test: (gateway: Gateway) => Promise<void>, gra
     release: 'test',
   })
   const documents = Layer.succeed(ClientDocuments, { fetch: () => Effect.succeedNone })
-  const world = Layer.mergeAll(sql, settings, core.layer, documents)
+  const world = Layer.mergeAll(sql, settings, core.layer, documents, rooms.layer)
   const { handler, dispose } = HttpRouter.toWebHandler(
     gatewayRoutes('test').pipe(Layer.provide(world), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true },
@@ -129,6 +133,7 @@ export const withGateway = async (test: (gateway: Gateway) => Promise<void>, gra
   try {
     await test({
       core,
+      rooms,
       fetch,
       sqlite,
       asOperator,

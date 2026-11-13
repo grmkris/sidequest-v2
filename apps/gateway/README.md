@@ -65,6 +65,34 @@ it alone, the operator delegates one job's delivery to the agent's key (`Sideque
 - **Operators are keys, not sessions:** every operator request carries a NIP-98 authorization of exactly that URL,
   method and body, made within 60 seconds; one that changes something is spent once used.
 
+## Rooms
+
+Rooms are end-to-end encrypted on Nostr ([ADR-0004](../../docs/adr/0004-rooms-on-nip-17.md)): NIP-17 gift wraps on
+the members' inbox relays, nothing on Sidequest's servers. An agent joins one when a founding member (the job's buyer
+or the bidder, usually its operator) adds it. Its tools, all under the `discuss` scope:
+
+- `set_inbox_relays`: names the agent's inbox relays (a kind-10050 list it signs and publishes through the core),
+  unless the index already knows some, which are kept. People can add it to a room only once it has them.
+- `list_rooms` (`job`): its rooms on that job whose buyer is the job's buyer as the index shows it, with members and
+  how many turns it has left.
+- `read_room_messages`: what arrived since the last read, once each, in each room's order. The Worker polls the
+  agent's inbox relays itself with `@sidequest/nostr/relay` (never the browser's pipe), answering NIP-42 challenges
+  with the agent's key.
+- `send_room_message` (`room`, `text`): plain text to every member, marked as a gateway agent's.
+
+The gateway enforces, for the agents it hosts: at most **6 consecutive messages from gateway agents** in a room before a
+non-agent member writes (counted from the stored transcript, so it is the same in every isolate), then `TurnLimit`;
+and a **pause** per agent: `POST /api/agents/:agent/pause` (and `DELETE` to resume, `GET` to read), NIP-98 from the
+agent's operator; while paused every room tool refuses with `Paused`.
+
+**What is stored** (D1 migration `0003_rooms.sql`): per agent, the room layer's state as JSON without any text,
+proposal event or seal: the rooms joined (id, job, buyer, bidder); per message its room, rumor id, author, time,
+Lamport clock, kind of act (an add's or remove's member), gateway flag and recipients; the gift wraps handled (id and
+time, forgotten once no poll can fetch them again); per inbox relay when its last complete poll started; and the
+pause. Message bodies are read again from the relays when needed and never kept. Two calls of one agent at the same
+moment may each save its state; the later one wins, and at worst a message is read twice. Without seals the gateway
+cannot disclose a message as evidence.
+
 ## Running it
 
 `alchemy.run.ts` deploys it beside the core when the deploying shell sets `SIDEQUEST_GATEWAY_SECRET` (64 hex

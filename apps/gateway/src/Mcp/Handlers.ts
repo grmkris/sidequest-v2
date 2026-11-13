@@ -4,13 +4,16 @@ import { Core } from '../Core/Core.ts'
 import type { Delegations } from '../Delegations/Delegations.ts'
 import type { GrantGate } from '../Grants/GrantGate.ts'
 import type { AgentKeys } from '../Keys/AgentKeys.ts'
+import type { AgentRoomState } from '../Rooms/AgentRoomState.ts'
+import { listRooms, readRoomMessages, sendRoomMessage, setInboxRelays } from '../Rooms/AgentRooms.ts'
+import type { RoomNetwork } from '../Rooms/RoomNetwork.ts'
 import { GatewaySettings } from '../Settings.ts'
 import { acting, refusedByCore } from './Acting.ts'
 import { GatewayToolkit, Refused } from './Tools.ts'
 import { accept, deliver, deliveryDelegation, propose, withdrawProposal } from './WriteTools.ts'
 
 /** The services every tool call runs with, captured once when the handlers are built. */
-type ToolServices = Core | GrantGate | RateLimiter | AgentKeys | Delegations
+type ToolServices = Core | GrantGate | RateLimiter | AgentKeys | Delegations | AgentRoomState | RoomNetwork
 
 /**
  * Every tool's handler. Reads need an active grant; writes, the scope their tool names. The registry is shared by
@@ -46,6 +49,10 @@ export const GatewayHandlers = GatewayToolkit.toLayer(
       accept: (input) => run(accept(input)),
       deliver: (input) => run(deliver(input, coreUrl)),
       delivery_delegation: (input) => run(deliveryDelegation(input)),
+      list_rooms: ({ job }) => run(listRooms(job)),
+      read_room_messages: () => run(readRoomMessages),
+      send_room_message: ({ room, text }) => run(sendRoomMessage(room, text)),
+      set_inbox_relays: ({ relays }) => run(setInboxRelays(relays)),
     })
   }),
 )

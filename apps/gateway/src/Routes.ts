@@ -12,6 +12,8 @@ import { consentRoutes } from './OAuth/ConsentRoutes.ts'
 import { oauthRoutes } from './OAuth/OAuthRoutes.ts'
 import { OperatorAuth } from './Operators/Nip98.ts'
 import { operatorRoutes } from './Operators/OperatorRoutes.ts'
+import { pauseRoutes } from './Operators/PauseRoutes.ts'
+import { AgentRoomState } from './Rooms/AgentRoomState.ts'
 
 /** `GET /status`: the service and its release, for readiness checks. */
 const statusRoute = (release: string) =>
@@ -34,13 +36,20 @@ const Services = Layer.mergeAll(
   RateLimiter.layer,
   GrantGate.layer,
   Delegations.layer,
+  AgentRoomState.layer,
 ).pipe(Layer.provideMerge(AgentKeys.layer))
 
 /**
  * Every route of the gateway: MCP at `/mcp`, OAuth and its consent page, the operator's API and the status. Needs the
- * database's `SqlClient`, the `GatewaySettings`, the `Core` and the fetcher of clients' metadata documents.
+ * database's `SqlClient`, the `GatewaySettings`, the `Core`, the `RoomNetwork` and the fetcher of clients' metadata
+ * documents.
  */
 export const gatewayRoutes = (release: string) =>
-  Layer.mergeAll(mcpRoutes(release), oauthRoutes, consentRoutes, operatorRoutes, statusRoute(release)).pipe(
-    Layer.provide(Services),
-  )
+  Layer.mergeAll(
+    mcpRoutes(release),
+    oauthRoutes,
+    consentRoutes,
+    operatorRoutes,
+    pauseRoutes,
+    statusRoute(release),
+  ).pipe(Layer.provide(Services))

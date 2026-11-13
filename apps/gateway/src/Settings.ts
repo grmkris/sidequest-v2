@@ -10,6 +10,9 @@ export interface GatewayConfig {
   readonly secret: Redacted.Redacted<GatewaySecret>
   readonly grantCacheSeconds: number
   readonly release: string
+  /** Which relays room tools dial: `public` (`wss`, a public host) always outside tests; `local` also allows the test
+   * relay on `ws://127.0.0.1`. Absent, `public`. */
+  readonly relayPolicy?: 'public' | 'local'
 }
 
 export class GatewaySettings extends Context.Service<GatewaySettings, GatewayConfig>()(
@@ -28,6 +31,7 @@ export const gatewayVariableNames = {
   secret: 'SIDEQUEST_GATEWAY_SECRET',
   grantCacheSeconds: 'SIDEQUEST_GRANT_CACHE_SECONDS',
   release: 'SIDEQUEST_RELEASE',
+  relayPolicy: 'SIDEQUEST_RELAY_POLICY',
 } as const
 
 const HttpUrl = Schema.String.check(Schema.isPattern(/^https?:\/\/[^\s/]+$/u))
@@ -50,6 +54,9 @@ export const settingsFrom = (
     secret: Result.map(read(gatewayVariableNames.secret, GatewaySecret), Redacted.make),
     grantCacheSeconds:
       environment[cacheName] === undefined ? Result.succeed(defaultGrantCacheSeconds) : read(cacheName, CacheSeconds),
+    relayPolicy: Result.succeed<'public' | 'local'>(
+      environment[gatewayVariableNames.relayPolicy] === 'local' ? 'local' : 'public',
+    ),
     release: Result.succeed(
       Option.getOrElse(
         Schema.decodeUnknownOption(Schema.NonEmptyString)(environment[gatewayVariableNames.release]),

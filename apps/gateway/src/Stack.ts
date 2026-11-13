@@ -10,6 +10,8 @@ export interface GatewayDeployment {
   readonly release: string
   readonly secret: Redacted.Redacted
   readonly grantCacheSeconds?: number
+  /** `local` only in the native tests, so room tools may reach the test relay on 127.0.0.1. */
+  readonly relayPolicy?: 'local'
 }
 
 /**
@@ -17,7 +19,7 @@ export interface GatewayDeployment {
  * `workers.dev` URL, configured with the core's public URL and nothing else of the core's. The secret binds as a
  * Worker secret. Answers the gateway's URL.
  */
-export const gatewayWorker = ({ coreUrl, release, secret, grantCacheSeconds }: GatewayDeployment) =>
+export const gatewayWorker = ({ coreUrl, release, secret, grantCacheSeconds, relayPolicy }: GatewayDeployment) =>
   Effect.gen(function* () {
     yield* GatewayDatabase
     const gateway = yield* GatewayWorker
@@ -29,6 +31,7 @@ export const gatewayWorker = ({ coreUrl, release, secret, grantCacheSeconds }: G
         ...(grantCacheSeconds === undefined
           ? {}
           : { [gatewayVariableNames.grantCacheSeconds]: String(grantCacheSeconds) }),
+        ...(relayPolicy === undefined ? {} : { [gatewayVariableNames.relayPolicy]: relayPolicy }),
       },
     })
     return { gatewayUrl: gateway.url.as<string>() }
