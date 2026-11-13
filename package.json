@@ -44,6 +44,7 @@
     "test:native": "VITE_SIDEQUEST_RELEASE=acceptance bun run build && ALCHEMY_TEST_DEV=1 bun test packages/server/src/test/Runtime.native.test.ts",
     "test:unit": "vitest run --exclude **/*.native.test.ts",
     "gate:rehearse": "bun tools/gate-rehearsal.ts",
+    "gate:rehearse:events": "REHEARSAL_PATH=events bun tools/gate-rehearsal.ts",
     "check": "bun run format:check && bun run agents:check && bun run provenance:check && bun run vendor:check && bun run i18n:check && bun run translations:check && bun run graph:check && bun run suppressions:check && bun run canaries:check && bun run typecheck && bun run lint && bun run unused:check && bun run unused:production && bun run duplicates:check && bun run test && bun run bundle:check",
     "i18n:check": "bun tools/i18n-check.ts",
     "i18n:generate": "bun tools/i18n-check.ts --write",

@@ -1,9 +1,9 @@
 import { type BuyerJobView, type FundingRequest, type JobId, Relayed } from '@sidequest/protocol'
-import { paymentInfoHash, paymentOf } from '@sidequest/settlement/Payment'
+import { type PaymentInfo, paymentInfoHash, paymentOf } from '@sidequest/settlement/Payment'
 import { arcTestnet } from '@sidequest/settlement/SettlementChain'
 import { Effect } from 'effect'
 import { type Address, encodeFunctionData, getAddress, isHex, parseAbi } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { type Balance, type CaseResult, step } from './Evidence.ts'
 import { award, buyerView, decide, deliver, fund, type World } from './Hire.ts'
 import { bodyOf, eventually, inboxOf } from './Surfaces.ts'
@@ -17,7 +17,14 @@ const fee = (world: World, captured: bigint) => (captured * 500n) / 10_000n
 
 type Party = 'buyer' | 'worker' | 'treasury'
 
-const addressOf = (world: World, party: Party): Address =>
+/** Whose balances a case measures: the buyer's and the worker's wallets, and the chain's treasury. */
+export interface Wallets {
+  readonly chain: World['chain']
+  readonly buyer: { readonly wallet: { readonly address: Address } }
+  readonly worker: { readonly wallet: { readonly address: Address } }
+}
+
+const addressOf = (world: Wallets, party: Party): Address =>
   party === 'buyer'
     ? world.buyer.wallet.address
     : party === 'worker'
@@ -25,7 +32,7 @@ const addressOf = (world: World, party: Party): Address =>
       : world.chain.treasury
 
 /** Balances of the three parties now, to compare with after. */
-const balances = async (world: World) => {
+export const balances = async (world: Wallets) => {
   const parties: ReadonlyArray<Party> = ['buyer', 'worker', 'treasury']
   return new Map(
     await Promise.all(
@@ -35,7 +42,11 @@ const balances = async (world: World) => {
 }
 
 /** Each party's change in balance, checked against what the case expects. */
-const settled = async (world: World, before: Map<Party, bigint>, expected: Readonly<Record<Party, bigint>>) => {
+export const settled = async (
+  world: Wallets,
+  before: Map<Party, bigint>,
+  expected: Readonly<Record<Party, bigint>>,
+) => {
   const after = await balances(world)
   const rows: Array<Balance> = (['buyer', 'worker', 'treasury'] as const).map((party) => {
     const was = before.get(party) ?? 0n
@@ -159,7 +170,7 @@ export const splitByRuling = async (world: World): Promise<CaseResult> => {
 }
 
 /** Wait until the chain's clock passes `at`: move it where it can be moved, else wait for it. */
-const passTime = async (world: World, at: number) => {
+export const passTime = async (world: Pick<World, 'chain'>, at: number) => {
   const now = await world.chain.now()
   if (now > at) return
   if (world.chain.advance !== undefined) return world.chain.advance(at - now + 1)
@@ -193,6 +204,24 @@ const paymentOfJob = async (world: World, job: JobId, funding: FundingRequest) =
 const reclaimAbi = parseAbi([
   'function reclaim((address operator, address payer, address receiver, address token, uint120 maxAmount, uint48 preApprovalExpiry, uint48 authorizationExpiry, uint48 refundExpiry, uint16 minFeeBps, uint16 maxFeeBps, address feeReceiver, uint256 salt) paymentInfo)',
 ])
+
+/** The payer reclaims `info` from the escrow directly, as anyone's wallet can once it expired; fails if it reverts. */
+export const reclaimFromEscrow = async (world: Pick<World, 'chain'>, payer: PrivateKeyAccount, info: PaymentInfo) => {
+  const hash = await world.chain.client.sendRawTransaction({
+    serializedTransaction: await payer.signTransaction({
+      type: 'eip1559',
+      chainId: 5042002,
+      to: world.chain.escrow,
+      data: encodeFunctionData({ abi: reclaimAbi, functionName: 'reclaim', args: [info] }),
+      nonce: await world.chain.client.getTransactionCount({ address: payer.address, blockTag: 'pending' }),
+      gas: 300_000n,
+      ...(await world.chain.client.estimateFeesPerGas()),
+    }),
+  })
+  const receipt = await world.chain.client.waitForTransactionReceipt({ hash })
+  if (receipt.status !== 'success') throw new Error('The reclaim reverted')
+  return hash
+}
 
 /** Funded jobs: one awaiting the saga's refund and, where (d) runs, one whose settlement calls the node withholds. */
 export interface Undelivered {
@@ -271,20 +300,7 @@ export const reclaimedAfterExpiry = async (world: World, funded: Undelivered): P
   })
   const payment = await paymentOfJob(world, job, funding)
   await passTime(world, funding.authorizationExpiry)
-  const buyer = world.buyer.wallet
-  const hash = await world.chain.client.sendRawTransaction({
-    serializedTransaction: await buyer.signTransaction({
-      type: 'eip1559',
-      chainId: 5042002,
-      to: world.chain.escrow,
-      data: encodeFunctionData({ abi: reclaimAbi, functionName: 'reclaim', args: [payment.info] }),
-      nonce: await world.chain.client.getTransactionCount({ address: buyer.address, blockTag: 'pending' }),
-      gas: 300_000n,
-      ...(await world.chain.client.estimateFeesPerGas()),
-    }),
-  })
-  const receipt = await world.chain.client.waitForTransactionReceipt({ hash })
-  if (receipt.status !== 'success') throw new Error('The reclaim reverted')
+  const hash = await reclaimFromEscrow(world, world.buyer.wallet, payment.info)
   step(world.evidence, {
     case: 'd',
     step: 'after the escrow expired the buyer reclaimed on the escrow directly',

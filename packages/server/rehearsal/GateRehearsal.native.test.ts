@@ -1,12 +1,4 @@
-import { expect } from 'bun:test'
-import * as Cloudflare from '@alchemy.run/cloudflare'
-import * as Alchemy from 'alchemy'
-import * as Test from 'alchemy/Test/Bun'
-import { Effect, Redacted } from 'effect'
-import * as FetchHttpClient from 'effect/http/FetchHttpClient'
-import { privateKeyToAccount } from 'viem/accounts'
-import { type SettlementVariables, settlementVariablesOf } from '../src/Settlement/SettlementStage.ts'
-import { compatibility, sidequestWorkers } from '../src/Stack.ts'
+import { Effect } from 'effect'
 import {
   fundUndelivered,
   paidOnApproval,
@@ -16,10 +8,10 @@ import {
   type Undelivered,
 } from './Cases.ts'
 import { arcTestnetFromEnvironment, localChainMissing, type RehearsalChain, startAnvil } from './Chain.ts'
-import { type CaseResult, evidenceFor, summaryOf, writeEvidence } from './Evidence.ts'
+import { evidenceFor } from './Evidence.ts'
 import type { World } from './Hire.ts'
-import { relayerSettled } from './RelayerCheck.ts'
-import { type RpcProxy, startProxy } from './RpcProxy.ts'
+import { startProxy } from './RpcProxy.ts'
+import { chainEvidence, rehearsalRun, rehearsalStage, settlementFor } from './Stage.ts'
 import { eventually, type Person, registerAgent, signIn } from './Surfaces.ts'
 
 // The phase 1 technical gate, rehearsed (docs/ROADMAP.md): two unrelated accounts complete escrowed hires through MCP
@@ -35,72 +27,12 @@ const release = process.env['VITE_SIDEQUEST_RELEASE'] ?? 'rehearsal'
 const mode = process.env['REHEARSAL_CHAIN'] === 'arc-testnet' ? 'arc-testnet' : 'anvil'
 const hour = 3600
 
-/** What the stack is deployed with; filled in before each deploy, read when the stack's program runs. */
-const settings: { rpcUrl: string; settlement: SettlementVariables } = { rpcUrl: 'http://127.0.0.1:9', settlement: {} }
+const stage = rehearsalStage(release, `local-rehearsal-${mode}`)
+const { test, deployWith } = stage
 
-const Stack = Alchemy.Stack(
-  'SidequestGateRehearsal',
-  { providers: Cloudflare.providers(), state: Alchemy.localState() },
-  Effect.suspend(() =>
-    sidequestWorkers(
-      release,
-      (api) =>
-        Cloudflare.Worker('SidequestWebsite', {
-          main: 'apps/web/dist/server/fetch.js',
-          assets: { directory: 'apps/web/dist/client' },
-          compatibility,
-          env: { API: api },
-        }),
-      settings.rpcUrl,
-      settings.settlement,
-    ),
-  ),
-)
-
-const { test, beforeAll, afterAll, deploy, destroy } = Test.make({
-  providers: Cloudflare.providers(),
-  state: Alchemy.localState(),
-  stage: `local-rehearsal-${mode}`,
-  dev: true,
-  sidecar: { omitEnv: ['CLOUDFLARE_'] },
-})
-
-/** Settlement as a stage binds it, for this chain: the keys as secrets, a fast saga pace for a chain whose clock moves. */
-const settlementFor = (chain: RehearsalChain, arbitrationOperator: string | undefined) => {
-  const local =
-    chain.mode === 'anvil'
-      ? {
-          SIDEQUEST_ESCROW_ADDRESS: chain.escrow,
-          SIDEQUEST_COLLECTOR_ADDRESS: chain.collector,
-          SIDEQUEST_TOKEN_DOMAIN_NAME: chain.tokenDomain.name,
-          SIDEQUEST_TOKEN_DOMAIN_VERSION: chain.tokenDomain.version,
-        }
-      : {}
-  const plain = {
-    SIDEQUEST_OPERATOR_ADDRESS: chain.operator,
-    SIDEQUEST_TREASURY_ADDRESS: chain.treasury,
-    SIDEQUEST_ARBITRATOR_ADDRESS: privateKeyToAccount(chain.keys.arbitrator).address,
-    SIDEQUEST_CONFIRMATIONS: String(chain.confirmations),
-    SIDEQUEST_SETTLEMENT_TIMING: chain.mode === 'anvil' ? '250,1000,1000' : '2000,15000,15000',
-    ...local,
-    ...(arbitrationOperator === undefined ? {} : { SIDEQUEST_ARBITRATION_OPERATOR: arbitrationOperator }),
-  }
-  const secrets = {
-    SIDEQUEST_RELAYER_KEY: Redacted.make(chain.keys.relayer),
-    SIDEQUEST_ARBITRATOR_KEY: Redacted.make(chain.keys.arbitrator),
-  }
-  return settlementVariablesOf(plain, secrets)
-}
-
-/** Deploy (or redeploy) the stack with `settlement`, and wait until the edge serves the API. */
-const deployWith = (proxy: RpcProxy, settlement: SettlementVariables) =>
-  Effect.gen(function* () {
-    settings.rpcUrl = proxy.url
-    settings.settlement = settlement
-    const { url } = yield* deploy(Stack)
-    yield* Test.getWhenReady(`${url}/api/status`)
-    return url
-  }).pipe(Effect.provide(FetchHttpClient.layer))
+/** Settlement for this chain, naming the arbitration operator once its account exists. */
+const settlementOf = (chain: RehearsalChain, arbitrationOperator: string | undefined) =>
+  settlementFor(chain, arbitrationOperator === undefined ? {} : { SIDEQUEST_ARBITRATION_OPERATOR: arbitrationOperator })
 
 /** A well-formed job id no job has: a ruling for it is refused only after the arbitration operator is checked. */
 const noJob = 'job_00000000000000000000000000'
@@ -135,9 +67,9 @@ const startWorld = Effect.gen(function* () {
     mode === 'anvil' ? startAnvil(250_000_000n) : arcTestnetFromEnvironment(process.env),
   )
   const proxy = startProxy(chain.rpcUrl, { chainId: 5042002, escrow: chain.escrow, operator: chain.operator })
-  const first = yield* deployWith(proxy, yield* settlementFor(chain, undefined))
+  const first = yield* deployWith(proxy, yield* settlementOf(chain, undefined))
   const arbitration = yield* Effect.promise(() => signIn(first, 'arbitration', chain.keys.arbitration))
-  const url = yield* deployWith(proxy, yield* settlementFor(chain, arbitration.account))
+  const url = yield* deployWith(proxy, yield* settlementOf(chain, arbitration.account))
   yield* Effect.promise(() => untilConfigured(arbitration))
   const buyer = yield* Effect.promise(() => signIn(url, 'buyer', chain.keys.buyer))
   const worker = yield* Effect.promise(() => signIn(url, 'worker', chain.keys.worker))
@@ -147,46 +79,15 @@ const startWorld = Effect.gen(function* () {
     registerAgent(url, worker, 'Worker’s agent', ['discuss', 'propose', 'deliver']),
   )
   const evidence = evidenceFor(mode, release, {
-    chainId: 5042002,
-    escrow: chain.escrow,
-    collector: chain.collector,
-    token: chain.token,
-    operator: chain.operator,
-    treasury: chain.treasury,
-    amount: String(chain.amount),
+    ...chainEvidence(chain),
     buyer: buyer.wallet.address,
     worker: worker.wallet.address,
-    relayer: privateKeyToAccount(chain.keys.relayer).address,
-    arbitrator: privateKeyToAccount(chain.keys.arbitrator).address,
   })
   const world: World = { url, chain, proxy, buyer, worker, arbitration, buyerAgent, workerAgent, evidence }
   return world
 })
 
-const world = beforeAll(startWorld, { timeout: 240_000 })
-afterAll(
-  Effect.gen(function* () {
-    const { chain, proxy } = yield* world
-    proxy.stop()
-    chain.stop()
-    yield* destroy(Stack)
-  }),
-  { timeout: 60_000 },
-)
-
-/** Run a case and record it, passed or failed, in the evidence. */
-const rehearse = (name: string, title: string, run: (world: World) => Promise<CaseResult>) =>
-  Effect.gen(function* () {
-    const current = yield* world
-    const outcome = yield* Effect.promise(() =>
-      run(current).then(
-        (result) => result,
-        (cause: unknown): CaseResult => ({ case: name, title, status: 'failed', reason: String(cause) }),
-      ),
-    )
-    current.evidence.cases.push(outcome)
-    expect(outcome).toMatchObject({ status: 'passed' })
-  })
+const { world, rehearse, finish } = rehearsalRun(stage, startWorld)
 
 test(
   '(a) an agent proposes, the buyer funds, the work is delivered and approved: paid with the exact fee',
@@ -240,14 +141,4 @@ test(
   { timeout: 300_000 },
 )
 
-test(
-  'leaves no relayer transaction unsettled, and writes the evidence',
-  Effect.gen(function* () {
-    const current = yield* world
-    current.evidence.relayer = yield* Effect.promise(() => relayerSettled(current))
-    const path = writeEvidence(current.evidence)
-    process.stdout.write(`\n${summaryOf(current.evidence)}\n  evidence: ${path.pathname}\n\n`)
-    expect(current.evidence.cases.filter(({ status }) => status === 'failed')).toEqual([])
-  }),
-  { timeout: 60_000 },
-)
+test('leaves no relayer transaction unsettled, and writes the evidence', finish, { timeout: 60_000 })

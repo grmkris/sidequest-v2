@@ -54,8 +54,16 @@ export interface RelayerAccount {
   }>
 }
 
+/** Which gate a rehearsal rehearses: phase 1's, through accounts and MCP, or phase 2's, through signed events. */
+export type Rehearsal = 'phase-1-technical-gate' | 'phase-2-events-gate'
+
+const titles: Readonly<Record<Rehearsal, string>> = {
+  'phase-1-technical-gate': 'Phase 1 technical gate rehearsal',
+  'phase-2-events-gate': 'Phase 2 gate rehearsal through signed events',
+}
+
 export interface Evidence {
-  readonly rehearsal: 'phase-1-technical-gate'
+  readonly rehearsal: Rehearsal
   readonly mode: string
   readonly startedAt: string
   readonly release: string
@@ -73,8 +81,9 @@ export const evidenceFor = (
   mode: string,
   release: string,
   chain: Readonly<Record<string, string | number>>,
+  rehearsal: Rehearsal = 'phase-1-technical-gate',
 ): Evidence => ({
-  rehearsal: 'phase-1-technical-gate',
+  rehearsal,
   mode,
   startedAt: new Date(started).toISOString(),
   release,
@@ -103,7 +112,7 @@ export const writeEvidence = (evidence: Evidence) => {
 /** A summary a person reads: each case, its outcome and balances, and the relayer's nonces. */
 export const summaryOf = (evidence: Evidence) => {
   const lines = [
-    `Phase 1 technical gate rehearsal on ${evidence.mode} (release ${evidence.release}), ${Math.round((evidence.durationMs ?? 0) / 1000)} s`,
+    `${titles[evidence.rehearsal]} on ${evidence.mode} (release ${evidence.release}), ${Math.round((evidence.durationMs ?? 0) / 1000)} s`,
   ]
   for (const result of evidence.cases) {
     lines.push(

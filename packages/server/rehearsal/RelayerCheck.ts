@@ -53,7 +53,7 @@ const storedIntents = (signer: string) => {
 }
 
 /** Whether the chain mined one of `hashes`. */
-const anyMined = async (world: World, hashes: string | null) => {
+const anyMined = async (world: Pick<World, 'chain'>, hashes: string | null) => {
   for (const hash of (hashes ?? '').split(',').filter((each) => isHex(each))) {
     const receipt = await world.chain.client.getTransactionReceipt({ hash }).catch(() => undefined)
     if (receipt !== undefined) return true
@@ -62,7 +62,7 @@ const anyMined = async (world: World, hashes: string | null) => {
 }
 
 /** The relayer's account of its nonces; fails if anything it sent is still unsettled. */
-export const relayerSettled = async (world: World): Promise<RelayerAccount> => {
+export const relayerSettled = async (world: Pick<World, 'chain' | 'proxy'>): Promise<RelayerAccount> => {
   const address = privateKeyToAccount(world.chain.keys.relayer).address
   const client = world.chain.client
   const latestNonce = await client.getTransactionCount({ address, blockTag: 'latest' })
