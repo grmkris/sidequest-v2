@@ -1,0 +1,14 @@
+{
+  "name": "@sidequest/serving",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./test/*": "./test/*.ts",
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "@sidequest/protocol": "workspace:*",
+    "effect": "catalog:"
+  }
+}

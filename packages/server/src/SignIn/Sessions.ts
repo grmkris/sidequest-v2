@@ -10,7 +10,7 @@ import {
 import { Context, Effect, Layer, Option, Redacted, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { stored } from './Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /** How long a session lasts after sign-in. */
 export const sessionSeconds = 7 * 24 * 60 * 60

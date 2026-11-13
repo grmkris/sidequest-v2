@@ -17,7 +17,7 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { cursors, nextCursor, type PageRequest, pageOf, rowsFor } from '../Reads/Pages.ts'
 import { randomHex } from '../SignIn/Sessions.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /**
  * The live token a bearer credential names: which token, for which agent, until when, and, for a token issued over

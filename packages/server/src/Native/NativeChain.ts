@@ -11,7 +11,7 @@ import * as SqlSchema from 'effect/sql/SqlSchema'
 import type { Hex } from 'viem'
 import { Escrow } from '../Settlement/Escrow.ts'
 import { ArcRpc } from '../SignIn/ArcRpc.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /**
  * What Nostr-native settlement needs of the chain: the settlement chain, its time (the newest confirmed block's

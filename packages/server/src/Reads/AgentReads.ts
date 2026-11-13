@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { agentColumns, agentRowOf, StoredAgent } from '../Projections/D1AgentStore.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import { cursors, nextCursor, type PageRequest, pageOf, rowsFor } from './Pages.ts'
 
 /** A page's cursor: the id of the last agent on it. */

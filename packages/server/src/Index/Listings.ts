@@ -10,7 +10,7 @@ import { Context, Effect, Layer, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { cursors, nextCursor, pageOf, type PageRequest, rowsFor } from '../Reads/Pages.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import type { ListingRow } from './Derived.ts'
 
 /**

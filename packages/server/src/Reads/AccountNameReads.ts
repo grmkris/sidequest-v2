@@ -2,7 +2,7 @@ import { AccountId, AccountName, type Unavailable } from '@sidequest/protocol'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /**
  * Reading the names accounts go by from the `account_names` projection: every name a page shows in one statement,

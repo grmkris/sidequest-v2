@@ -1,13 +1,7 @@
 import { unixSeconds } from '@sidequest/domain/Authority'
 import type { UnixSeconds } from '@sidequest/protocol'
-import { ByteSize, DateTime, Effect, Option, Predicate, Redacted } from 'effect'
-import * as HttpIncomingMessage from 'effect/http/HttpIncomingMessage'
-import type { HttpServerRequest } from 'effect/http/HttpServerRequest'
-import * as HttpServerResponse from 'effect/http/HttpServerResponse'
-import { AgentAccess } from '../Agents/AgentAccess.ts'
-import { AgentTokens } from '../Agents/AgentTokens.ts'
-import { resourceOf } from './Endpoints.ts'
-import { type ConnectionRow, Connections } from './OAuthStore.ts'
+import { resourceOf } from '@sidequest/serving/Endpoints'
+import { formOf, invalidGrant } from '@sidequest/serving/OAuthServer'
 import {
   accessSeconds,
   codePattern,
@@ -19,28 +13,14 @@ import {
   refreshPattern,
   refreshSeconds,
   s256,
-  singleValued,
   verifierPattern,
-} from './Secrets.ts'
-
-/** The largest token or revocation request read. */
-const maxFormBody = ByteSize.kibibytes(16)
-
-const isForm = (contentType: string | undefined) =>
-  /^application\/x-www-form-urlencoded\s*(?:;|$)/iu.test(contentType ?? '')
-
-/** A token or revocation request's parameters: a form, each parameter once (RFC 6749 §3.2). */
-const formOf = (request: HttpServerRequest) =>
-  Effect.gen(function* () {
-    if (!isForm(request.headers['content-type'])) return undefined
-    const text = yield* Effect.option(request.text)
-    return Option.match(text, {
-      onNone: () => undefined,
-      onSome: (body) => singleValued(new URLSearchParams(body)),
-    })
-  }).pipe(Effect.provideService(HttpIncomingMessage.MaxBodySize, maxFormBody))
-
-const invalidGrant = oauthError('invalid_grant', 'The grant is unknown, used, expired, revoked or not this client’s.')
+} from '@sidequest/serving/Secrets'
+import { DateTime, Effect, Option, Predicate, Redacted } from 'effect'
+import type { HttpServerRequest } from 'effect/http/HttpServerRequest'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import { AgentAccess } from '../Agents/AgentAccess.ts'
+import { AgentTokens } from '../Agents/AgentTokens.ts'
+import { type ConnectionRow, Connections } from './OAuthStore.ts'
 
 type Form = Readonly<Record<string, string>>
 

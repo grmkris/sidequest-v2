@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { Effect, Layer } from 'effect'
 import { TestClock } from 'effect/testing'
 import { describe, expect } from 'vitest'
-import { RateLimiter, windowOf } from '../src/Index/RateLimiter.ts'
+import { RateLimiter, windowOf } from '@sidequest/serving/RateLimiter'
 import { localSql } from './LocalSql.ts'
 
 const limit = { limit: 3, windowSeconds: 60 }

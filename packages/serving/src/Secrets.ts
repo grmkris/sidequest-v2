@@ -2,7 +2,13 @@ import { textDigest, webCrypto } from '@sidequest/protocol'
 import { Effect, Redacted } from 'effect'
 import { Base64Url } from 'effect/encoding'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
-import { randomHex } from '../SignIn/Sessions.ts'
+
+/** `size` random bytes as lowercase hex, from Web Crypto. */
+export const randomHex = (size: number) =>
+  webCrypto.randomBytes(size).pipe(
+    Effect.map((bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')),
+    Effect.orDie,
+  )
 
 /** How long an authorization request waits for the person's consent. */
 export const requestSeconds = 10 * 60

@@ -3,7 +3,7 @@ import type { Unavailable } from '@sidequest/protocol'
 import { Context, Effect, Layer, Match, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /** One chain fact as the index keeps it: the fact, and the chain (CAIP-2) and transaction its log is in. */
 export interface ChainLog {

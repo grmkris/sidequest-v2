@@ -14,6 +14,7 @@
     "@sidequest/fold": "workspace:*",
     "@sidequest/nostr": "workspace:*",
     "@sidequest/protocol": "workspace:*",
+    "@sidequest/serving": "workspace:*",
     "@sidequest/settlement": "workspace:*",
     "alchemy": "catalog:",
     "effect": "catalog:",

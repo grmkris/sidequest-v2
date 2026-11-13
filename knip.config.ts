@@ -18,6 +18,7 @@ export default {
       // it is no package to list.
       ignoreDependencies: ['cloudflare'],
     },
+    'packages/serving': { project: ['src/**/*.ts!', 'test/**/*.ts'] },
     ...Object.fromEntries(
       ['domain', 'observability', 'server', 'settlement'].map((name) => [
         `packages/${name}`,

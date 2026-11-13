@@ -19,7 +19,8 @@ import { EventStore } from '../Index/EventStore.ts'
 import { Ingest, nowSeconds } from '../Index/Ingest.ts'
 import { Listings } from '../Index/Listings.ts'
 import { Outbox } from '../Index/Outbox.ts'
-import { publishLimits, RateLimiter } from '../Index/RateLimiter.ts'
+import { RateLimiter } from '@sidequest/serving/RateLimiter'
+import { publishLimits } from '../Index/PublishLimits.ts'
 import { type EventRefused, validateEvent } from '../Index/Validation.ts'
 
 /** A response anyone, and any cache, may keep for `seconds`. */

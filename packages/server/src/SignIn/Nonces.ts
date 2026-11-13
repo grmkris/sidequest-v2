@@ -1,7 +1,7 @@
 import type { Unavailable, UnixSeconds } from '@sidequest/protocol'
 import { Context, Effect, Layer } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
-import { stored } from './Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /** A nonce issued for one wallet to sign in to one site, until `expiresAt`. */
 export interface IssuedNonce {

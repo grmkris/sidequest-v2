@@ -115,6 +115,7 @@
         "@sidequest/fold": "workspace:*",
         "@sidequest/nostr": "workspace:*",
         "@sidequest/protocol": "workspace:*",
+        "@sidequest/serving": "workspace:*",
         "@sidequest/settlement": "workspace:*",
         "alchemy": "catalog:",
         "effect": "catalog:",
@@ -123,6 +124,13 @@
       "devDependencies": {
         "@modelcontextprotocol/client": "2.4.0",
         "@types/node": "catalog:",
+      },
+    },
+    "packages/serving": {
+      "name": "@sidequest/serving",
+      "dependencies": {
+        "@sidequest/protocol": "workspace:*",
+        "effect": "catalog:",
       },
     },
     "packages/settlement": {
@@ -612,6 +620,8 @@
     "@sidequest/protocol": ["@sidequest/protocol@workspace:packages/protocol"],
 
     "@sidequest/server": ["@sidequest/server@workspace:packages/server"],
+
+    "@sidequest/serving": ["@sidequest/serving@workspace:packages/serving"],
 
     "@sidequest/settlement": ["@sidequest/settlement@workspace:packages/settlement"],
 

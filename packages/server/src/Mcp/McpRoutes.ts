@@ -1,7 +1,7 @@
 import { AgentToolkit } from '@sidequest/protocol'
 import { Layer } from 'effect'
 import { McpProtocol, McpServer } from 'effect/ai'
-import { mcpPath } from '../OAuth/Endpoints.ts'
+import { mcpPath } from '@sidequest/serving/Endpoints'
 import { BearerAuth } from './BearerAuth.ts'
 import { AccountHandlers } from './Tools/AccountHandlers.ts'
 import { DirectoryHandlers } from './Tools/DirectoryHandlers.ts'

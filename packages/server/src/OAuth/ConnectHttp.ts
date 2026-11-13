@@ -12,10 +12,11 @@ import { DateTime, Effect, Option, Redacted } from 'effect'
 import type { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import { HttpApiBuilder } from 'effect/http-api'
 import { AgentAccess } from '../Agents/AgentAccess.ts'
+import { ConnectRequests, type PendingRequest } from '@sidequest/serving/OAuthRequests'
+import { redirectShown, withResponse } from '@sidequest/serving/RedirectUris'
+import { codeSeconds, hashOf, newSecret } from '@sidequest/serving/Secrets'
 import { bindingCookieName } from './Endpoints.ts'
-import { type ConnectionRow, ConnectRequests, Connections, type PendingRequest } from './OAuthStore.ts'
-import { redirectShown, withResponse } from './RedirectUris.ts'
-import { codeSeconds, hashOf, newSecret } from './Secrets.ts'
+import { type ConnectionRow, Connections } from './OAuthStore.ts'
 
 const now = Effect.map(DateTime.now, unixSeconds)
 

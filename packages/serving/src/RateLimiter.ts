@@ -1,24 +1,17 @@
 import { RateLimited, type Unavailable } from '@sidequest/protocol'
-import { Context, Effect, Layer, Schema } from 'effect'
+import { Clock, Context, Effect, Layer, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { stored } from '../SignIn/Stored.ts'
-import { nowSeconds } from './Ingest.ts'
+import { stored } from './Stored.ts'
+
+/** The clock's time in whole Unix seconds. */
+const nowSeconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(millis / 1000))
 
 /** At most `limit` takes per bucket in each window of `windowSeconds`. */
 export interface Limit {
   readonly limit: number
   readonly windowSeconds: number
 }
-
-/**
- * Publish-through's limits: a client (by IP address) may send 120 events a minute, valid or not, and one key may
- * publish 30. An honest client publishes a handful per action; a relay (strfry, nostr-rs-relay) allows similar.
- */
-export const publishLimits = {
-  perClient: { limit: 120, windowSeconds: 60 },
-  perKey: { limit: 30, windowSeconds: 60 },
-} as const satisfies Record<string, Limit>
 
 /** The window a moment falls in: its start, and the seconds until the next. */
 export const windowOf = (now: number, windowSeconds: number) => {
@@ -31,8 +24,9 @@ export const windowOf = (now: number, windowSeconds: number) => {
  * so concurrent requests from the same client never both slip under the limit, and nothing is held in a Worker's
  * memory, which one isolate does not share with another. A fixed window lets a client send up to twice the limit
  * across a window's edge; for refusing floods that is enough, and it is one row per bucket and minute. D1 rather
- * than a Durable Object: the index writes to D1 on every publish already, the counter rides the same database, and the
- * tests run it on SQLite as they run everything else. `prune` deletes windows that have ended.
+ * than a Durable Object: the core's index and the agent gateway write to their D1 on every request that counts, the
+ * counter rides the same database, and the tests run it on SQLite as they run everything else. Each database that
+ * uses it has the table (`bucket`, `window_start`, `count`). `prune` deletes windows that have ended.
  */
 export class RateLimiter extends Context.Service<
   RateLimiter,

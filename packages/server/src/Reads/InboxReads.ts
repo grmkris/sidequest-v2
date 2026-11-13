@@ -3,7 +3,7 @@ import { AccountId, type BadCursor, type Cursor, type InboxEntry, type Unavailab
 import { Context, Effect, Layer, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import { cursors, nextCursor, type PageRequest, pageOf, rowsFor } from './Pages.ts'
 
 const Position = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))

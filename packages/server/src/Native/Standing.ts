@@ -15,7 +15,7 @@ import { Effect, Option, Predicate } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { Schema } from 'effect'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import { ChainFacts } from '../Index/ChainFacts.ts'
 import { EventRow, EventStore } from '../Index/EventStore.ts'
 

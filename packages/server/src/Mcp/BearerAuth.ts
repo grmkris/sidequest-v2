@@ -4,9 +4,9 @@ import * as HttpRouter from 'effect/http/HttpRouter'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { AgentAccess, bearerOf, type DenialReason } from '../Agents/AgentAccess.ts'
-import { protectedResourceMetadataOf } from '../OAuth/Endpoints.ts'
+import { protectedResourceMetadataOf } from '@sidequest/serving/Endpoints'
+import { servingRevisions } from '@sidequest/serving/Revisions'
 import { McpCaller } from './McpCaller.ts'
-import { servingRevisions } from './Revisions.ts'
 
 /** The largest MCP request body read: room for the largest valid proposal, escaped, and no more. */
 export const maxRequestBytes = 1024 * 1024

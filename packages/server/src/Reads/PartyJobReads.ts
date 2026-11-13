@@ -11,7 +11,7 @@ import { Context, Effect, Layer, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { partyJobColumns } from '../Projections/D1PartyJobStore.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import { cursors, nextCursor, type PageRequest, pageOf, rowsFor } from './Pages.ts'
 
 /** A page's cursor: the id of the last job on it; the next page holds older ones. */

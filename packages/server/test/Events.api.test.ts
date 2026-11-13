@@ -4,7 +4,7 @@ import { Schema } from 'effect'
 import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
 import { ServedApi } from '@sidequest/fold/api'
-import { publishLimits } from '../src/Index/RateLimiter.ts'
+import { publishLimits } from '../src/Index/PublishLimits.ts'
 import { eventLimits } from '../src/Index/Validation.ts'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
 import {

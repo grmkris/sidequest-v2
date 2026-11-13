@@ -5,7 +5,7 @@ import { Effect, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { EventRow } from '../Index/EventStore.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 
 /** The most proposals kept for one job that a read returns; several match only when terms and payee repeat. */
 const keptProposalLimit = 5

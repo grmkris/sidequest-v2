@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { listingColumns, listingRowOf, StoredListing } from '../Projections/D1ListingStore.ts'
-import { stored } from '../SignIn/Stored.ts'
+import { stored } from '@sidequest/serving/Stored'
 import { cursors, nextCursor, type PageRequest, pageOf, rowsFor } from './Pages.ts'
 
 const listingOf = ({ version, ...listing }: ListingRow): Listing => listing

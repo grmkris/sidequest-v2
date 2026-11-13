@@ -9,7 +9,7 @@ import { Listings } from './Listings.ts'
 import { Settler } from '../Native/Settler.ts'
 import { Outbox } from './Outbox.ts'
 import { Poller } from './Poller.ts'
-import { RateLimiter } from './RateLimiter.ts'
+import { RateLimiter } from '@sidequest/serving/RateLimiter'
 
 /**
  * The index's services over D1: its event store, ingestion, the publish-through rate limiter, the outbox, the relay
