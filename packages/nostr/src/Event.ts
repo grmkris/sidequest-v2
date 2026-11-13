@@ -1,7 +1,7 @@
 import { UnixSeconds } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { lowerHex } from './Hex.ts'
-import { PublicKey } from './Keys.ts'
+import { PublicKey } from './PublicKey.ts'
 
 /** An event's id: the SHA-256 of its NIP-01 serialization, as 64 lowercase hex characters. */
 export const EventId = lowerHex(32).pipe(Schema.brand('EventId'))

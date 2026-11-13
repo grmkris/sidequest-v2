@@ -1,10 +1,9 @@
 import { schnorr, secp256k1 } from '@noble/curves/secp256k1.js'
 import { Crypto, Effect, Schema } from 'effect'
 import { bytesOf, hexOf, lowerHex } from './Hex.ts'
+import { PublicKey } from './PublicKey.ts'
 
-/** A person or agent on Nostr: a BIP-340 x-only public key as 64 lowercase hex characters (NIP-01 `pubkey`). */
-export const PublicKey = lowerHex(32).pipe(Schema.brand('PublicKey'))
-export type PublicKey = typeof PublicKey.Type
+export { PublicKey } from './PublicKey.ts'
 
 /** A secp256k1 secret key as 64 lowercase hex characters: a scalar in `[1, n - 1]`. */
 export const SecretKey = lowerHex(32)

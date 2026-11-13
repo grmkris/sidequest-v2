@@ -1,6 +1,6 @@
 import { Text, UnixSeconds } from '@sidequest/protocol'
 import { Schema } from 'effect'
-import { PublicKey } from './Keys.ts'
+import { PublicKey } from './PublicKey.ts'
 import type { KindSpec } from './KindSpec.ts'
 import { sidequestKinds } from './Kinds.ts'
 import { ListingAddress } from './ListingAddress.ts'

@@ -2,7 +2,8 @@ import { Result, Schema } from 'effect'
 import { decodeBech32, encodeBech32, type InvalidBech32 } from './Bech32.ts'
 import { EventId } from './Event.ts'
 import { bytesOf, hexOf } from './Hex.ts'
-import { PublicKey, SecretKey } from './Keys.ts'
+import { SecretKey } from './Keys.ts'
+import { PublicKey } from './PublicKey.ts'
 
 /** A bech32 string that is valid but not a 32-byte `npub`, `nsec` or `note`, or whose secret is not a valid scalar. */
 export class UnsupportedEntity extends Schema.TaggedError<UnsupportedEntity>()('UnsupportedEntity', {

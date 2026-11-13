@@ -13,7 +13,8 @@ export {
   httpAuthTemplate,
   verifyHttpAuth,
 } from './HttpAuth.ts'
-export { freshSecretKey, PublicKey, publicKeyOf, SecretKey } from './Keys.ts'
+export { freshSecretKey, publicKeyOf, SecretKey } from './Keys.ts'
+export { PublicKey } from './PublicKey.ts'
 export { type BareEntity, decodeNip19, encodeNote, encodeNpub, encodeNsec, UnsupportedEntity } from './Nip19.ts'
 export {
   decryptNip49,

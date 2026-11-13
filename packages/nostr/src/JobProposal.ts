@@ -1,7 +1,7 @@
 import { AccountRef, Digest, Terms, termsDigest, UnixSeconds } from '@sidequest/protocol'
 import { Effect, Schema } from 'effect'
 import { EventId } from './Event.ts'
-import { PublicKey } from './Keys.ts'
+import { PublicKey } from './PublicKey.ts'
 import type { KindSpec } from './KindSpec.ts'
 import { sidequestKinds } from './Kinds.ts'
 import { eventTag, optionalTag, personTag } from './RoutingTags.ts'
