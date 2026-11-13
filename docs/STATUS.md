@@ -14,10 +14,11 @@ Built beside phase 1 and not yet used by the website, MCP or settlement, which s
 | `packages/nostr`: events, signatures, NIP-19/44/59/98, Sidequest's kinds (8410–8420), wallet-link typed data     | built, unit-tested against the NIPs' vectors                                            |
 | The index: stored events, profiles, relay lists, wallet links, agent grants; `POST /api/events` and public reads | built; tested on SQLite and in workerd; the same events in any order give the same rows |
 | Outbox and relay poller                                                                                          | built; tested against an in-process relay only; no relay is configured on any stage     |
+| The relay pipe: `GET /relay?url=` on the edge, a same-origin WebSocket to a public relay                         | built (server half); tested in workerd against an in-process relay; no page uses it yet |
 | `packages/fold`: a job's state from signed events and chain facts                                                | built and tested; nothing calls it yet                                                  |
 | Rooms                                                                                                            | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                    |
 
-Not proven for these: a connection from a deployed Worker to a public relay, the scheduled runs firing on Cloudflare, the index's queries on a deployed D1, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
+Not proven for these: a connection from a deployed Worker to a public relay (the index's or the pipe's), the pipe's per-address bounds on Cloudflare, where each isolate counts alone, the scheduled runs firing on Cloudflare, the index's queries on a deployed D1, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
 
 The roadmap's order has changed in one way: the pieces that add are built first, and wallet sign-in, sessions and the phase 1 aggregates are deleted together at the settlement cut-over, so every commit keeps a working hire. Ids are not renamed on aggregates about to be deleted.
 

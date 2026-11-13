@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { createServer, type IncomingMessage } from 'node:http'
+import { createServer, type IncomingHttpHeaders, type IncomingMessage } from 'node:http'
 import type { Duplex } from 'node:stream'
 
 // A WebSocket server for tests, on 127.0.0.1, written against RFC 6455 because Node has a WebSocket client but no
@@ -65,11 +65,11 @@ const parseFrame = (buffer: Uint8Array) => {
 const accept = (
   request: IncomingMessage,
   socket: Duplex,
-  admit: () => boolean,
+  admit: (headers: IncomingHttpHeaders) => boolean,
   connect: (peer: Peer) => PeerHandlers,
 ) => {
   const key = request.headers['sec-websocket-key']
-  if (typeof key !== 'string' || !admit()) return socket.destroy()
+  if (typeof key !== 'string' || !admit(request.headers)) return socket.destroy()
   const answer = createHash('sha1').update(`${key}${handshakeGuid}`).digest('base64')
   socket.write(
     `HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${answer}\r\n\r\n`,
@@ -95,10 +95,13 @@ const accept = (
 }
 
 /**
- * A WebSocket server on a free port of 127.0.0.1. `admit` decides whether to complete each handshake (no: the
- * connection is dropped before it opens); `connect` decides how to treat the connection once open.
+ * A WebSocket server on a free port of 127.0.0.1. `admit` decides from its headers whether to complete each handshake
+ * (no: the connection is dropped before it opens); `connect` decides how to treat the connection once open.
  */
-export const serveWebSockets = async (admit: () => boolean, connect: (peer: Peer) => PeerHandlers) => {
+export const serveWebSockets = async (
+  admit: (headers: IncomingHttpHeaders) => boolean,
+  connect: (peer: Peer) => PeerHandlers,
+) => {
   const sockets = new Set<Duplex>()
   const server = createServer((_, response) => response.writeHead(426).end())
   server.on('upgrade', (request: IncomingMessage, socket: Duplex) => {

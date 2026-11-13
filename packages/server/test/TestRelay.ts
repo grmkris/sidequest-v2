@@ -62,22 +62,25 @@ const authenticatedBy = (input: unknown, challenge: string) => {
   return { id: event.id, key: valid ? Option.some(event.pubkey) : Option.none<string>() }
 }
 
+/** A relay that behaves: open, accepting, answering every REQ to its end. */
+const wellBehaved: Behaviour = {
+  auth: false,
+  pageLimit: 500,
+  refuse: () => undefined,
+  unreachable: false,
+  dropAfterRequests: Number.POSITIVE_INFINITY,
+  silent: false,
+  noticeLength: 0,
+}
+
 /** A running test relay: its URL, what it holds and was asked, its behaviour, and a way to stop it. */
 export const startTestRelay = async (overrides: Partial<Behaviour> = {}) => {
-  const behaviour: Behaviour = {
-    auth: false,
-    pageLimit: 500,
-    refuse: () => undefined,
-    unreachable: false,
-    dropAfterRequests: Number.POSITIVE_INFINITY,
-    silent: false,
-    noticeLength: 0,
-    ...overrides,
-  }
+  const behaviour: Behaviour = { ...wellBehaved, ...overrides }
   const events = new Map<string, NostrEvent>()
   const requests: Array<Filter> = []
   const published: Array<string> = []
   const authenticated = new Set<string>()
+  const handshakes: Array<Readonly<Record<string, unknown>>> = []
   let answered = 0
 
   const onEvent = (peer: Peer, authed: boolean, input: unknown) => {
@@ -106,7 +109,10 @@ export const startTestRelay = async (overrides: Partial<Behaviour> = {}) => {
   }
 
   const server = await serveWebSockets(
-    () => !behaviour.unreachable,
+    (headers) => {
+      handshakes.push({ ...headers })
+      return !behaviour.unreachable
+    },
     (peer) => {
       const challenge = crypto.randomUUID()
       let authedAs: Option.Option<string> = Option.none()
@@ -145,6 +151,8 @@ export const startTestRelay = async (overrides: Partial<Behaviour> = {}) => {
     published,
     /** The keys that authenticated, ever. */
     authenticated,
+    /** The headers of every connection's opening handshake, in order. */
+    handshakes,
     close: server.close,
   }
 }

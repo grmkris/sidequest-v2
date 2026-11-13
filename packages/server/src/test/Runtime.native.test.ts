@@ -41,6 +41,9 @@ import {
   walletContext,
 } from './ChromiumWorld.ts'
 import WakeWorkerLive, { millis, sleeps, WakeWorker } from './WakeWorker.ts'
+import { startTestRelay } from '../../test/TestRelay.ts'
+import { pipeLimits } from '../RelayPipe/PipePolicy.ts'
+import { pipeTo, upgradeStatus } from './PipeWorld.ts'
 import {
   browserOf,
   createdBy,
@@ -82,6 +85,10 @@ const Stack = Alchemy.Stack(
           env: { API: api },
         }),
       unreachableRpc,
+      {},
+      {},
+      // The relay pipe may reach the test relay on 127.0.0.1; a deployed stage never passes this.
+      'local',
     )
     const received = yield* Cloudflare.Worker('ReceivedHeaders', {
       script: 'export default { fetch: (request) => Response.json(Object.fromEntries(request.headers)) }',
@@ -176,6 +183,50 @@ test(
     const person = yield* until(HttpClient.get(`${url}/api/people/${pubkey}`), Person)
     expect(person.profile).toMatchObject({ name: 'Acceptance', event: event.id })
   }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 30000 },
+)
+
+test(
+  'pipes a page to a Nostr relay through the edge: a subscription to its end, and an event published and read back',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const relay = yield* Effect.acquireRelease(
+      Effect.promise(() => startTestRelay()),
+      (started) => Effect.promise(() => started.close()),
+    )
+    const page = yield* pipeTo(url, relay.url, { cookie: '__Host-sidequest=secret', authorization: 'Bearer secret' })
+    yield* page.send(['REQ', 'empty', { kinds: [0] }])
+    expect(yield* page.frame('EOSE')).toEqual(['EOSE', 'empty'])
+    // The relay sees none of the visitor's headers: no cookie, authorization or origin.
+    expect(relay.handshakes).toHaveLength(1)
+    for (const name of ['cookie', 'authorization', 'origin']) expect(relay.handshakes[0]).not.toHaveProperty(name)
+    const { event, pubkey } = signedProfile('Piped')
+    yield* page.send(['EVENT', event])
+    expect(yield* page.frame('OK')).toEqual(['OK', event.id, true, ''])
+    expect([...relay.events.keys()]).toEqual([event.id])
+    yield* page.send(['REQ', 'mine', { kinds: [0], authors: [pubkey] }])
+    expect(yield* page.frame('EVENT')).toEqual(['EVENT', 'mine', event])
+    expect(yield* page.frame('EOSE')).toEqual(['EOSE', 'mine'])
+    // A message over the client cap ends the pipe with 1009, the message-too-big code, before the relay sees it.
+    yield* page.sendText('x'.repeat(pipeLimits.clientFrameLength + 1))
+    expect(yield* page.closed).toBe(1009)
+  }).pipe(Effect.scoped),
+  { timeout: 30000 },
+)
+
+test(
+  'refuses a pipe from another origin with 403 and to a relay the policy does not allow with 400',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const relay = yield* Effect.acquireRelease(
+      Effect.promise(() => startTestRelay()),
+      (started) => Effect.promise(() => started.close()),
+    )
+    expect(yield* upgradeStatus(url, relay.url, 'https://evil.example')).toBe(403)
+    expect(relay.requests).toEqual([])
+    for (const disallowed of ['ws://10.0.0.8:4848', 'wss://relay.damus.io:8443', 'https://relay.damus.io'])
+      expect(yield* upgradeStatus(url, disallowed, url)).toBe(400)
+  }).pipe(Effect.scoped),
   { timeout: 30000 },
 )
 

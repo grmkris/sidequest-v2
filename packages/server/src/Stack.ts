@@ -5,6 +5,7 @@ import { SidequestDatabase, SidequestMedia } from './Resources.ts'
 import { arcTestnetRpcUrl } from './SignIn/ArcRpc.ts'
 import type { SettlementVariables } from './Settlement/SettlementStage.ts'
 import type { IndexVariables } from './Index/IndexConfig.ts'
+import type { RelayUrlPolicy } from './Index/RelayUrls.ts'
 import SidequestWorkerLive, { SidequestWorker } from './SidequestWorker.ts'
 
 export const compatibility = { date: '2026-10-19' }
@@ -16,11 +17,12 @@ export const observability = {
   traces: { enabled: true, headSamplingRate: 1 },
 }
 
-/** The public edge's Worker: its entry, and the built client files it serves before the Worker runs. */
+/** The public edge's Worker: its entry, and the built client files it serves before the Worker runs. Its `fetch`
+ * reaches only the public internet, never this zone's origin: the relay pipe dials relays a page names. */
 export const edgeWorker = {
   main: 'packages/server/src/EdgeWorker.ts',
   assets: { directory: 'apps/web/dist/client' },
-  compatibility,
+  compatibility: { ...compatibility, flags: ['global_fetch_strictly_public'] },
 }
 
 /** Sidequest's Workers around one website: the API Worker with its database (migrated from
@@ -31,13 +33,15 @@ export const edgeWorker = {
  * artifact, because Foldkit's dev mode runs Vite in Node rather than the deployed Worker, and names an RPC endpoint
  * that must not be called. Settlement is bound only when `settlement` names it (see `Settlement/SettlementStage.ts`):
  * the keys as secrets, the rest as plain variables. The index's relays are bound only when `index` names them (see
- * `Index/IndexConfig.ts`); without them it connects to no relay at all. */
+ * `Index/IndexConfig.ts`); without them it connects to no relay at all. The edge's relay pipe dials public relays only;
+ * `relayPolicy: 'local'` lets it reach the test relay on 127.0.0.1, and only the native tests pass it. */
 export const sidequestWorkers = <R>(
   release: string,
   website: (api: Cloudflare.Worker) => Effect.Effect<Cloudflare.Worker, never, R>,
   arcRpcUrl: string = arcTestnetRpcUrl,
   settlement: SettlementVariables = {},
   index: IndexVariables = {},
+  relayPolicy: RelayUrlPolicy = 'public',
 ) =>
   Effect.gen(function* () {
     const stage = yield* Stage
@@ -47,7 +51,7 @@ export const sidequestWorkers = <R>(
     const site = yield* website(api)
     const edge = yield* Cloudflare.Worker('SidequestEdge', {
       ...edgeWorker,
-      env: { API: api, WEBSITE: site },
+      env: { API: api, WEBSITE: site, ...(relayPolicy === 'local' ? { SIDEQUEST_RELAY_POLICY: 'local' } : {}) },
       workersDev: true,
       observability,
     })
