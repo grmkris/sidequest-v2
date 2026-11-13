@@ -28,7 +28,10 @@ const paymentOf = (status: number, body: unknown) =>
     Effect.flatMap(Core, (client) => client.payment(job)).pipe(
       Effect.flip,
       Effect.provide(core),
-      Effect.provideService(FetchHttpClient.Fetch, async () => Response.json(body, { status })),
+      Effect.provideService(
+        FetchHttpClient.Fetch,
+        Object.assign(async () => Response.json(body, { status }), { preconnect: globalThis.fetch.preconnect }),
+      ),
     ),
   )
 
