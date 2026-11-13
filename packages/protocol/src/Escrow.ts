@@ -84,7 +84,7 @@ export type EscrowFunding = typeof EscrowFunding.Type
  * Why the server will not relay a money call for a job (anyone may still send it to the chain). The
  * request or the proposal is not indexed or not valid, or the proposal names another buyer; the payment's receiver is
  * not the proposal's `payTo`; the payer's wallet has no current verified link to the request's author; the proposal
- * has expired, or its author withdrew or superseded it; the chain funded the job already, or has not funded it, or has
+ * has expired, or its author withdrew or superseded it, or an agent signed it under a grant that does not authorise it; the chain funded the job already, or has not funded it, or has
  * no delivery to approve or reject; the terms cannot be paid through this chain's escrow; or the chain refuses the
  * call in simulation (`detail` says why).
  */
@@ -97,6 +97,7 @@ export const EscrowRefusalReason = Schema.Literals([
   'ProposalExpired',
   'ProposalWithdrawn',
   'ProposalSuperseded',
+  'ProposalNotAuthorised',
   'AlreadyFunded',
   'NotFunded',
   'NotDelivered',

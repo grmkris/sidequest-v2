@@ -129,6 +129,7 @@ describe('the money panel', () => {
       ProposalExpired: /This proposal has expired/u,
       ProposalWithdrawn: /The bidder withdrew this proposal/u,
       ProposalSuperseded: /The bidder revised this proposal/u,
+      ProposalNotAuthorised: /An agent made this proposal without its operator's permission/u,
       AlreadyFunded: /This job is already funded/u,
       NotFunded: /is not funded yet/u,
       NotDelivered: /Nothing is delivered on chain yet/u,

@@ -15,13 +15,13 @@ const canonical = (account: string) => (account.startsWith('eip155:') ? account.
  *    buyer (`ProposalForOtherBuyer`);
  * 3. the payment pays the proposal's `payTo` (`ReceiverNotPayTo`);
  * 4. the payer's wallet has a current verified link to the request's author (`PayerNotLinked`);
- * 5. the proposal is still offered: before its `validUntil` (`ProposalExpired`), not withdrawn (`ProposalWithdrawn`)
- *    and not superseded (`ProposalSuperseded`) by its bidder. The bidder is the proposal's author, or the operator
- *    whose grant let the agent key that signed it propose (`@sidequest/fold`'s grant rule): they and their agents
- *    withdraw and revise alike. A proposal naming a grant that does not authorise it (unknown, for another key, without
- *    `propose`, outside its window, or revoked) is no operator's offer, and counts as withdrawn (`ProposalWithdrawn`,
- *    with the grant's refusal as its detail): its `payTo` names the operator's wallet for an offer the operator no
- *    longer stands behind;
+ * 5. the proposal is still offered: before its `validUntil` (`ProposalExpired`), not withdrawn (`ProposalWithdrawn`),
+ *    authorised (`ProposalNotAuthorised`) and not superseded (`ProposalSuperseded`) by its bidder. The bidder is the
+ *    proposal's author, or the operator whose grant let the agent key that signed it propose (`@sidequest/fold`'s grant
+ *    rule): they and their agents withdraw and revise alike. A proposal naming a grant that does not authorise it
+ *    (unknown, for another key, without `propose`, outside its window, or revoked) is no operator's offer
+ *    (`ProposalNotAuthorised`, with the grant's refusal as its detail): its `payTo` names the operator's wallet for an
+ *    offer the operator does not stand behind;
  * 6. the chain has not funded the job (`AlreadyFunded`).
  *
  * Rules 2 and 4 are about the buyer, who is always the request's signer: no scope lets an agent post a request, and the
@@ -41,7 +41,8 @@ export const fundingRefusal = (standing: Standing, receiver: string, now: number
   if (canonical(content.payTo) !== canonical(receiver)) return 'ReceiverNotPayTo'
   if (!Option.contains(standing.payerHolder, request.pubkey)) return 'PayerNotLinked'
   if (now >= content.validUntil) return 'ProposalExpired'
-  if (standing.withdrawn || standing.bidderGrant !== null) return 'ProposalWithdrawn'
+  if (standing.withdrawn) return 'ProposalWithdrawn'
+  if (standing.bidderGrant !== null) return 'ProposalNotAuthorised'
   if (standing.superseded) return 'ProposalSuperseded'
   if (standing.fundedOnChain) return 'AlreadyFunded'
   return undefined
@@ -49,6 +50,6 @@ export const fundingRefusal = (standing: Standing, receiver: string, now: number
 
 /** What a refusal adds to its reason: for a proposal under a grant that does not authorise it, why not. */
 export const refusalDetail = (standing: Standing, reason: EscrowRefusalReason): string | undefined =>
-  reason === 'ProposalWithdrawn' && standing.bidderGrant !== null && !standing.withdrawn
+  reason === 'ProposalNotAuthorised' && standing.bidderGrant !== null
     ? `The grant the proposal names does not authorise it: ${standing.bidderGrant}.`
     : undefined

@@ -263,18 +263,22 @@ describe('funding a proposal an agent made under its operator’s grant', () => 
     }),
   )
 
-  it.effect('refuses it as withdrawn when its grant does not authorise it, saying why', () =>
+  it.effect('refuses it as not authorised when its grant does not authorise it, saying why', () =>
     Effect.gen(function* () {
       const revoked = yield* fundAgents([revocation(bob, proposing.id, at + 30)])
-      expect(reasonOf(revoked.result)).toBe('ProposalWithdrawn')
+      expect(reasonOf(revoked.result)).toBe('ProposalNotAuthorised')
       expect(JSON.stringify(revoked.result)).toContain('revoked')
       expect(reasonOf((yield* fundAgents([revocation(carol, proposing.id, at + 30)])).result)).toBe('relayed')
-      expect(JSON.stringify((yield* fundAgents([], agentProposal, [])).result)).toContain('unknownGrant')
+      const unknown = (yield* fundAgents([], agentProposal, [])).result
+      expect(reasonOf(unknown)).toBe('ProposalNotAuthorised')
+      expect(JSON.stringify(unknown)).toContain('unknownGrant')
       const discussing = grant(bob, agent, window, ['discuss'], 'Talker')
       const unscoped = yield* Effect.promise(() =>
         proposalBy(agent, request, at + 10, terms, walletOfKey(bob), { grant: discussing.id }),
       )
-      expect(JSON.stringify((yield* fundAgents([], unscoped, [discussing])).result)).toContain('scopeMissing')
+      const unscopedResult = (yield* fundAgents([], unscoped, [discussing])).result
+      expect(reasonOf(unscopedResult)).toBe('ProposalNotAuthorised')
+      expect(JSON.stringify(unscopedResult)).toContain('scopeMissing')
     }),
   )
 })

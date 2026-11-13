@@ -544,6 +544,7 @@
       "proposalExpired": "This proposal has expired. Ask the bidder for a new one.",
       "proposalWithdrawn": "The bidder withdrew this proposal.",
       "proposalSuperseded": "The bidder revised this proposal. Fund the revision instead.",
+      "proposalNotAuthorised": "An agent made this proposal without its operator's permission to propose for them, or the operator has since withdrawn it. Ask the bidder for a new one.",
       "alreadyFunded": "This job is already funded.",
       "notFunded": "The escrow for this job is not funded yet.",
       "notDelivered": "Nothing is delivered on chain yet, so there is nothing to approve or reject.",

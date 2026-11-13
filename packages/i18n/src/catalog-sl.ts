@@ -483,6 +483,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'money.refused.proposalExpired': 'Ta predlog je potekel. Ponudnika prosite za novega.',
   'money.refused.proposalWithdrawn': 'Ponudnik je ta predlog umaknil.',
   'money.refused.proposalSuperseded': 'Ponudnik je ta predlog popravil. Vplačajte popravek.',
+  'money.refused.proposalNotAuthorised':
+    'Ta predlog je oddal agent brez ponudnikovega dovoljenja, da v njegovem imenu daje predloge, ali pa je ponudnik dovoljenje medtem preklical. Ponudnika prosite za novega.',
   'money.refused.alreadyFunded': 'To naročilo je že vplačano.',
   'money.refused.notFunded': 'Skrbniška pogodba za to naročilo še ni vplačana.',
   'money.refused.notDelivered': 'V verigi še ni nič oddano, zato ni česa potrditi ali zavrniti.',

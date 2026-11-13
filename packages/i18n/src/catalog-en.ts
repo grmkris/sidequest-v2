@@ -477,6 +477,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'money.refused.proposalExpired': 'This proposal has expired. Ask the bidder for a new one.',
   'money.refused.proposalWithdrawn': 'The bidder withdrew this proposal.',
   'money.refused.proposalSuperseded': 'The bidder revised this proposal. Fund the revision instead.',
+  'money.refused.proposalNotAuthorised':
+    "An agent made this proposal without its operator's permission to propose for them, or the operator has since withdrawn it. Ask the bidder for a new one.",
   'money.refused.alreadyFunded': 'This job is already funded.',
   'money.refused.notFunded': 'The escrow for this job is not funded yet.',
   'money.refused.notDelivered': 'Nothing is delivered on chain yet, so there is nothing to approve or reject.',
