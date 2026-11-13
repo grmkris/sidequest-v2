@@ -269,6 +269,7 @@ describe('the same-origin rule', () => {
         'GET /api/index/listings/:pubkey/:slug',
         'GET /api/people',
         'GET /api/people/:pubkey',
+        'GET /api/people/:pubkey/jobs',
         'GET /api/wallets/:account',
         'POST /api/events',
         // The sessionless escrow: each carries a wallet signature (or the ruling's NIP-98 authorization).
