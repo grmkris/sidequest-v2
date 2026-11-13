@@ -206,6 +206,14 @@ export const priceText = (language: Language, price: IndexListing['price']): str
     onSome: (hint) => format(language, 'listing.priceFrom', { price: formatAmount(hint.amount, hint.asset, language) }),
   })
 
+/** A listing's price as its rail means it: the exact price of one call on the x402 rail, a hint otherwise. */
+export const listingPriceText = (language: Language, listing: Pick<IndexListing, 'price' | 'rail'>): string =>
+  listing.rail === 'x402' && listing.price !== null
+    ? format(language, 'payPerCall.pricePerCall', {
+        price: formatAmount(listing.price.amount, listing.price.asset, language),
+      })
+    : priceText(language, listing.price)
+
 const listingRow = (h: Html.HtmlBuilder<Message>, language: Language, listing: IndexListing) => [
   h.a(
     [h.Href(listingRouter({ pubkey: listing.pubkey, slug: listing.slug })), ...styled(h, s.rowTitle())],
@@ -215,7 +223,8 @@ const listingRow = (h: Html.HtmlBuilder<Message>, language: Language, listing: I
   h.p(styled(h, s.meta()), [
     format(language, 'listing.by', { name: listing.author.name ?? shortNpub(listing.pubkey) }),
     ' · ',
-    priceText(language, listing.price),
+    listingPriceText(language, listing),
+    ...(listing.rail === 'x402' ? [' ', Ui.chip(h, say(language, 'payPerCall.chip'))] : []),
   ]),
   listing.topics.length === 0
     ? h.empty

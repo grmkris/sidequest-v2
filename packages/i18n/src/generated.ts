@@ -403,6 +403,21 @@ export interface MessageArgumentsByKey<_T = string> {
   'notFound.body': Readonly<Record<string, never>>
   'notFound.home': Readonly<Record<string, never>>
   'notFound.title': Readonly<Record<string, never>>
+  'payPerCall.chip': Readonly<Record<string, never>>
+  'payPerCall.howAgent': Readonly<Record<string, never>>
+  'payPerCall.howClient': Readonly<Record<string, never>>
+  'payPerCall.howReceipt': Readonly<Record<string, never>>
+  'payPerCall.howTitle': Readonly<Record<string, never>>
+  'payPerCall.howWebsite': Readonly<Record<string, never>>
+  'payPerCall.noRefunds': Readonly<Record<string, never>>
+  'payPerCall.payTo': Readonly<Record<string, never>>
+  'payPerCall.payToLinked': Readonly<Record<string, never>>
+  'payPerCall.payToUnlinked': Readonly<Record<string, never>>
+  'payPerCall.payToWarning': Readonly<Record<string, never>>
+  'payPerCall.pricePerCall': { readonly price: string | number }
+  'payPerCall.receipts': Readonly<Record<string, never>>
+  'payPerCall.resource': Readonly<Record<string, never>>
+  'payPerCall.title': Readonly<Record<string, never>>
   'private.confirm': Readonly<Record<string, never>>
   'private.consent': Readonly<Record<string, never>>
   'private.deadline': Readonly<Record<string, never>>
@@ -608,4 +623,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '1fe9d073725ac886d0355cf759f4995e02ad7e9ef1183de711dff617f6fddaeb'
+export const catalogVersion = '193dbf4593c2308dd1a99ed7f96270b173eeea36baac8e70d144cb239b392d7d'

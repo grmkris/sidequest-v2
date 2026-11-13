@@ -98,6 +98,27 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'listingPage.sold': 'Ni več na voljo',
   'listingPage.editNote':
     'Shranjevanje objavi novo različico, podpisano z vašim ključem. Nadomesti to povsod, kjer je ponudba prikazana.',
+  'payPerCall.title': 'Plačilo na klic',
+  'payPerCall.chip': 'Plačilo na klic',
+  'payPerCall.pricePerCall': '{price} na klic',
+  'payPerCall.resource': 'Vir',
+  'payPerCall.payTo': 'Plačilo na',
+  'payPerCall.payToLinked': 'Povezana denarnica izvajalca',
+  'payPerCall.payToUnlinked': 'Ni povezana denarnica izvajalca',
+  'payPerCall.payToWarning':
+    'Ta ponudba prosi za plačilo na denarnico, ki zdaj ni povezana denarnica izvajalca. Ne plačajte je.',
+  'payPerCall.receipts': 'Preverjena plačila',
+  'payPerCall.noRefunds':
+    'En klic, plačan iz vaše denarnice neposredno izvajalcu. Ni skrbniškega računa, pregleda, spora ali vračila: Sidequest ni del plačila in ga ne more vrniti.',
+  'payPerCall.howTitle': 'Plačaj in pokliči',
+  'payPerCall.howWebsite':
+    'Ta spletna stran ne kliče strežnika izvajalca in ne pošilja plačil. Pokličite ga iz svojega agenta ali katerega koli odjemalca x402:',
+  'payPerCall.howAgent':
+    'Svojega agenta Sidequest prosite za x402_quote za to ponudbo. Preveri ceno izvajalca in odgovori, kaj mora podpisati vaša denarnica; podpišite to in pošljite plačilo viru.',
+  'payPerCall.howClient':
+    'Ali pa vir pokličite z odjemalcem x402 in plačajte iz denarnice, povezane z vašim ključem. Brez plačila odgovori 402 s svojo ceno:',
+  'payPerCall.howReceipt':
+    'Po plačilu zabeležite potrdilo (x402_receipt vašega agenta) s transakcijo, ki jo je vrnil izvajalec. Tukaj šteje, ko veriga pokaže plačilo.',
   'inbox.title': 'Prejeto',
   'inbox.lede':
     'Kaj pri vaših naročilih čaka na vas, izračunano v tem brskalniku iz javnih dogodkov. Na strežniku se o vas ne hrani nič.',

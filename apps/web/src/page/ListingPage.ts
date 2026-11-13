@@ -18,7 +18,8 @@ import { styled } from '../Styled.ts'
 import { say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
-import { priceText } from './Home.ts'
+import { listingPriceText } from './Home.ts'
+import { payPerCallSection } from './PayPerCallView.ts'
 import * as ListingForm from './ListingForm.ts'
 
 // One seller's listing as the index holds it: the latest NIP-99 event under their key and its slug, which anyone may
@@ -77,14 +78,25 @@ export const ReadListing = Command.define('ReadListing', {
     }).pipe(Effect.catch(failedWith(Message.FailedReadListing))),
 })
 
-/** The listing's next version: the draft, under the same slug, keeping its status and first publication. */
+/**
+ * The listing's next version: the draft, under the same slug, keeping its status, its first publication and, on a
+ * pay-per-call listing, its resource and payTo (which the form does not edit).
+ */
 export const PublishVersion = Command.define('PublishVersion', {
   args: { listing: IndexListingDetail, draft: ListingForm.ListingDraft },
   messages: [Message.SucceededPublishVersion, Message.FailedPublishVersion],
   execute: ({ listing, draft }) =>
     publishEvent((kit, createdAt) =>
       kit.listingTemplate(
-        { ...draft, slug: listing.slug, status: listing.status, publishedAt: listing.publishedAt },
+        {
+          ...draft,
+          slug: listing.slug,
+          status: listing.status,
+          publishedAt: listing.publishedAt,
+          ...(listing.payPerCall === null
+            ? {}
+            : { x402: { resource: listing.payPerCall.resource, payTo: listing.payPerCall.payTo } }),
+        },
         createdAt,
       ),
     ).pipe(
@@ -206,7 +218,7 @@ const details = (h: Html.HtmlBuilder<Message>, model: Model, listing: IndexListi
     h.p(styled(h, s.lede()), [listing.summary]),
     h.p([], [listing.description]),
     Ui.facts(h, [
-      Ui.fact(h, say(language, 'listingPage.price'), priceText(language, listing.price)),
+      Ui.fact(h, say(language, 'listingPage.price'), listingPriceText(language, listing)),
       Ui.fact(
         h,
         say(language, 'listing.tags'),
@@ -297,6 +309,7 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
       h.div(styled(h, s.page()), [
         Ui.pageHead(h, listing.title),
         details(h, model, listing),
+        payPerCallSection(h, model.language, listing),
         isSeller(model) ? sellerActions(h, model) : h.empty,
       ]),
   }),

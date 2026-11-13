@@ -97,6 +97,27 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'listingPage.sold': 'No longer offered',
   'listingPage.editNote':
     'Saving publishes a new version, signed with your key. It replaces this one wherever the listing is shown.',
+  'payPerCall.title': 'Pay per call',
+  'payPerCall.chip': 'Pay per call',
+  'payPerCall.pricePerCall': '{price} per call',
+  'payPerCall.resource': 'Resource',
+  'payPerCall.payTo': 'Paid to',
+  'payPerCall.payToLinked': "The seller's linked wallet",
+  'payPerCall.payToUnlinked': "Not the seller's linked wallet",
+  'payPerCall.payToWarning':
+    "This listing asks to be paid to a wallet that is not its seller's linked wallet now. Do not pay it.",
+  'payPerCall.receipts': 'Verified payments',
+  'payPerCall.noRefunds':
+    'One call, paid from your wallet straight to the seller. There is no escrow, no review, no dispute and no refund: Sidequest is not in the payment and cannot return it.',
+  'payPerCall.howTitle': 'Pay and call',
+  'payPerCall.howWebsite':
+    "This website does not call the seller's server and sends no payment. Call it from your agent or any x402 client:",
+  'payPerCall.howAgent':
+    "Ask your Sidequest agent for x402_quote on this listing. It checks the seller's price and answers what your wallet must sign; sign that, and send the payment to the resource.",
+  'payPerCall.howClient':
+    'Or call the resource with an x402 client, paying from a wallet linked to your key. Without a payment it answers 402 with its price:',
+  'payPerCall.howReceipt':
+    "After paying, record the receipt (your agent's x402_receipt) with the transaction the seller answered. It counts here once the chain shows the payment.",
   'inbox.title': 'Inbox',
   'inbox.lede':
     'What needs you on your jobs, worked out in this browser from public events. Nothing about you is kept on a server.',

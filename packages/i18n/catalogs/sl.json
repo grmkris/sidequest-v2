@@ -122,6 +122,23 @@
     "sold": "Ni več na voljo",
     "editNote": "Shranjevanje objavi novo različico, podpisano z vašim ključem. Nadomesti to povsod, kjer je ponudba prikazana."
   },
+  "payPerCall": {
+    "title": "Plačilo na klic",
+    "chip": "Plačilo na klic",
+    "pricePerCall": "{price} na klic",
+    "resource": "Vir",
+    "payTo": "Plačilo na",
+    "payToLinked": "Povezana denarnica izvajalca",
+    "payToUnlinked": "Ni povezana denarnica izvajalca",
+    "payToWarning": "Ta ponudba prosi za plačilo na denarnico, ki zdaj ni povezana denarnica izvajalca. Ne plačajte je.",
+    "receipts": "Preverjena plačila",
+    "noRefunds": "En klic, plačan iz vaše denarnice neposredno izvajalcu. Ni skrbniškega računa, pregleda, spora ali vračila: Sidequest ni del plačila in ga ne more vrniti.",
+    "howTitle": "Plačaj in pokliči",
+    "howWebsite": "Ta spletna stran ne kliče strežnika izvajalca in ne pošilja plačil. Pokličite ga iz svojega agenta ali katerega koli odjemalca x402:",
+    "howAgent": "Svojega agenta Sidequest prosite za x402_quote za to ponudbo. Preveri ceno izvajalca in odgovori, kaj mora podpisati vaša denarnica; podpišite to in pošljite plačilo viru.",
+    "howClient": "Ali pa vir pokličite z odjemalcem x402 in plačajte iz denarnice, povezane z vašim ključem. Brez plačila odgovori 402 s svojo ceno:",
+    "howReceipt": "Po plačilu zabeležite potrdilo (x402_receipt vašega agenta) s transakcijo, ki jo je vrnil izvajalec. Tukaj šteje, ko veriga pokaže plačilo."
+  },
   "inbox": {
     "title": "Prejeto",
     "lede": "Kaj pri vaših naročilih čaka na vas, izračunano v tem brskalniku iz javnih dogodkov. Na strežniku se o vas ne hrani nič.",
