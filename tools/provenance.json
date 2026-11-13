@@ -1,7 +1,9 @@
 {
   "sources": {
     "anti-slop": "https://github.com/dmmulroy/anti-slop/tree/c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
-    "alchemy-domain": "https://github.com/alchemy-run/alchemy/tree/3bb45b0f089597f4b0f9c908b2f5d615201d1405"
+    "alchemy-domain": "https://github.com/alchemy-run/alchemy/tree/3bb45b0f089597f4b0f9c908b2f5d615201d1405",
+    "nip44-vectors": "https://github.com/paulmillr/nip44/blob/671a1f04bcfacaf125b0db68adc45bc9ce0e763b/nip44.vectors.json",
+    "bip340-vectors": "https://github.com/bitcoin/bips/blob/b34d9f751791d4feb22feff4f2ed00bcac83961b/bip-0340/test-vectors.csv"
   },
   "files": [
     {
@@ -155,6 +157,14 @@
     {
       "path": ".agents/skills/alchemy-domain/LICENSE",
       "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
+    },
+    {
+      "path": "packages/nostr/test/vectors/nip44.vectors.json",
+      "sha256": "269ed0f69e4c192512cc779e78c555090cebc7c785b609e338a62afc3ce25040"
+    },
+    {
+      "path": "packages/nostr/test/vectors/bip340.csv",
+      "sha256": "34c9d1d9c3a88d524bc80778540dc43f8306ec249a7485293063c376db851c2d"
     }
   ]
 }

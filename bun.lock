@@ -70,6 +70,16 @@
         "intl-messageformat": "catalog:",
       },
     },
+    "packages/nostr": {
+      "name": "@sidequest/nostr",
+      "dependencies": {
+        "@noble/ciphers": "catalog:",
+        "@noble/curves": "catalog:",
+        "@noble/hashes": "catalog:",
+        "@sidequest/protocol": "workspace:*",
+        "effect": "catalog:",
+      },
+    },
     "packages/observability": {
       "name": "@sidequest/observability",
       "dependencies": {
@@ -130,6 +140,9 @@
     "@foldkit/devtools-mcp": "0.25.0",
     "@foldkit/vite-plugin": "0.28.0",
     "@formatjs/icu-messageformat-parser": "3.5.22",
+    "@noble/ciphers": "1.3.0",
+    "@noble/curves": "1.9.1",
+    "@noble/hashes": "1.8.0",
     "@types/bun": "1.4.4",
     "@types/node": "24.19.2",
     "alchemy": "2.0.0-beta.84",
@@ -574,6 +587,8 @@
     "@sidequest/domain": ["@sidequest/domain@workspace:packages/domain"],
 
     "@sidequest/i18n": ["@sidequest/i18n@workspace:packages/i18n"],
+
+    "@sidequest/nostr": ["@sidequest/nostr@workspace:packages/nostr"],
 
     "@sidequest/observability": ["@sidequest/observability@workspace:packages/observability"],
 

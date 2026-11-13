@@ -24,5 +24,7 @@ export default defineConfig({
     'docs/migration/v1-inventory.json',
     'tools/oxlint/anti-slop/**',
     'packages/i18n/catalogs/**',
+    // Official test vectors, byte for byte as published; tools/provenance.json records their hashes.
+    'packages/nostr/test/vectors/**',
   ],
 })
