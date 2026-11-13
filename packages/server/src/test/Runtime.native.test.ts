@@ -24,7 +24,13 @@ import { apiPolicy, documentPolicy } from '../EdgeSecurity.ts'
 import { compatibility, edgeWorker, sidequestWorkers } from '../Stack.ts'
 import { apiReadsDuring, headlessChromium, openPage, reloadUntilShown, walletContext } from './ChromiumWorld.ts'
 import WakeWorkerLive, { millis, sleeps, WakeWorker } from './WakeWorker.ts'
-import { keepsLocalKeyAsBackup, linksWalletWithExtension, pipesToRelay, refusesForeignPipes } from './NostrJourneys.ts'
+import {
+  foldsPublishedJob,
+  keepsLocalKeyAsBackup,
+  linksWalletWithExtension,
+  pipesToRelay,
+  refusesForeignPipes,
+} from './NostrJourneys.ts'
 import {
   browserOf,
   createdBy,
