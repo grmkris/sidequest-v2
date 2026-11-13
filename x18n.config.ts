@@ -36,6 +36,9 @@ export default defineConfig({
       'packages/server/src/Index/Jobs.ts': ['/[\\s\\S]*/'],
       // The escrow's SQL, and the reasons it gives operators and API clients in the protocol's English.
       'packages/server/src/Escrow/**/*.ts': ['/[\\s\\S]*/'],
+      // ERC-8004's SQL, and the registration file's descriptions, which the agent ecosystem reads in the protocol's
+      // English (ADR-0007), not people on the site.
+      'packages/server/src/Erc8004/**/*.ts': ['/[\\s\\S]*/'],
       // The EIP-712 type strings the operator and the escrow hash: part of the signed protocol, not text.
       'packages/settlement/src/Payment.ts': ['/^(JobParams|PaymentInfo)\\(/'],
       // The EIP-712 type strings of a wallet's link to a Nostr key, likewise signed protocol.
