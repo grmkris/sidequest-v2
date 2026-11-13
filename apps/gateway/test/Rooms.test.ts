@@ -57,9 +57,15 @@ describe('rooms for gateway agents', () => {
       })
       await say(ofBuyer, 'Can you start Monday? secret-phrase-1')
       const read = await call('read_room_messages')
+      // Listing the rooms claimed nothing: the read answers the add that let the agent in, then the buyer's text.
       expect(read).toMatchObject({
         ok: true,
-        value: { messages: [{ room, kind: 'text', text: 'Can you start Monday? secret-phrase-1', viaGateway: false }] },
+        value: {
+          messages: [
+            { room, kind: 'add', member: agent },
+            { room, kind: 'text', text: 'Can you start Monday? secret-phrase-1', viaGateway: false },
+          ],
+        },
       })
       expect(await call('read_room_messages')).toMatchObject({ ok: true, value: { messages: [] } })
       const sent = await call('send_room_message', { room, text: 'Yes, Monday works.' })
@@ -108,6 +114,19 @@ describe('rooms for gateway agents', () => {
         'first',
         'second',
       ])
+    }))
+
+  test('a message that arrives just before list_rooms or send_room_message still comes back from the next read', () =>
+    withGateway(async (gateway) => {
+      const { job, room, ofBuyer, call, say } = await setUp(gateway)
+      await call('read_room_messages')
+      await say(ofBuyer, 'before the list')
+      expect(await call('list_rooms', { job })).toMatchObject({ ok: true, value: { rooms: [{ room, messages: 2 }] } })
+      await say(ofBuyer, 'before the send')
+      expect(await call('send_room_message', { room, text: 'Noted.' })).toMatchObject({ ok: true })
+      const read = Schema.decodeUnknownSync(ReadAnswer)(await call('read_room_messages'))
+      expect(read.value.messages.map((message) => message.text)).toEqual(['before the list', 'before the send'])
+      expect(Schema.decodeUnknownSync(ReadAnswer)(await call('read_room_messages')).value.messages).toEqual([])
     }))
 
   test('the seventh agent message in a row is refused until a person writes', () =>

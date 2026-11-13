@@ -7,6 +7,7 @@ import {
   type RoomFounding,
   type RoomMessage,
   type RoomRefused,
+  type RoomState,
   type RoomTransport,
 } from '@sidequest/nostr/rooms'
 import { keyAuth } from '@sidequest/nostr/relay'
@@ -55,8 +56,53 @@ const discussing = Effect.fnUntraced(function* (reads: boolean) {
   return admitted
 })
 
-/** Runs `use` with the agent's rooms, and stores what they hold afterwards, even when `use` failed. */
-const withRooms = <A>(agent: PublicKey, use: (rooms: RoomTransport) => Effect.Effect<A, RoomToolRefused, Core>) =>
+/** What a poll that may not claim messages leaves out of the stored state: the messages it added, the wraps it
+ * handled and how far it read each relay (`cursors` holds the cursors from before it), so the next poll reads the same
+ * window again, opens those wraps again and finds the messages new. */
+interface Unclaimed {
+  readonly messages: ReadonlySet<string>
+  readonly wraps: ReadonlySet<string>
+  readonly cursors: RoomState['cursors']
+}
+
+const keyOf = (message: RoomMessage) => `${message.room}:${message.id}`
+
+/** What `after` holds that `before` did not. */
+const addedSince = (before: RoomState, after: RoomState): Unclaimed => {
+  const held = new Set(before.messages.map(keyOf))
+  const handled = new Set(before.seen.map((entry) => entry.wrap))
+  return {
+    messages: new Set(after.messages.map(keyOf).filter((key) => !held.has(key))),
+    wraps: new Set(after.seen.map((entry) => entry.wrap).filter((wrap) => !handled.has(wrap))),
+    cursors: before.cursors,
+  }
+}
+
+/** The state as stored after a call that may not claim: without what its polls added (see {@link Unclaimed}). */
+const withoutUnclaimed = (state: RoomState, unclaimed: ReadonlyArray<Unclaimed>): RoomState => ({
+  ...state,
+  messages: state.messages.filter((message) => !unclaimed.some((left) => left.messages.has(keyOf(message)))),
+  seen: state.seen.filter((entry) => !unclaimed.some((left) => left.wraps.has(entry.wrap))),
+  cursors: unclaimed[0]?.cursors ?? state.cursors,
+})
+
+/** The agent's rooms for one call, and the poll that call makes. */
+interface CallRooms {
+  readonly rooms: RoomTransport
+  readonly poll: Effect.Effect<PollReport, RoomToolRefused>
+}
+
+/**
+ * Runs `use` with the agent's rooms, and stores what they hold afterwards, even when `use` failed. Only a call that
+ * `claims` (`read_room_messages`) stores the messages its polls found: the room layer answers a message as new once,
+ * to the poll that first handles its wrap, so a poll by `list_rooms` or `send_room_message` that stored them would
+ * take them from the next read. Those calls see every message while they run, and leave them for the read.
+ */
+const withRooms = <A>(
+  agent: PublicKey,
+  claims: boolean,
+  use: (call: CallRooms) => Effect.Effect<A, RoomToolRefused, Core>,
+) =>
   Effect.gen(function* () {
     const keys = yield* AgentKeys
     const network = yield* RoomNetwork
@@ -65,6 +111,7 @@ const withRooms = <A>(agent: PublicKey, use: (rooms: RoomTransport) => Effect.Ef
       .withKey(agent, (key) =>
         Effect.gen(function* () {
           const held = yield* Ref.make(yield* store(state.load(agent)))
+          const unclaimed = yield* Ref.make<ReadonlyArray<Unclaimed>>([])
           const rooms = yield* makeNip17Rooms(
             {
               signer: localRoomSigner(key, webCrypto),
@@ -74,8 +121,17 @@ const withRooms = <A>(agent: PublicKey, use: (rooms: RoomTransport) => Effect.Ef
             },
             { ...defaultRoomOptions, viaGateway: true },
           ).pipe(Effect.provideService(Crypto.Crypto, webCrypto))
-          const outcome = yield* Effect.exit(use(rooms))
-          yield* store(state.save(agent, yield* Ref.get(held), yield* nowSeconds))
+          const poll = Effect.gen(function* () {
+            const before = yield* Ref.get(held)
+            const report = yield* rooms.poll
+            if (report.noInboxRelays) return yield* refusedAs('NoInboxRelays')
+            const after = yield* Ref.get(held)
+            if (!claims) yield* Ref.update(unclaimed, (left) => [...left, addedSince(before, after)])
+            return report
+          })
+          const outcome = yield* Effect.exit(use({ rooms, poll }))
+          const kept = withoutUnclaimed(yield* Ref.get(held), yield* Ref.get(unclaimed))
+          yield* store(state.save(agent, kept, yield* nowSeconds))
           return yield* outcome
         }),
       )
@@ -87,11 +143,6 @@ const withRooms = <A>(agent: PublicKey, use: (rooms: RoomTransport) => Effect.Ef
       )
   })
 
-const polled = (rooms: RoomTransport) =>
-  Effect.flatMap(rooms.poll, (report) =>
-    report.noInboxRelays ? Effect.fail(refusedAs('NoInboxRelays')) : Effect.succeed(report),
-  )
-
 /** `list_rooms`: the agent's rooms on `job`, whose buyer is the job's buyer as the index shows it. */
 export const listRooms = (job: string) =>
   Effect.gen(function* () {
@@ -100,9 +151,9 @@ export const listRooms = (job: string) =>
     const view = yield* core.job(job).pipe(Effect.mapError((error) => fromTool(refusedByCore(error))))
     if (Option.isNone(view)) return yield* refusedAs('UnknownJob')
     const buyer = view.value.buyer
-    return yield* withRooms(agent, (rooms) =>
+    return yield* withRooms(agent, false, ({ rooms, poll }) =>
       Effect.gen(function* () {
-        yield* polled(rooms)
+        yield* poll
         const onJob = (yield* rooms.rooms).filter((founding) => founding.job === job && founding.buyer === buyer)
         const summaries = yield* Effect.forEach(onJob, (founding) =>
           Effect.map(Effect.mapError(rooms.transcript(founding.room), fromRooms), (read) => ({
@@ -140,9 +191,9 @@ const relaysOf = (report: PollReport) => report.relays.map(({ relay, outcome }) 
 /** `read_room_messages`: what arrived since the last read, once each, in each room's order. */
 export const readRoomMessages = Effect.gen(function* () {
   const { agent } = yield* discussing(true)
-  const read = yield* withRooms(agent, (rooms) =>
+  const read = yield* withRooms(agent, true, ({ rooms, poll }) =>
     Effect.gen(function* () {
-      const report = yield* polled(rooms)
+      const report = yield* poll
       const foundings = new Map((yield* rooms.rooms).map((founding) => [founding.room, founding]))
       const messages = report.fresh.flatMap((message) =>
         Option.toArray(
@@ -174,7 +225,7 @@ export const setInboxRelays = (asked: ReadonlyArray<string>) =>
     const relays = asked.flatMap((url) => (network.allows(url) ? decodeRelay(url) : []))
     if (relays.length !== asked.length) return yield* refusedAs('BadRelay')
     const core = yield* Core
-    return yield* withRooms(agent, (rooms) =>
+    return yield* withRooms(agent, false, ({ rooms }) =>
       Effect.gen(function* () {
         const published = yield* Effect.mapError(rooms.publishIdentity(relays), fromRooms)
         yield* core.publish(published.event).pipe(Effect.mapError((error) => fromTool(refusedByCore(error))))
@@ -189,9 +240,9 @@ const decodeRelay = (url: string) => Option.toArray(Schema.decodeUnknownOption(R
 export const sendRoomMessage = (room: string, text: string) =>
   Effect.gen(function* () {
     const { agent } = yield* discussing(false)
-    return yield* withRooms(agent, (rooms) =>
+    return yield* withRooms(agent, false, ({ rooms, poll }) =>
       Effect.gen(function* () {
-        yield* polled(rooms)
+        yield* poll
         const known = (yield* rooms.rooms).find((founding) => founding.room === room)
         if (known === undefined) return yield* refusedAs('UnknownRoom')
         const before = yield* Effect.mapError(rooms.transcript(known.room), fromRooms)

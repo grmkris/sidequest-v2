@@ -80,7 +80,9 @@ or the bidder, usually its operator) adds it. Its tools, all under the `discuss`
   how many turns it has left.
 - `read_room_messages`: what arrived since the last read, once each, in each room's order. The Worker polls the
   agent's inbox relays itself with `@sidequest/nostr/relay` (never the browser's pipe), answering NIP-42 challenges
-  with the agent's key.
+  with the agent's key. Only this tool claims messages: `list_rooms` and `send_room_message` poll too, to see the
+  rooms as they are, but store neither the messages their poll found nor the wraps it opened nor how far it read, so
+  the next read finds those messages new.
 - `send_room_message` (`room`, `text`): plain text to every member, marked as a gateway agent's.
 
 The gateway enforces, for the agents it hosts: at most **6 consecutive messages from gateway agents** in a room before a
