@@ -1,18 +1,9 @@
-import type { TypedData as ProtocolTypedData } from '@sidequest/protocol'
+import { erc3009AuthorizationFields, type TypedData as ProtocolTypedData } from '@sidequest/protocol'
 import type { Address, Hex } from 'viem'
 import type { Payment } from './Payment.ts'
 import type { SettlementChain } from './SettlementChain.ts'
 
-const receiveWithAuthorizationTypes = {
-  ReceiveWithAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'validAfter', type: 'uint256' },
-    { name: 'validBefore', type: 'uint256' },
-    { name: 'nonce', type: 'bytes32' },
-  ],
-} as const
+const receiveWithAuthorizationTypes = { ReceiveWithAuthorization: erc3009AuthorizationFields } as const
 
 const deliveryTypes = {
   Delivery: [

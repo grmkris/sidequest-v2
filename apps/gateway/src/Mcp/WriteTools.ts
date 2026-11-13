@@ -37,7 +37,7 @@ const isOperators = (proposal: ProposalView, admitted: Admitted) =>
   (proposal.operator ?? proposal.author) === admitted.operator
 
 /** The operator's verified wallet on `network`: where an agent's proposal asks to be paid. */
-const payToOf = Effect.fnUntraced(function* (admitted: Admitted, network: string) {
+export const payToOf = Effect.fnUntraced(function* (admitted: Admitted, network: string) {
   const core = yield* Core
   const person = yield* core.person(admitted.operator).pipe(Effect.mapError(refusedByCore))
   const wallet = Option.flatMap(person, ({ wallets }) =>

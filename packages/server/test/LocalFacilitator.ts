@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { erc3009AuthorizationFields } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
 import {
   type Address,
@@ -92,16 +93,7 @@ const check = async (client: PublicClient, call: Call): Promise<{ invalid: strin
   const valid = await verifyTypedData({
     address: from,
     domain: { name: required.extra.name, version: required.extra.version, chainId, verifyingContract: required.asset },
-    types: {
-      TransferWithAuthorization: [
-        { name: 'from', type: 'address' },
-        { name: 'to', type: 'address' },
-        { name: 'value', type: 'uint256' },
-        { name: 'validAfter', type: 'uint256' },
-        { name: 'validBefore', type: 'uint256' },
-        { name: 'nonce', type: 'bytes32' },
-      ],
-    },
+    types: { TransferWithAuthorization: erc3009AuthorizationFields },
     primaryType: 'TransferWithAuthorization',
     message: {
       from,

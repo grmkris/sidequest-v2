@@ -86,6 +86,7 @@ export {
 export {
   ChallengeMismatch,
   ChallengeMismatchReason,
+  erc3009AuthorizationFields,
   type ExactOffer,
   exactAuthorization,
   exactPaymentPayload,

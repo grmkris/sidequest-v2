@@ -100,17 +100,20 @@ export const matchChallenge = (
   })
 }
 
-/** ERC-3009's `TransferWithAuthorization` struct, which the `exact` scheme's `eip3009` method signs. */
-const transferWithAuthorizationTypes = {
-  TransferWithAuthorization: [
-    { name: 'from', type: 'address' },
-    { name: 'to', type: 'address' },
-    { name: 'value', type: 'uint256' },
-    { name: 'validAfter', type: 'uint256' },
-    { name: 'validBefore', type: 'uint256' },
-    { name: 'nonce', type: 'bytes32' },
-  ],
-}
+/**
+ * The fields of ERC-3009's authorizations, `TransferWithAuthorization` (which the `exact` scheme's `eip3009` method
+ * signs) and `ReceiveWithAuthorization` (which the escrow's collector redeems) alike.
+ */
+export const erc3009AuthorizationFields = [
+  { name: 'from', type: 'address' },
+  { name: 'to', type: 'address' },
+  { name: 'value', type: 'uint256' },
+  { name: 'validAfter', type: 'uint256' },
+  { name: 'validBefore', type: 'uint256' },
+  { name: 'nonce', type: 'bytes32' },
+] as const
+
+const transferWithAuthorizationTypes = { TransferWithAuthorization: erc3009AuthorizationFields }
 
 /**
  * The authorization a buyer's wallet signs to pay `offer` from `from`: the offer's amount to its `payTo`, valid from

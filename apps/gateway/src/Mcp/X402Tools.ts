@@ -18,6 +18,7 @@ import { Core } from '../Core/Core.ts'
 import type { Admitted } from '../Grants/GrantGate.ts'
 import { ChallengeFetch } from '../X402/ChallengeFetch.ts'
 import { acting, publishAs, refusedByCore } from './Acting.ts'
+import { payToOf } from './WriteTools.ts'
 import { Refused } from './Tools.ts'
 
 // The x402 rail's tools (ADR-0006). The agent finds a pay-per-call listing, asks its resource for the price and gets
@@ -58,20 +59,7 @@ const paidListingOf = Effect.fnUntraced(function* (input: ListingInput) {
 })
 
 /** The operator's verified wallet on the asset's network: who pays, and whose payment the receipt names. */
-const payerOf = Effect.fnUntraced(function* (admitted: Admitted, asset: string) {
-  const core = yield* Core
-  const network = asset.slice(0, asset.indexOf('/'))
-  const person = yield* core.person(admitted.operator).pipe(Effect.mapError(refusedByCore))
-  const wallet = Option.flatMap(person, ({ wallets }) =>
-    Option.fromNullishOr(wallets.find(({ account }) => account.startsWith(`${network}:`))),
-  )
-  if (Option.isNone(wallet))
-    return yield* new Refused({
-      reason: 'NoWalletOnNetwork',
-      detail: `Your operator has no verified wallet link on ${network}.`,
-    })
-  return wallet.value.account
-})
+const payerOf = (admitted: Admitted, asset: string) => payToOf(admitted, asset.slice(0, asset.indexOf('/')))
 
 const readChallenge = Schema.decodeUnknownOption(x402Header(X402PaymentRequired))
 

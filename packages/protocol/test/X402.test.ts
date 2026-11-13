@@ -8,6 +8,7 @@ import {
   X402Settlement,
 } from '../src/X402.ts'
 import {
+  erc3009AuthorizationFields,
   exactAuthorization,
   exactPaymentPayload,
   exactTypedData,
@@ -131,16 +132,7 @@ describe('matching a challenge against its listing', () => {
         chainId: 84_532,
         verifyingContract: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
       },
-      types: {
-        TransferWithAuthorization: [
-          { name: 'from', type: 'address' },
-          { name: 'to', type: 'address' },
-          { name: 'value', type: 'uint256' },
-          { name: 'validAfter', type: 'uint256' },
-          { name: 'validBefore', type: 'uint256' },
-          { name: 'nonce', type: 'bytes32' },
-        ],
-      },
+      types: { TransferWithAuthorization: [...erc3009AuthorizationFields] },
       primaryType: 'TransferWithAuthorization',
       message: {
         from: '0x857b06519E91e3A54538791bDbb0E22373e36b66',
