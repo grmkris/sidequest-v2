@@ -411,6 +411,10 @@ const relayWith = (w: Wiring) =>
     yield* repairAll(w).pipe(Effect.catchTag('ChainUnavailable', () => Effect.void))
     const existing = yield* w.intents.find(id)
     if (Option.isSome(existing)) return yield* resume(w, existing.value, data)
+    // The same call is out already under another id (an earlier attempt of a deadline call, not yet mined): the chain
+    // can execute it once, so this relay answers with that intent rather than spend a second nonce on a revert.
+    const inFlight = (yield* w.intents.open(w.account.address)).find((open) => open.data === data)
+    if (inFlight !== undefined) return yield* drive(w, inFlight, Option.none())
     const simulation = yield* simulate(w, data)
     if (!simulation.runs) return yield* new CallReverted({ function: call.function, reason: simulation.reason })
     const minimumNonce = yield* nonceAt(w, 'pending')
@@ -425,8 +429,9 @@ const relayWith = (w: Wiring) =>
  *
  * Every call is an intent that holds one nonce. The intent is recorded before anything is signed, and each signed
  * transaction before it is broadcast, so a relay that stops anywhere is picked up by the next one: it looks at the
- * chain and carries on from what it finds. The same id with a different call is refused. A call that reverts in
- * simulation is refused before it takes a nonce.
+ * chain and carries on from what it finds. The same id with a different call is refused; the same call under a new id
+ * while an intent for it is open answers with that intent. A call that reverts in simulation is refused before it
+ * takes a nonce.
  *
  * A nonce the chain never uses would hold up every later transaction, so the relayer repairs stuck intents (see
  * {@link RepairPolicy}): it signs the same call again at the same nonce with higher fees, or, once the call can no

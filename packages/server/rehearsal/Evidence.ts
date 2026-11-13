@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
+import type { MethodCensus } from './RpcProxy.ts'
 
 // The rehearsal's evidence: every step with its time and transaction, each case's balances and outcome, and the
 // relayer's account of its nonces. Written as JSON to a git-ignored path, and summarised for a person to read.
@@ -73,6 +74,8 @@ export interface Evidence {
   readonly steps: Array<Step>
   readonly cases: Array<CaseResult>
   relayer?: RelayerAccount
+  /** Every JSON-RPC request the stack and the rehearsal sent through the proxy, by method. */
+  rpc?: Readonly<Record<string, MethodCensus>>
   durationMs?: number
 }
 
@@ -111,6 +114,17 @@ export const writeEvidence = (evidence: Evidence) => {
   return path
 }
 
+/** The stack's requests to the chain through the proxy, and which methods failed and how. */
+const rpcLines = (evidence: Evidence): ReadonlyArray<string> => {
+  const methods = Object.entries(evidence.rpc ?? {})
+  if (methods.length === 0) return []
+  const requests = methods.reduce((sum, [, method]) => sum + method.requests, 0)
+  const failed = methods
+    .filter(([, method]) => method.failed > 0)
+    .map(([name, method]) => `${name} ${method.failed} failed (${method.failures.join('; ')})`)
+  return [`  rpc through the proxy: ${requests} requests, ${failed.length === 0 ? 'none failed' : failed.join(', ')}`]
+}
+
 /** A summary a person reads: each case, its outcome and balances, and the relayer's nonces. */
 export const summaryOf = (evidence: Evidence) => {
   const lines = [
@@ -130,5 +144,6 @@ export const summaryOf = (evidence: Evidence) => {
     lines.push(
       `  relayer ${relayer.address}: ${relayer.transactions} sent (${relayer.calls} calls, ${relayer.releases} releases, ${relayer.withheld} withheld by the node); nonce ${relayer.latestNonce} mined, ${relayer.pendingNonce} pending; intents ${typeof relayer.intents === 'string' ? relayer.intents : JSON.stringify(relayer.intents)}`,
     )
+  lines.push(...rpcLines(evidence))
   return lines.join('\n')
 }

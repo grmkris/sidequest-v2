@@ -145,6 +145,7 @@ export const rehearsalRun = <W extends Rehearsed>(
   const finish = Effect.gen(function* () {
     const current = yield* world
     current.evidence.relayer = yield* Effect.promise(() => relayerSettled(current))
+    current.evidence.rpc = Object.fromEntries(current.proxy.census)
     const path = writeEvidence(current.evidence)
     process.stdout.write(`\n${summaryOf(current.evidence)}\n  evidence: ${path.pathname}\n\n`)
     expect(current.evidence.cases.filter(({ status }) => status === 'failed')).toEqual([])

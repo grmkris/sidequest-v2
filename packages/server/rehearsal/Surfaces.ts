@@ -195,13 +195,23 @@ const agentAt = (url: string, id: AgentId, token: string): Agent => ({
   call: (tool, args) => Effect.runPromise(callTool(url, token, tool, args)),
 })
 
-/** Ask until `done` holds, every 100 ms for at most `seconds`: views, projections and the chain follow eventually. */
-export const eventually = async <A>(read: () => Promise<A>, done: (value: A) => boolean, seconds = 60) => {
+/**
+ * Ask until `done` holds, every `everyMillis` (100 ms) for at most `seconds`: views, projections and the chain follow
+ * eventually. What asks a public RPC asks at a block's pace, not this one: the RPC's rate limit is shared with the stack.
+ */
+export const eventually = async <A>(
+  read: () => Promise<A>,
+  done: (value: A) => boolean,
+  seconds = 60,
+  everyMillis = 100,
+) => {
   const until = Date.now() + seconds * 1000
   for (;;) {
     const value = await read()
     if (done(value)) return value
-    if (Date.now() > until) throw new Error(`Still not there after ${seconds} s: ${JSON.stringify(value)}`)
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    if (Date.now() > until) throw new Error(`Still not there after ${seconds} s: ${JSON.stringify(value, bigints)}`)
+    await new Promise((resolve) => setTimeout(resolve, everyMillis))
   }
 }
+
+const bigints = (_key: string, value: unknown) => (typeof value === 'bigint' ? String(value) : value)

@@ -10,6 +10,7 @@ import {
   UsdcOnArcTestnet,
 } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
+import { isHex } from 'viem'
 import type { RehearsalChain } from './Chain.ts'
 import { type Evidence, step } from './Evidence.ts'
 import type { RpcProxy } from './RpcProxy.ts'
@@ -78,6 +79,42 @@ const proposalSeenByAgent = async (world: World, job: JobId) => {
   return head
 }
 
+/** How often the rehearsal asks the chain itself: about a block's time on Arc, well inside the public RPC's limit. */
+export const chainPollMillis = 2000
+
+/**
+ * Wait until the chain holds the relayed `transactionHash` at the stack's confirmation depth, and record how long the
+ * chain took. The stack reports only confirmed facts, so what a case then gives it (a view's 60 s) measures the stack,
+ * however slowly the chain makes and confirms blocks: on 2026-11-13 Arc testnet's blocks came 3.9 s apart on average
+ * and up to 30 s apart, against 0.55 s the day before, and inclusion plus three confirmations alone took up to 60 s.
+ */
+export const confirmedOnChain = async (
+  world: Pick<World, 'chain' | 'evidence'>,
+  label: string,
+  what: string,
+  transactionHash: string,
+) => {
+  const started = Date.now()
+  if (!isHex(transactionHash)) throw new Error(`The ${what} has no transaction hash`)
+  const depth = BigInt(Math.max(world.chain.confirmations, 1) - 1)
+  const { client } = world.chain
+  const confirmedIn = async () => {
+    // A failed read (a rate limit, a timeout) is a read that found nothing yet: the next one asks again.
+    const receipt = await client.getTransactionReceipt({ hash: transactionHash }).catch(() => undefined)
+    if (receipt === undefined) return undefined
+    const head = await client.getBlockNumber({ cacheTime: 0 }).catch(() => 0n)
+    return head - receipt.blockNumber >= depth ? receipt : undefined
+  }
+  const receipt = await eventually(confirmedIn, (found) => found !== undefined, 600, chainPollMillis)
+  if (receipt?.status !== 'success') throw new Error(`The ${what} reverted on chain`)
+  step(world.evidence, {
+    case: label,
+    step: `the chain confirmed the ${what} (${world.chain.confirmations} blocks deep)`,
+    transactionHash,
+    detail: { block: Number(receipt.blockNumber), seconds: Math.round((Date.now() - started) / 100) / 10 },
+  })
+}
+
 /**
  * The buyer's agent posts a request, the worker's agent finds it and proposes, the buyer's agent accepts: an awarded
  * job, whose delivery deadline lies `deadlineIn` seconds ahead.
@@ -136,6 +173,7 @@ export const fund = async (world: World, label: string, job: JobId) => {
     transactionHash: relayed.transactionHash,
     detail: { paymentHash: funding.paymentHash, authorizationExpiry: funding.authorizationExpiry },
   })
+  await confirmedOnChain(world, label, 'funding', relayed.transactionHash)
   await buyerView(world, job, (view) => view.state === 'Funded')
   step(world.evidence, { case: label, step: 'the chain reader saw the funding; the job is Funded' })
   return funding
@@ -160,6 +198,7 @@ export const deliver = async (world: World, label: string, job: JobId) => {
     step: 'worker signed the delivery hash (HTTP)',
     transactionHash: relayed.transactionHash,
   })
+  await confirmedOnChain(world, label, 'delivery', relayed.transactionHash)
   await buyerView(world, job, (view) => view.state === 'Delivered')
 }
 
@@ -174,4 +213,5 @@ export const decide = async (world: World, label: string, job: JobId, kind: 'app
     step: `buyer signed the ${kind} (HTTP)`,
     transactionHash: relayed.transactionHash,
   })
+  await confirmedOnChain(world, label, kind, relayed.transactionHash)
 }

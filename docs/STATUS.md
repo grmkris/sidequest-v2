@@ -2,7 +2,7 @@
 
 - **Phase:** 2 has started; the product still runs on phase 1. Phase 1's nine slices are built and its technical gate has passed on Arc testnet for three of its four cases; the fourth (buyer reclaim after expiry) has passed only on a local chain. The market gate (an outside agent completes a hire) is open ([roadmap](ROADMAP.md), [phase 1 spec](PHASE-1.md)).
 - **Source:** bootstrapped from Styld v2 commit `d0663c3` on 2026-10-29. No Sidequest V1 or Nod code has been ported.
-- **Contract:** `SidequestOperator` is deployed on Arc testnet (chain 5042002) at `0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99`, with a 500 bps fee to a throwaway test treasury. It is unaudited and exists on no other chain. That deployment is v1: the source is now v2 (slice 13, delivery delegation), which is built and tested on Anvil and an Arc testnet fork but not yet redeployed there.
+- **Contract:** `SidequestOperator` v2 (slice 13, delivery delegation) is deployed on Arc testnet (chain 5042002) at `0xA515f69EcAE571B1c7BC0911b3D1550f9eDb974b`, in block 72190184 (`0x44d88e8`), with a 500 bps fee to a throwaway test treasury. It is unaudited and exists on no other chain. It supersedes v1 at `0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99`, which stays on chain and is superseded: rehearsals now name v2, and no stage settles on either yet.
 - **Preview:** Alchemy stage `preview`, deployed from the build box, at `https://sidequestv2-sidequestedge-preview-xfwdaimchbooajzk.kristjan-grm11775.workers.dev`. Settlement is not enabled on it. Preview evidence says nothing about production.
 
 ## Phase 2 so far (2026-11-13)
@@ -33,18 +33,20 @@ Not proven for these: the index's own connections to relays from a deployed Work
 
 The roadmap's order has changed in one way: the pieces that add are built first, and wallet sign-in, sessions and the phase 1 aggregates are deleted together at the settlement cut-over, so every commit keeps a working hire. Ids are not renamed on aggregates about to be deleted.
 
-## Gate evidence (2026-11-12)
+## Gate evidence (2026-11-13)
 
 `bun run gate:rehearse` drives hires over the public HTTP and MCP surfaces of the built stack in workerd, against real contracts.
 
-| Case                                                                                         | Local chain (Anvil) | Arc testnet                                                 |
+| Case                                                                                         | Local chain (Anvil) | Arc testnet, operator v2                                    |
 | :------------------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
 | a) An agent proposes over MCP; the buyer funds; delivered; approved; paid with the exact fee | passed              | passed                                                      |
 | b) Rejected, then split by an arbitrator's ruling                                            | passed              | passed                                                      |
 | c) Funded, never delivered; the saga refunds after the deadline                              | passed              | passed                                                      |
 | d) Settlement withheld until expiry; the buyer reclaims from the escrow                      | passed              | not run: the escrow expires at least 38 hours after funding |
 
-The Arc testnet run's transactions are in [evidence/2026-11-12-arc-testnet-gate.json](evidence/2026-11-12-arc-testnet-gate.json). In that run the stack ran in local workerd, not on Cloudflare, and the wallets were test keys, not a browser wallet.
+The Arc testnet run against operator v2 is [evidence/2026-11-13-arc-testnet-gate-v2.json](evidence/2026-11-13-arc-testnet-gate-v2.json); the same three cases passed against v1 on 2026-11-12 ([evidence](evidence/2026-11-12-arc-testnet-gate.json)). In both runs the stack ran in local workerd, not on Cloudflare, and the wallets were test keys, not a browser wallet. The events rehearsal (`gate:rehearse:events`) runs on Anvil only.
+
+On 2026-11-13 Arc testnet made blocks 3.9 s apart on average, and up to 30 s apart while two of its validators proposed, against 0.55 s on 2026-11-12; a relayed step then took 6 to 37 s to be included and confirmed three blocks deep. The rehearsal now waits for that confirmation on chain, recording how long it took, before it gives the stack its 60 s to show the step; the stack's 419 requests through the proxy in that run all answered.
 
 ## Not proven
 

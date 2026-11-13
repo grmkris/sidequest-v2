@@ -35,6 +35,25 @@ const apiErrorOf = (failure: SettlementFailure) =>
     SettlementStoreError: () => new Unavailable(),
   })
 
-/** Answers a settlement call with the API's errors. */
+/** A 503 says only that something was out of reach: the log says what, so a refused money call can be traced. */
+const logUnavailable = (failure: SettlementFailure) =>
+  Match.valueTags(failure, {
+    ChainUnavailable: ({ operation, reason }) =>
+      Effect.logWarning('Sidequest.Settlement.unavailable').pipe(
+        Effect.annotateLogs({ alert: 'settlement-unavailable', operation, reason: reason ?? 'unknown' }),
+      ),
+    SettlementStoreError: ({ store }) =>
+      Effect.logWarning('Sidequest.Settlement.unavailable').pipe(
+        Effect.annotateLogs({ alert: 'settlement-unavailable', store }),
+      ),
+    ParametersChanged: () => Effect.void,
+    AlreadySubmitted: () => Effect.void,
+    NotBegun: () => Effect.void,
+    CallReverted: () => Effect.void,
+    IntentConflict: () => Effect.void,
+    UnpayableAgreement: () => Effect.void,
+  })
+
+/** Answers a settlement call with the API's errors; one answered 503 is logged with what was out of reach. */
 export const settlementRefused = <A, R>(call: Effect.Effect<A, SettlementFailure, R>) =>
-  Effect.mapError(call, apiErrorOf)
+  call.pipe(Effect.tapError(logUnavailable), Effect.mapError(apiErrorOf))

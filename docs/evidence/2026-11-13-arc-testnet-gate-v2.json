@@ -1,0 +1,539 @@
+{
+  "rehearsal": "phase-1-technical-gate",
+  "mode": "arc-testnet",
+  "startedAt": "2026-11-13T09:29:01.575Z",
+  "release": "rehearsal",
+  "chain": {
+    "chainId": 5042002,
+    "escrow": "0xf96815976523E00e65Be8f34cA5e64b4f41EB19c",
+    "collector": "0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88",
+    "token": "0x3600000000000000000000000000000000000000",
+    "operator": "0xA515f69EcAE571B1c7BC0911b3D1550f9eDb974b",
+    "treasury": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+    "amount": "100000",
+    "relayer": "0x4137102268A2B4489BbE4313AE5Cf949343646d7",
+    "arbitrator": "0x2a28366AE182aCDbB6573a59E18F4E0Ac05eA5bE",
+    "buyer": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+    "worker": "0x24587E657bbfC52C9860FA51374db695a0A1F422"
+  },
+  "steps": [
+    {
+      "case": "a",
+      "step": "buyer agent posted the request (MCP post_request)",
+      "detail": {
+        "job": "job_01M7A3TQ931PSNSC9YFV0XJKPE"
+      },
+      "at": 12467
+    },
+    {
+      "case": "a",
+      "step": "worker agent found it and proposed (MCP list_open_requests, propose)",
+      "at": 13084
+    },
+    {
+      "case": "a",
+      "step": "buyer agent accepted; the buyer is asked to fund (MCP accept)",
+      "at": 13612
+    },
+    {
+      "case": "a",
+      "step": "buyer signed the authorization; the relayer funded the escrow (HTTP funding)",
+      "transactionHash": "0x60462d77f01b2f55f48fc530cb3f4183e811c5fc057a1eb5619fef1434dc4d65",
+      "detail": {
+        "paymentHash": "0xeb286184aceac5c43881cad6af014275d82b27a068a8e3e8bddad673aca2c533",
+        "authorizationExpiry": 1794706153
+      },
+      "at": 14130
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x60462d77f01b2f55f48fc530cb3f4183e811c5fc057a1eb5619fef1434dc4d65",
+      "detail": {
+        "block": 72190646,
+        "seconds": 14.4
+      },
+      "at": 28504
+    },
+    {
+      "case": "a",
+      "step": "the chain reader saw the funding; the job is Funded",
+      "at": 41990
+    },
+    {
+      "case": "a",
+      "step": "worker agent handed over the work (MCP deliver)",
+      "at": 42075
+    },
+    {
+      "case": "a",
+      "step": "worker signed the delivery hash (HTTP)",
+      "transactionHash": "0xdc46f39432d36e13652ff768e24ca7c638fb076c8376eed8855958cee1175d99",
+      "at": 42554
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the delivery (3 blocks deep)",
+      "transactionHash": "0xdc46f39432d36e13652ff768e24ca7c638fb076c8376eed8855958cee1175d99",
+      "detail": {
+        "block": 72190662,
+        "seconds": 24.6
+      },
+      "at": 67115
+    },
+    {
+      "case": "a",
+      "step": "buyer signed the approval (HTTP)",
+      "transactionHash": "0x32e7d922589528cf5bd822683fc574a066872c2c5abcf9ce301636c49d686685",
+      "at": 72845
+    },
+    {
+      "case": "a",
+      "step": "the chain confirmed the approval (3 blocks deep)",
+      "transactionHash": "0x32e7d922589528cf5bd822683fc574a066872c2c5abcf9ce301636c49d686685",
+      "detail": {
+        "block": 72190667,
+        "seconds": 8.2
+      },
+      "at": 81085
+    },
+    {
+      "case": "a",
+      "step": "worker agent read the payment as settled (MCP payment_status)",
+      "detail": {
+        "status": true
+      },
+      "at": 87915
+    },
+    {
+      "case": "b",
+      "step": "buyer agent posted the request (MCP post_request)",
+      "detail": {
+        "job": "job_01M7A3X1CB90M9J4CNQ4EK3821"
+      },
+      "at": 88242
+    },
+    {
+      "case": "b",
+      "step": "worker agent found it and proposed (MCP list_open_requests, propose)",
+      "at": 88548
+    },
+    {
+      "case": "b",
+      "step": "buyer agent accepted; the buyer is asked to fund (MCP accept)",
+      "at": 88903
+    },
+    {
+      "case": "b",
+      "step": "buyer signed the authorization; the relayer funded the escrow (HTTP funding)",
+      "transactionHash": "0xe5079d5d1aa53a001b804d4c425b4eeac259c4cdb330b5dd054dd9e3619e88c0",
+      "detail": {
+        "paymentHash": "0xbd3076bf5ecfc48ef1f2be353fbaa347535fa69a5afdece58c8fd8307f2fb8a4",
+        "authorizationExpiry": 1794706229
+      },
+      "at": 89353
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0xe5079d5d1aa53a001b804d4c425b4eeac259c4cdb330b5dd054dd9e3619e88c0",
+      "detail": {
+        "block": 72190683,
+        "seconds": 30.6
+      },
+      "at": 119954
+    },
+    {
+      "case": "b",
+      "step": "the chain reader saw the funding; the job is Funded",
+      "at": 132169
+    },
+    {
+      "case": "b",
+      "step": "worker agent handed over the work (MCP deliver)",
+      "at": 132256
+    },
+    {
+      "case": "b",
+      "step": "worker signed the delivery hash (HTTP)",
+      "transactionHash": "0x9c6ca5c2a07965306bf77239516da3b7967d44bad18663333671d3b1b3dfeec0",
+      "at": 132589
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the delivery (3 blocks deep)",
+      "transactionHash": "0x9c6ca5c2a07965306bf77239516da3b7967d44bad18663333671d3b1b3dfeec0",
+      "detail": {
+        "block": 72190690,
+        "seconds": 6.2
+      },
+      "at": 138787
+    },
+    {
+      "case": "b",
+      "step": "buyer signed the rejection (HTTP)",
+      "transactionHash": "0x575062e8961428603d7e230d4f662701eeb74b364ca9edd2f94509ffc1bc5bad",
+      "at": 139497
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the rejection (3 blocks deep)",
+      "transactionHash": "0x575062e8961428603d7e230d4f662701eeb74b364ca9edd2f94509ffc1bc5bad",
+      "detail": {
+        "block": 72190704,
+        "seconds": 36.8
+      },
+      "at": 176270
+    },
+    {
+      "case": "b",
+      "step": "the arbitration operator ruled a 6000 bps share (HTTP ruling)",
+      "transactionHash": "0x04edc6ccda5bda9f351c0e86ebe6fec792bc635c2d798271680c83ec223178a0",
+      "at": 178214
+    },
+    {
+      "case": "b",
+      "step": "the chain confirmed the ruling (3 blocks deep)",
+      "transactionHash": "0x04edc6ccda5bda9f351c0e86ebe6fec792bc635c2d798271680c83ec223178a0",
+      "detail": {
+        "block": 72190709,
+        "seconds": 10.4
+      },
+      "at": 188583
+    },
+    {
+      "case": "c",
+      "step": "buyer agent posted the request (MCP post_request)",
+      "detail": {
+        "job": "job_01M7A4085B055H4VESFGA0HAV3"
+      },
+      "at": 193494
+    },
+    {
+      "case": "c",
+      "step": "worker agent found it and proposed (MCP list_open_requests, propose)",
+      "at": 193886
+    },
+    {
+      "case": "c",
+      "step": "buyer agent accepted; the buyer is asked to fund (MCP accept)",
+      "at": 194275
+    },
+    {
+      "case": "c",
+      "step": "buyer signed the authorization; the relayer funded the escrow (HTTP funding)",
+      "transactionHash": "0x88b07c57ee4339e7406a306b92bf5df9a313403f014bfd2f1ff61f8b48af69e2",
+      "detail": {
+        "paymentHash": "0x13c7cc414e27d409aaf0cd2b9e5a0bcaef5757cd8f652c5b98a439a6c360d235",
+        "authorizationExpiry": 1794699374
+      },
+      "at": 194769
+    },
+    {
+      "case": "c",
+      "step": "the chain confirmed the funding (3 blocks deep)",
+      "transactionHash": "0x88b07c57ee4339e7406a306b92bf5df9a313403f014bfd2f1ff61f8b48af69e2",
+      "detail": {
+        "block": 72190725,
+        "seconds": 32.6
+      },
+      "at": 227417
+    },
+    {
+      "case": "c",
+      "step": "the chain reader saw the funding; the job is Funded",
+      "at": 237723
+    },
+    {
+      "case": "c",
+      "step": "the delivery deadline passed on chain",
+      "detail": {
+        "deadline": 1794562574
+      },
+      "at": 440746
+    },
+    {
+      "case": "c",
+      "step": "the saga refunded it (refundUndelivered, relayed)",
+      "at": 482293
+    }
+  ],
+  "cases": [
+    {
+      "case": "a",
+      "title": "approved and paid with the exact fee",
+      "status": "passed",
+      "job": "job_01M7A3TQ931PSNSC9YFV0XJKPE",
+      "outcome": "paid",
+      "settlement": ["capture 100000"],
+      "durationMs": 76047,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "19180000",
+          "after": "19080000",
+          "change": "-100000",
+          "expected": "-100000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "399000",
+          "after": "494000",
+          "change": "95000",
+          "expected": "95000"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "21000",
+          "after": "26000",
+          "change": "5000",
+          "expected": "5000"
+        }
+      ],
+      "inbox": {
+        "buyer": ["proposal_submitted", "funding_recorded", "delivery_recorded", "job_settled"],
+        "worker": ["proposal_accepted", "funding_recorded", "delivery_recorded", "job_settled"]
+      },
+      "paymentHash": "0xeb286184aceac5c43881cad6af014275d82b27a068a8e3e8bddad673aca2c533"
+    },
+    {
+      "case": "b",
+      "title": "rejected, then split by a ruling",
+      "status": "passed",
+      "job": "job_01M7A3X1CB90M9J4CNQ4EK3821",
+      "outcome": "split",
+      "settlement": ["capture 60000", "void 40000"],
+      "durationMs": 105262,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "19080000",
+          "after": "19020000",
+          "change": "-60000",
+          "expected": "-60000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "494000",
+          "after": "551000",
+          "change": "57000",
+          "expected": "57000"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "26000",
+          "after": "29000",
+          "change": "3000",
+          "expected": "3000"
+        }
+      ],
+      "inbox": {
+        "buyer": ["proposal_submitted", "funding_recorded", "delivery_recorded", "job_settled"],
+        "worker": ["proposal_accepted", "funding_recorded", "delivery_recorded", "job_settled"]
+      },
+      "paymentHash": "0xbd3076bf5ecfc48ef1f2be353fbaa347535fa69a5afdece58c8fd8307f2fb8a4"
+    },
+    {
+      "case": "c",
+      "title": "funded, never delivered, refunded by the saga",
+      "status": "passed",
+      "job": "job_01M7A4085B055H4VESFGA0HAV3",
+      "outcome": "refunded",
+      "settlement": ["void 100000"],
+      "durationMs": 244702,
+      "balances": [
+        {
+          "party": "buyer",
+          "address": "0x0e7c3e0ba833faB8Bc031f4f27E15FDEA1882b03",
+          "before": "18920000",
+          "after": "19020000",
+          "change": "100000",
+          "expected": "100000"
+        },
+        {
+          "party": "worker",
+          "address": "0x24587E657bbfC52C9860FA51374db695a0A1F422",
+          "before": "551000",
+          "after": "551000",
+          "change": "0",
+          "expected": "0"
+        },
+        {
+          "party": "treasury",
+          "address": "0x8E02bb6De5f0455C845e1CB5dCC8ae7cf95C7275",
+          "before": "29000",
+          "after": "29000",
+          "change": "0",
+          "expected": "0"
+        }
+      ],
+      "inbox": {
+        "buyer": ["proposal_submitted", "funding_recorded", "job_settled"],
+        "worker": ["proposal_accepted", "funding_recorded", "job_settled"]
+      },
+      "paymentHash": "0x13c7cc414e27d409aaf0cd2b9e5a0bcaef5757cd8f652c5b98a439a6c360d235"
+    },
+    {
+      "case": "d",
+      "title": "settlement withheld until expiry, reclaimed by the buyer",
+      "status": "not run",
+      "reason": "the escrow expires at least 38 h after funding (review 1 h + dispute 1 h + arbitration 12 h + 24 h margin)"
+    }
+  ],
+  "relayer": {
+    "address": "0x4137102268A2B4489BbE4313AE5Cf949343646d7",
+    "transactions": 9,
+    "calls": 9,
+    "releases": 0,
+    "withheld": 0,
+    "latestNonce": 43,
+    "pendingNonce": 43,
+    "intents": {
+      "mined": 9
+    },
+    "sent": [
+      {
+        "hash": "0x60462d77f01b2f55f48fc530cb3f4183e811c5fc057a1eb5619fef1434dc4d65",
+        "nonce": 34,
+        "function": "fund",
+        "withheld": false,
+        "at": 1794562155556
+      },
+      {
+        "hash": "0xdc46f39432d36e13652ff768e24ca7c638fb076c8376eed8855958cee1175d99",
+        "nonce": 35,
+        "function": "deliver",
+        "withheld": false,
+        "at": 1794562184005
+      },
+      {
+        "hash": "0x32e7d922589528cf5bd822683fc574a066872c2c5abcf9ce301636c49d686685",
+        "nonce": 36,
+        "function": "approve",
+        "withheld": false,
+        "at": 1794562214318
+      },
+      {
+        "hash": "0xe5079d5d1aa53a001b804d4c425b4eeac259c4cdb330b5dd054dd9e3619e88c0",
+        "nonce": 37,
+        "function": "fund",
+        "withheld": false,
+        "at": 1794562230832
+      },
+      {
+        "hash": "0x9c6ca5c2a07965306bf77239516da3b7967d44bad18663333671d3b1b3dfeec0",
+        "nonce": 38,
+        "function": "deliver",
+        "withheld": false,
+        "at": 1794562274063
+      },
+      {
+        "hash": "0x575062e8961428603d7e230d4f662701eeb74b364ca9edd2f94509ffc1bc5bad",
+        "nonce": 39,
+        "function": "reject",
+        "withheld": false,
+        "at": 1794562280944
+      },
+      {
+        "hash": "0x04edc6ccda5bda9f351c0e86ebe6fec792bc635c2d798271680c83ec223178a0",
+        "nonce": 40,
+        "function": "rule",
+        "withheld": false,
+        "at": 1794562319675
+      },
+      {
+        "hash": "0x88b07c57ee4339e7406a306b92bf5df9a313403f014bfd2f1ff61f8b48af69e2",
+        "nonce": 41,
+        "function": "fund",
+        "withheld": false,
+        "at": 1794562336241
+      },
+      {
+        "hash": "0x962815cc6114a63f112cf56514d825c53a67f945eb75cf9fa6b7c4db9b4ed655",
+        "nonce": 42,
+        "function": "refundUndelivered",
+        "withheld": false,
+        "at": 1794562593296
+      }
+    ]
+  },
+  "rpc": {
+    "eth_blockNumber": {
+      "requests": 77,
+      "failed": 0,
+      "totalMs": 2001.0863439999848,
+      "maxMs": 71.55213100000401,
+      "failures": []
+    },
+    "eth_estimateGas": {
+      "requests": 19,
+      "failed": 1,
+      "totalMs": 453.65291499998784,
+      "maxMs": 29.66546799999196,
+      "failures": ["3 execution reverted"]
+    },
+    "eth_getTransactionCount": {
+      "requests": 41,
+      "failed": 0,
+      "totalMs": 995.5896750000265,
+      "maxMs": 53.71284100000048,
+      "failures": []
+    },
+    "eth_getBlockByNumber": {
+      "requests": 137,
+      "failed": 0,
+      "totalMs": 3381.9039420003865,
+      "maxMs": 70.19857800001046,
+      "failures": []
+    },
+    "eth_maxPriorityFeePerGas": {
+      "requests": 9,
+      "failed": 0,
+      "totalMs": 209.94464000002154,
+      "maxMs": 28.254993000009563,
+      "failures": []
+    },
+    "eth_sendRawTransaction": {
+      "requests": 9,
+      "failed": 0,
+      "totalMs": 216.04111099997135,
+      "maxMs": 27.431154000005336,
+      "failures": []
+    },
+    "eth_getTransactionByHash": {
+      "requests": 14,
+      "failed": 0,
+      "totalMs": 331.1845719999001,
+      "maxMs": 29.47024400000373,
+      "failures": []
+    },
+    "eth_call": {
+      "requests": 60,
+      "failed": 0,
+      "totalMs": 1504.2916949999035,
+      "maxMs": 48.072024000000965,
+      "failures": []
+    },
+    "eth_getLogs": {
+      "requests": 44,
+      "failed": 0,
+      "totalMs": 1127.9115759998967,
+      "maxMs": 60.17226899997331,
+      "failures": []
+    },
+    "eth_getTransactionReceipt": {
+      "requests": 9,
+      "failed": 0,
+      "totalMs": 210.18381000004592,
+      "maxMs": 27.376717999999528,
+      "failures": []
+    }
+  },
+  "durationMs": 482489
+}

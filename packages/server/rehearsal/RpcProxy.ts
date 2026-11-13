@@ -17,6 +17,8 @@ import {
 // `SidequestOperator` call: the node then refuses them outright, as a node can refuse a transaction for good. That is
 // how a rehearsal keeps settlement calls from a job until its escrow expires, and it exercises the relayer's repair of
 // the nonces it leaves unused.
+// It also counts every request by method, with its failures and latency, for the evidence: what the stack asked of the
+// chain, and whether the chain (a public RPC with a rate limit) answered.
 
 const Request = Schema.fromJsonString(
   Schema.Struct({ id: Schema.Unknown, method: Schema.String, params: Schema.optional(Schema.Array(Schema.Unknown)) }),
@@ -33,10 +35,23 @@ export interface Sent {
   readonly at: number
 }
 
+/** One JSON-RPC method's requests through the proxy: how many, how many failed, and how long they took. */
+export interface MethodCensus {
+  readonly requests: number
+  /** Answered with an HTTP error, a JSON-RPC error, or not at all. */
+  readonly failed: number
+  readonly totalMs: number
+  readonly maxMs: number
+  /** The first few distinct failures, as the node or the transport put them. */
+  readonly failures: ReadonlyArray<string>
+}
+
 export interface RpcProxy {
   readonly url: string
   /** Every `eth_sendRawTransaction` the proxy saw, in order. */
   readonly sent: Array<Sent>
+  /** Every request the proxy passed on, by method. */
+  readonly census: Map<string, MethodCensus>
   /** Payment hashes whose operator calls the node refuses. */
   readonly withheld: Set<Hex>
   readonly stop: () => void
@@ -81,6 +96,38 @@ const paymentOfCall = (data: Hex, chain: { readonly chainId: number; readonly es
 const refusal = (id: unknown, message: string) =>
   Response.json({ jsonrpc: '2.0', id, error: { code: -32003, message } })
 
+const AnswerError = Schema.fromJsonString(
+  Schema.Struct({
+    error: Schema.Struct({ code: Schema.optional(Schema.Number), message: Schema.optional(Schema.String) }),
+  }),
+)
+
+/** Why an answer is a failure (an HTTP error, a JSON-RPC error, or none at all), or undefined for a result. */
+const failureOf = (answered: { readonly status: number; readonly text: string; readonly cause?: string }) => {
+  if (answered.status === 0) return `transport: ${answered.cause ?? 'no answer'}`.slice(0, 160)
+  const error = Option.getOrUndefined(Schema.decodeUnknownOption(AnswerError)(answered.text))?.error
+  if (error !== undefined) return `${error.code ?? '?'} ${error.message ?? ''}`.slice(0, 160)
+  return answered.status >= 400 ? `HTTP ${answered.status}` : undefined
+}
+
+const recordedFailures = 5
+
+/** Counts one request of `method` in the census. */
+const count = (census: Map<string, MethodCensus>, method: string, ms: number, failure: string | undefined) => {
+  const was = census.get(method) ?? { requests: 0, failed: 0, totalMs: 0, maxMs: 0, failures: [] }
+  const failures =
+    failure === undefined || was.failures.includes(failure) || was.failures.length >= recordedFailures
+      ? was.failures
+      : [...was.failures, failure]
+  census.set(method, {
+    requests: was.requests + 1,
+    failed: was.failed + (failure === undefined ? 0 : 1),
+    totalMs: was.totalMs + ms,
+    maxMs: Math.max(was.maxMs, ms),
+    failures,
+  })
+}
+
 /** Start the proxy in front of `upstream`; calls to `operator` for a withheld payment are refused. */
 export const startProxy = (
   upstream: string,
@@ -88,6 +135,7 @@ export const startProxy = (
 ): RpcProxy => {
   const sent: Array<Sent> = []
   const withheld = new Set<Hex>()
+  const census = new Map<string, MethodCensus>()
   const inspect = (raw: string): Sent | undefined => {
     if (!isHex(raw)) return undefined
     const transaction = parseTransaction(raw)
@@ -116,12 +164,29 @@ export const startProxy = (
         if (transaction?.withheld === true)
           return refusal(parsed.id, 'transaction rejected: withheld by the gate rehearsal')
       }
-      const answer = await fetch(upstream, { method: 'POST', headers: { 'content-type': 'application/json' }, body })
-      return new Response(await answer.text(), {
-        status: answer.status,
+      const method = parsed?.method ?? 'unparsed'
+      const began = performance.now()
+      const answered = await fetch(upstream, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body,
+      }).then(
+        async (answer) => ({ status: answer.status, text: await answer.text() }),
+        (cause: unknown) => ({ status: 0, text: '', cause: String(cause) }),
+      )
+      const ms = performance.now() - began
+      const failure = failureOf(answered)
+      count(census, method, ms, failure)
+      if (answered.status === 0)
+        return Response.json(
+          { jsonrpc: '2.0', id: parsed?.id, error: { code: -32603, message: 'upstream' } },
+          { status: 502 },
+        )
+      return new Response(answered.text, {
+        status: answered.status,
         headers: { 'content-type': 'application/json' },
       })
     },
   })
-  return { url: `http://127.0.0.1:${server.port}`, sent, withheld, stop: () => void server.stop(true) }
+  return { url: `http://127.0.0.1:${server.port}`, sent, withheld, census, stop: () => void server.stop(true) }
 }

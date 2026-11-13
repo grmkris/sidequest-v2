@@ -5,7 +5,7 @@ import { Effect } from 'effect'
 import { type Address, encodeFunctionData, getAddress, isHex, parseAbi } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { type Balance, type CaseResult, step } from './Evidence.ts'
-import { award, buyerView, decide, deliver, fund, type World } from './Hire.ts'
+import { award, buyerView, chainPollMillis, confirmedOnChain, decide, deliver, fund, type World } from './Hire.ts'
 import { bodyOf, eventually, inboxOf } from './Surfaces.ts'
 
 // The four hires of the phase 1 technical gate (docs/ROADMAP.md): paid on approval, split by a ruling, refunded when
@@ -154,6 +154,7 @@ export const splitByRuling = async (world: World): Promise<CaseResult> => {
     step: 'the arbitration operator ruled a 6000 bps share (HTTP ruling)',
     transactionHash: ruled.transactionHash,
   })
+  await confirmedOnChain(world, 'b', 'ruling', ruled.transactionHash)
   const view = await buyerView(world, job, (shown) => shown.state === 'Settled')
   if (view.outcome !== 'split' || view.dispute?.workerShareBps !== 6000) throw new Error(`Ruled, yet ${view.outcome}`)
   const captured = (world.chain.amount * 6000n) / 10_000n
@@ -174,10 +175,12 @@ export const passTime = async (world: Pick<World, 'chain'>, at: number) => {
   const now = await world.chain.now()
   if (now > at) return
   if (world.chain.advance !== undefined) return world.chain.advance(at - now + 1)
+  // A failed read (a rate limit, a timeout) reads as "not yet": the next one, a block later, asks again.
   await eventually(
-    () => world.chain.now(),
+    () => world.chain.now().catch(() => now),
     (time) => time > at,
     at - now + 120,
+    chainPollMillis,
   )
 }
 

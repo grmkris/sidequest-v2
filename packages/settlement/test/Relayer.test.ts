@@ -91,6 +91,22 @@ describe('the relayer', () => {
     }),
   )
 
+  it.effect('sends a call once while it is pending, whatever id a later attempt of it gives', () =>
+    Effect.gen(function* () {
+      const rpc = fakeRpc()
+      const intents = memoryRelayerIntents()
+      // A deadline call's attempts, a look apart, while blocks are slow: the first is still in the mempool.
+      const first = yield* relay(rpc, intents, 'refundUndelivered:job-1:5', refundUndelivered)
+      const second = yield* relay(rpc, intents, 'refundUndelivered:job-1:6', refundUndelivered)
+      expect(second).toEqual(first)
+      expect(sends(rpc)).toBe(1)
+      // Once it is mined, a later attempt is a new call, which the chain decides on.
+      rpc.mine(first.transactionHash)
+      yield* relay(rpc, intents, 'refundUndelivered:job-1:7', refundUndelivered)
+      expect(sends(rpc)).toBe(2)
+    }),
+  )
+
   it.effect('refuses a call the chain would revert before it takes a nonce', () =>
     Effect.gen(function* () {
       const rpc = fakeRpc()
