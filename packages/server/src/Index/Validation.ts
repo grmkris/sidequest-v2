@@ -2,6 +2,7 @@ import { NostrEvent, serializeEvent, verifyEvent } from '@sidequest/nostr'
 import {
   agentGrant,
   deliveryNote,
+  erc8004Claim,
   grantRevocation,
   jobAccept,
   jobProposal,
@@ -23,6 +24,7 @@ import {
 import { Effect, Option, Result, Schema } from 'effect'
 import {
   type Derived,
+  erc8004ClaimOf,
   grantOf,
   listingOf,
   messagingRelaysOf,
@@ -140,6 +142,7 @@ const readers: ReadonlyMap<number, Reader> = new Map<number, Reader>([
   sidequestDeriving(agentGrant, grantOf),
   sidequestDeriving(grantRevocation, revocationOf),
   sidequestDeriving(paymentReceipt, receiptOf),
+  sidequestDeriving(erc8004Claim, erc8004ClaimOf),
 ])
 
 /** The kinds the index keeps, for relay filters. */

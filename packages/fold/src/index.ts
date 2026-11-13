@@ -23,6 +23,7 @@ export {
   JobView,
   ProposalView,
   RequestView,
+  settledStages,
   ReviewSide,
   ReviewView,
   Stage,

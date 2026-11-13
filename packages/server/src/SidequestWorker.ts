@@ -14,6 +14,7 @@ import { EscrowSettings, escrowSettingsFrom, operatorDeployBlockFrom } from './E
 import { Settler } from './Escrow/Settler.ts'
 import { LaunchCapSettings, launchCapsFrom } from './Escrow/LaunchCaps.ts'
 import { ModerationSettings, moderationSettingsFrom } from './Index/Moderation.ts'
+import { Erc8004Reader } from './Erc8004/Erc8004Reader.ts'
 import { ArcRpc, arcRpcUrlFrom } from './Settlement/ArcRpc.ts'
 import { settlementConfigFrom } from './Settlement/SettlementConfig.ts'
 import { ChainRpcFromArc, settlementLive } from './Settlement/SettlementLive.ts'
@@ -67,7 +68,13 @@ const StageGuardsLive = Layer.mergeAll(
 
 /** The index, the chain log poller, the settler and the escrow's settings, each configured by the Worker's variables,
  * over settlement, the Arc RPC client and D1. */
-const Runtime = Layer.mergeAll(ChainLogPollerLive, Settler.layer, EscrowSettingsLive, StageGuardsLive).pipe(
+const Runtime = Layer.mergeAll(
+  ChainLogPollerLive,
+  Settler.layer,
+  Erc8004Reader.layer,
+  EscrowSettingsLive,
+  StageGuardsLive,
+).pipe(
   Layer.provideMerge(IndexLive.pipe(Layer.provide(IndexSettingsLive))),
   Layer.provideMerge(SettlementLive),
   Layer.provideMerge(ArcRpcLive),

@@ -1,6 +1,7 @@
 import type { NostrEvent } from '@sidequest/nostr'
 import {
   type AgentGrantContent,
+  type Erc8004ClaimContent,
   type GrantRevocationContent,
   grantOf as grantNamed,
   type MessagingRelays,
@@ -92,7 +93,19 @@ export interface ReceiptRow extends Origin {
   readonly content: PaymentReceiptContent
 }
 
-/** What an event derives: a profile, a relay list, a listing, a wallet link, a grant or a revocation. */
+/** A claim that an ERC-8004 token stands for `subject`, by `author`, who should own it (ADR-0007). */
+export interface Erc8004ClaimRow {
+  readonly eventId: string
+  readonly author: string
+  readonly subject: string
+  readonly registry: string
+  readonly agentId: string
+  readonly mcp: string | null
+  readonly createdAt: number
+}
+
+/** What an event derives: a profile, a relay list, a listing, a wallet link, a grant, a revocation, a receipt or an
+ * ERC-8004 claim. */
 export type Derived =
   | { readonly table: 'profiles'; readonly row: ProfileRow }
   | { readonly table: 'listings'; readonly row: ListingRow }
@@ -101,6 +114,7 @@ export type Derived =
   | { readonly table: 'agent_grants'; readonly row: GrantRow }
   | { readonly table: 'grant_revocations'; readonly row: RevocationRow }
   | { readonly table: 'x402_receipts'; readonly row: ReceiptRow }
+  | { readonly table: 'erc8004_claims'; readonly row: Erc8004ClaimRow }
 
 /**
  * Whether `candidate` replaces `current` as a key's latest of a kind: NIP-01's rule for replaceable events, the
@@ -225,6 +239,20 @@ export const grantOf = ({ event, content }: ParsedEvent<AgentGrantContent>): Der
 export const revocationOf = ({ event, content }: ParsedEvent<GrantRevocationContent>): Derived => ({
   table: 'grant_revocations',
   row: { eventId: event.id, grant: content.grant, pubkey: event.pubkey },
+})
+
+/** The claim row of an ERC-8004 claim the vocabulary read: its author is who should own the token. */
+export const erc8004ClaimOf = ({ event, content }: ParsedEvent<Erc8004ClaimContent>): Derived => ({
+  table: 'erc8004_claims',
+  row: {
+    eventId: event.id,
+    author: event.pubkey,
+    subject: content.subject,
+    registry: content.registry,
+    agentId: content.agentId,
+    mcp: content.mcp ?? null,
+    createdAt: event.created_at,
+  },
 })
 
 /** A grant as of a moment: revoked by its operator, not yet valid, expired, or active. */

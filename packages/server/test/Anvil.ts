@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
+import { erc8004RegistriesOn } from '@sidequest/settlement/Erc8004'
 import { arcTestnet, type SettlementChain } from '@sidequest/settlement/SettlementChain'
 import { chainProfiles } from '@sidequest/settlement/Chains'
 import { Option, Redacted, Schema } from 'effect'
@@ -10,17 +11,20 @@ import {
   createWalletClient,
   type Hex,
   http,
+  isAddress,
   isHex,
   parseAbi,
   type PublicClient,
+  type TransactionReceipt,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { beforeAll } from 'vitest'
 import type { SettlementConfig } from '../src/Settlement/SettlementConfig.ts'
 
 // A local chain for the tests that need one: Anvil with Arc testnet's chain id, the real `AuthCaptureEscrow` v1.1, its
-// `ERC3009PaymentCollector` and `SidequestOperator` from the Foundry build, and commerce-payments' ERC-3009 mock token
-// placed at Arc's USDC address. Available only where `anvil` runs and `contracts/out` holds the build
+// `ERC3009PaymentCollector` and `SidequestOperator` from the Foundry build, commerce-payments' ERC-3009 mock token
+// placed at Arc's USDC address, and the local ERC-8004 registries (`contracts/test/erc8004`) placed at the addresses
+// they have on Arc testnet. Available only where `anvil` runs and `contracts/out` holds the build
 // (`forge soldeer install && forge build` in `contracts/`); elsewhere those tests skip with a notice, and in CI they
 // fail instead, so CI can never pass without running them.
 
@@ -30,6 +34,8 @@ const artifacts = {
   collector: 'ERC3009PaymentCollector.sol/ERC3009PaymentCollector.json',
   token: 'MockERC3009Token.sol/MockERC3009Token.json',
   operator: 'SidequestOperator.sol/SidequestOperator.json',
+  identityRegistry: 'Erc8004Registries.sol/Erc8004IdentityRegistry.json',
+  reputationRegistry: 'Erc8004Registries.sol/Erc8004ReputationRegistry.json',
 } as const
 
 /** Why the tests on Anvil cannot run here, if they cannot: Anvil missing, or the contracts not built. */
@@ -105,6 +111,8 @@ const ready = async (client: PublicClient) => {
   throw new Error('Anvil did not start')
 }
 
+const initializeAbi = parseAbi(['function initialize(address identityRegistry)'])
+
 const tokenAbi = parseAbi([
   'function mint(address to, uint256 amount)',
   'function balanceOf(address owner) view returns (uint256)',
@@ -123,10 +131,36 @@ export interface LocalChain {
   /** Move the chain's clock forward and mine a block. */
   readonly advance: (seconds: number) => Promise<void>
   readonly now: () => Promise<number>
+  /** `account` sends a transaction (given gas money first) and waits for it to be mined; answers its receipt. */
+  readonly send: (
+    account: PrivateKeyAccount,
+    transaction: { readonly to: string; readonly data: string },
+  ) => Promise<TransactionReceipt>
   readonly stop: () => void
 }
 
-/** Start Anvil and deploy the escrow, the collector, the operator and the token. */
+/**
+ * The local ERC-8004 registries' runtime code at the addresses the reference deployment has on Arc testnet, as there
+ * with no constructor run, and the reputation registry initialised with the identity registry, through `write`.
+ */
+const installErc8004 = async (
+  anvilCall: (method: string, params: ReadonlyArray<unknown>) => Promise<void>,
+  write: (call: {
+    readonly address: Address
+    readonly abi: typeof initializeAbi
+    readonly functionName: 'initialize'
+    readonly args: readonly [Address]
+  }) => Promise<unknown>,
+) => {
+  const registries = erc8004RegistriesOn(5_042_002)
+  if (Option.isNone(registries)) throw new Error('No ERC-8004 registries on Arc testnet')
+  const { identity, reputation } = registries.value
+  await anvilCall('anvil_setCode', [identity, code('identityRegistry', 'deployedBytecode')])
+  await anvilCall('anvil_setCode', [reputation, code('reputationRegistry', 'deployedBytecode')])
+  await write({ address: reputation, abi: initializeAbi, functionName: 'initialize', args: [identity] })
+}
+
+/** Start Anvil and deploy the escrow, the collector, the operator and the token, and place the ERC-8004 registries. */
 export const startChain = async (): Promise<LocalChain> => {
   const port = await freePort()
   const anvil: ChildProcess = spawn('anvil', ['--port', String(port), '--chain-id', '5042002', '--silent'], {
@@ -157,6 +191,9 @@ export const startChain = async (): Promise<LocalChain> => {
     const collector = await deploy('collector', `0x${word(escrow)}${word('0xca11')}`)
     const operator = await deploy('operator', `0x${word(escrow)}${word(collector)}${word('1f4')}${word(treasury)}`)
     await anvilCall('anvil_setCode', [usdc, code('token', 'deployedBytecode')])
+    await installErc8004(anvilCall, async (initialize) =>
+      client.waitForTransactionReceipt({ hash: await wallet.writeContract({ ...initialize, chain: null }) }),
+    )
     const arbitrator = privateKeyToAccount(arbitratorKey).address
     const chain: SettlementChain = {
       ...arcTestnet({ operator, feeReceiver: treasury, arbitrator, confirmations: 1 }),
@@ -194,6 +231,12 @@ export const startChain = async (): Promise<LocalChain> => {
         await anvilCall('evm_mine', [])
       },
       now: async () => Number((await client.getBlock()).timestamp),
+      send: async (account, { to, data }) => {
+        if (!isAddress(to) || !isHex(data)) throw new Error('Not a transaction')
+        await anvilCall('anvil_setBalance', [account.address, '0xde0b6b3a7640000'])
+        const sender = createWalletClient({ account, transport })
+        return client.waitForTransactionReceipt({ hash: await sender.sendTransaction({ to, data, chain: null }) })
+      },
       stop: () => anvil.kill(),
     }
   } catch (cause) {

@@ -32,6 +32,26 @@ export {
 } from './Operations.ts'
 export { OperationsApi } from './OperationsGroup.ts'
 export {
+  Erc8004Deployment,
+  Erc8004Feedback,
+  Erc8004FeedbackCall,
+  Erc8004ProofOfPayment,
+  Erc8004Registration,
+  Erc8004RegistrationCall,
+  Erc8004RegistrationFile,
+  erc8004RegistrationType,
+  Erc8004Service,
+  Erc8004Transaction,
+  SidequestFeedbackEntry,
+  SidequestFeedbackEvidence,
+  SidequestFeedbackFile,
+  SidequestFeedbackItem,
+  SidequestRegistrationFacts,
+  SidequestRegistrationFile,
+} from './Erc8004.ts'
+export { Erc8004Api } from './Erc8004Group.ts'
+export { Erc8004Failure, Erc8004Identities, Erc8004Identity } from './Erc8004Identity.ts'
+export {
   AgentGrantStatus,
   AgentGrantView,
   EventInvalid,
@@ -53,6 +73,7 @@ export {
 export { EventsApi } from './EventsGroup.ts'
 export { GrantScope } from './Grant.ts'
 export { Hex32 } from './Hex32.ts'
+export { canonicalize } from './Jcs.ts'
 export { ConnectionId, ConnectRequestId, generateId } from './Id.ts'
 export {
   IndexListing,

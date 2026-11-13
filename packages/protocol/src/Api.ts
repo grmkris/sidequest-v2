@@ -1,4 +1,5 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
+import { Erc8004Api } from './Erc8004Group.ts'
 import { EscrowApi } from './EscrowGroup.ts'
 import { EventsApi } from './EventsGroup.ts'
 import { OperationsApi } from './OperationsGroup.ts'
@@ -9,8 +10,9 @@ export class SystemApi extends HttpApiGroup.make('system').add(
 ) {}
 
 /**
- * Sidequest's HTTP API: the status, the index over signed Nostr events ({@link EventsApi}) and the escrow
- * ({@link EscrowApi}). The index's jobs are added beside it, with the fold (`@sidequest/fold/api`).
+ * Sidequest's HTTP API: the status, the index over signed Nostr events ({@link EventsApi}), the escrow
+ * ({@link EscrowApi}) and ERC-8004's files ({@link Erc8004Api}). The index's jobs are added beside it, with the fold
+ * (`@sidequest/fold/api`).
  *
  * No endpoint reads anything a browser attaches by itself: there is no cookie, no session and no other ambient
  * credential. What changes state carries its own authority: `POST /api/events` a Nostr signature over the event, each
@@ -23,4 +25,10 @@ export class SystemApi extends HttpApiGroup.make('system').add(
  * form can, but cannot read the answers or send JSON, which needs a preflight the API does not grant. Granting CORS to
  * third-party web clients is a later decision, not an oversight.
  */
-export class SidequestApi extends HttpApi.make('sidequest').add(SystemApi, EventsApi, EscrowApi, OperationsApi) {}
+export class SidequestApi extends HttpApi.make('sidequest').add(
+  SystemApi,
+  EventsApi,
+  EscrowApi,
+  OperationsApi,
+  Erc8004Api,
+) {}

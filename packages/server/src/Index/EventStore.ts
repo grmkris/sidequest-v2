@@ -7,7 +7,15 @@ import * as SqlSchema from 'effect/sql/SqlSchema'
 import { stored } from '@sidequest/serving/Stored'
 import { putListing } from './Listings.ts'
 import { putListingVersion, putReceipt } from './PayPerCall.ts'
-import type { Derived, GrantRow, ProfileRow, RelayListRow, RevocationRow, WalletLinkRow } from './Derived.ts'
+import type {
+  Derived,
+  Erc8004ClaimRow,
+  GrantRow,
+  ProfileRow,
+  RelayListRow,
+  RevocationRow,
+  WalletLinkRow,
+} from './Derived.ts'
 import { validateEvent, type Validated } from './Validation.ts'
 
 /** Where an event was first seen: published through the API, or read from a relay. */
@@ -90,7 +98,8 @@ export const knownLimits = { wallets: 100, unverifiedWallets: 20, grants: 100 } 
 
 /**
  * The index's tables on D1: `events` and `event_tags`, the latest-per-key tables derived from them, `profiles`,
- * `relay_lists` and `nostr_listings`, and the identity facts, `wallet_links`, `agent_grants` and `grant_revocations`. D1 runs each statement on its own, so every write here is one idempotent statement and a write cut
+ * `relay_lists` and `nostr_listings`, and the identity facts, `wallet_links`, `agent_grants`, `grant_revocations` and
+ * `erc8004_claims`. D1 runs each statement on its own, so every write here is one idempotent statement and a write cut
  * short is repaired by doing it again: storing an event that is there already still indexes its tags and applies what
  * it derives. A derived row is replaced only by an event that supersedes it (`supersedes`), decided in the statement
  * itself, so the tables come out the same whatever order events arrive in. An identity fact is one row per event,
@@ -116,8 +125,9 @@ export class EventStore extends Context.Service<
     readonly authors: (limit: number) => Effect.Effect<ReadonlyArray<string>, Unavailable>
     /**
      * Rebuilds every derived table from `events` alone, as if every stored event had just arrived: profiles, relay
-     * lists, listings (and their pay-per-call versions), receipts and the identity facts. `chain_facts` and the x402
-     * transaction checks are not among them: they hold no event's content, and are rebuilt by re-reading the chain.
+     * lists, listings (and their pay-per-call versions), receipts and the identity facts, ERC-8004 claims among
+     * them. `chain_facts`, the x402 transaction checks and `erc8004_tokens` are not: they hold no event's content,
+     * and are rebuilt by re-reading the chain.
      */
     readonly rebuild: Effect.Effect<void, Unavailable>
   }
@@ -166,6 +176,10 @@ const writes = (sql: SqlClient.SqlClient) => {
   const revocation = (row: RevocationRow) => sql`
     INSERT INTO grant_revocations (event_id, grant_id, pubkey) VALUES (${row.eventId}, ${row.grant}, ${row.pubkey})
     ON CONFLICT (event_id) DO NOTHING`
+  const erc8004Claim = (row: Erc8004ClaimRow) => sql`
+    INSERT INTO erc8004_claims (event_id, author, subject, registry, agent_id, mcp, created_at)
+    VALUES (${row.eventId}, ${row.author}, ${row.subject}, ${row.registry}, ${row.agentId}, ${row.mcp}, ${row.createdAt})
+    ON CONFLICT (event_id) DO NOTHING`
   const apply = (derived: Derived) => {
     switch (derived.table) {
       case 'profiles':
@@ -182,6 +196,8 @@ const writes = (sql: SqlClient.SqlClient) => {
         return revocation(derived.row)
       case 'x402_receipts':
         return putReceipt(sql, derived.row)
+      case 'erc8004_claims':
+        return erc8004Claim(derived.row)
     }
   }
   return { insertEvent, indexTags, apply }
@@ -222,7 +238,7 @@ const reads = (sql: SqlClient.SqlClient) => {
       SELECT id, pubkey, created_at, kind, tags, content, sig FROM events
       WHERE (validation IN ('profile', 'relayList', 'messagingRelays', 'listing')
           OR kind IN (${sidequestKinds.walletLink}, ${sidequestKinds.grant}, ${sidequestKinds.revocation},
-            ${sidequestKinds.paymentReceipt}))
+            ${sidequestKinds.paymentReceipt}, ${sidequestKinds.erc8004Claim}))
         AND id > ${after}
       ORDER BY id LIMIT ${rebuildPage}`,
   })
@@ -405,6 +421,7 @@ export const D1EventStore = Layer.effect(
         yield* stored(sql`DELETE FROM grant_revocations`)
         yield* stored(sql`DELETE FROM x402_listing_versions`)
         yield* stored(sql`DELETE FROM x402_receipts`)
+        yield* stored(sql`DELETE FROM erc8004_claims`)
         yield* rebuildFrom('')
       }).pipe(Effect.withSpan('Sidequest.Index.rebuild')),
     })

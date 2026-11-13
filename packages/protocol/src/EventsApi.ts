@@ -1,5 +1,6 @@
 import { Schema, SchemaTransformation } from 'effect'
 import { AccountRef } from './AccountRef.ts'
+import { Erc8004Identities } from './Erc8004Identity.ts'
 import { GrantScope } from './Grant.ts'
 import { Hex32 } from './Hex32.ts'
 
@@ -108,7 +109,8 @@ export type AgentGrantView = typeof AgentGrantView.Type
  * `issuedAt` wins, ties to the lowest event id, so a wallet that re-links to another key leaves this one.
  * `unverifiedWallets` are links this key signed that the index could not verify; they never link an account. `agents`
  * are the grants this key gave, and `operators` the unrevoked grants it received, each with its status at the time of
- * the read. A revocation counts only when the grant's own operator signed it.
+ * the read. A revocation counts only when the grant's own operator signed it. `erc8004` are the claims that an
+ * ERC-8004 identity stands for this key, each as verified as the index's latest read of its token left it (ADR-0007).
  */
 export const Person = Schema.Struct({
   pubkey: Hex32,
@@ -128,6 +130,7 @@ export const Person = Schema.Struct({
   unverifiedWallets: Schema.Array(WalletLink),
   agents: Schema.Array(AgentGrantView),
   operators: Schema.Array(AgentGrantView),
+  erc8004: Erc8004Identities,
 })
 export type Person = typeof Person.Type
 

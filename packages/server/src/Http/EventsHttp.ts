@@ -1,5 +1,6 @@
 import {
   type AgentGrantView,
+  type Erc8004Identity,
   EventInvalid,
   EventTooLarge,
   KindNotIndexed,
@@ -13,6 +14,7 @@ import * as HttpEffect from 'effect/http/HttpEffect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { HttpApiBuilder } from 'effect/http-api'
+import { Erc8004Identities } from '../Erc8004/Identities.ts'
 import { grantStatus, type WalletLinkRow } from '../Index/Derived.ts'
 import type { Known, KnownGrant } from '../Index/EventStore.ts'
 import { EventStore } from '../Index/EventStore.ts'
@@ -72,7 +74,12 @@ const grantViewOf =
     status: grantStatus(grant, now),
   })
 
-const personOf = (pubkey: string, known: Known, now: number): typeof Person.Type => ({
+const personOf = (
+  pubkey: string,
+  known: Known,
+  now: number,
+  erc8004: ReadonlyArray<Erc8004Identity>,
+): typeof Person.Type => ({
   pubkey,
   profile: Option.getOrNull(
     Option.map(known.profile, ({ name, about, picture, eventId, createdAt }) => ({
@@ -93,9 +100,11 @@ const personOf = (pubkey: string, known: Known, now: number): typeof Person.Type
   unverifiedWallets: known.unverifiedWallets.map(walletOf),
   agents: known.agents.map(grantViewOf(now)),
   operators: known.operators.map(grantViewOf(now)),
+  erc8004,
 })
 
-const nothingKnown = (known: Known) =>
+const nothingKnown = (known: Known, erc8004: ReadonlyArray<Erc8004Identity>) =>
+  erc8004.length === 0 &&
   Option.isNone(known.profile) &&
   Option.isNone(known.relayList) &&
   Option.isNone(known.messagingRelays) &&
@@ -133,6 +142,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const payPerCall = yield* PayPerCall
     const jobs = yield* Jobs
     const moderation = yield* Moderation
+    const identities = yield* Erc8004Identities
     return handlers
       .handle('publish', ({ payload }) =>
         Effect.gen(function* () {
@@ -159,10 +169,11 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
       .handle('person', ({ params }) =>
         Effect.gen(function* () {
           const known = yield* events.known(params.pubkey)
-          if (nothingKnown(known)) return yield* new NotIndexed()
+          const erc8004 = yield* identities.of(params.pubkey)
+          if (nothingKnown(known, erc8004)) return yield* new NotIndexed()
           yield* labelled(yield* moderation.covers([params.pubkey]))
           yield* publicFor(60)
-          return personOf(params.pubkey, known, yield* nowSeconds)
+          return personOf(params.pubkey, known, yield* nowSeconds, erc8004)
         }),
       )
       .handle('personJobs', ({ params }) =>

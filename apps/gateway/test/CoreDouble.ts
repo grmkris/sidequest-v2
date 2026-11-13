@@ -181,7 +181,7 @@ export const coreDouble = (): CoreDouble => {
       verification: 'verified' as const,
     }))
     if (agents.length + operators.length + linked.length === 0) return Option.none()
-    const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [] }
+    const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [], erc8004: [] }
     return Option.some({ pubkey, ...empty, wallets: linked, agents, operators })
   }
   const service: CoreService = {

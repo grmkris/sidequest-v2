@@ -1,4 +1,4 @@
-import { ChainFact } from '@sidequest/fold'
+import { ChainFact, type LogPosition } from '@sidequest/fold'
 import type { Unavailable } from '@sidequest/protocol'
 import { Context, Effect, Layer, Match, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
@@ -49,6 +49,8 @@ export class ChainFacts extends Context.Service<
      * whose word names no indexed request, folds to nothing.
      */
     readonly forJob: (job: string) => Effect.Effect<ReadonlyArray<ChainFact>, Unavailable>
+    /** The transaction a recorded fact's log is in, by its chain (CAIP-2) and position; `None` if none is recorded. */
+    readonly transactionAt: (chain: string, at: LogPosition) => Effect.Effect<Option.Option<string>, Unavailable>
     /** The last block the poller scanned on `chain`, if it has scanned any. */
     readonly scannedTo: (chain: string) => Effect.Effect<Option.Option<number>, Unavailable>
     /** Moves `chain`'s cursor forward to `block`; never back. */
@@ -79,6 +81,13 @@ export class ChainFacts extends Context.Service<
           SELECT fact FROM chain_facts WHERE payment_hash = ${paymentHash} AND kind <> 'Funded'
           ORDER BY block, log_index, chain, tx_hash LIMIT ${chainFactLimits.paymentFacts}`,
       })
+      const transaction = SqlSchema.findOneOption({
+        Request: Schema.Struct({ chain: Schema.String, block: Schema.Int, logIndex: Schema.Int }),
+        Result: Schema.Struct({ transaction: Schema.String }),
+        execute: ({ chain, block, logIndex }) => sql`
+          SELECT tx_hash AS "transaction" FROM chain_facts
+          WHERE chain = ${chain} AND block = ${block} AND log_index = ${logIndex}`,
+      })
       const cursor = SqlSchema.findOneOption({
         Request: Schema.String,
         Result: Schema.Struct({ scannedTo: Schema.Int }),
@@ -94,6 +103,10 @@ export class ChainFacts extends Context.Service<
           if (earliest === undefined) return []
           const later = yield* stored(ofPayment(earliest.paymentHash))
           return [...funded, ...later.map(({ fact }) => fact)]
+        }),
+        transactionAt: Effect.fn('Sidequest.Index.chainFactTransaction')(function* (chain, at) {
+          const found = yield* stored(transaction({ chain, block: at.block, logIndex: at.logIndex }))
+          return Option.map(found, (row) => row.transaction)
         }),
         scannedTo: Effect.fn('Sidequest.Index.chainCursor')(function* (chain) {
           return Option.map(yield* stored(cursor(chain)), ({ scannedTo }) => scannedTo)
