@@ -89,18 +89,18 @@ Times are block timestamps; "before" means strictly before.
 
 ## Layout
 
-| Path                                      | What                                                                                      |
-| :---------------------------------------- | :---------------------------------------------------------------------------------------- |
-| `src/SidequestOperator.sol`               | The contract.                                                                             |
-| `test/SidequestOperator.t.sol`            | Unit tests: every function, every revert, every signature variant, fee maths, ±1 s edges. |
-| `test/SidequestOperator.delegation.t.sol` | Delivery delegation: every accept and refuse case, revocation, ERC-1271 receivers.        |
-| `test/SidequestOperator.fuzz.t.sol`       | Fuzz tests on amounts, shares, windows and timings.                                       |
-| `test/SidequestOperator.invariant.t.sol`  | Stateful fuzzing with a handler: conservation, one outcome per job, no stranger succeeds. |
+| Path                                          | What                                                                                                                   |
+| :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
+| `src/SidequestOperator.sol`                   | The contract.                                                                                                          |
+| `test/SidequestOperator.t.sol`                | Unit tests: every function, every revert, every signature variant, fee maths, ±1 s edges.                              |
+| `test/SidequestOperator.delegation.t.sol`     | Delivery delegation: every accept and refuse case, revocation, ERC-1271 receivers.                                     |
+| `test/SidequestOperator.fuzz.t.sol`           | Fuzz tests on amounts, shares, windows and timings.                                                                    |
+| `test/SidequestOperator.invariant.t.sol`      | Stateful fuzzing with a handler: conservation, one outcome per job, no stranger succeeds.                              |
 | `test/SidequestOperator.safeArbitrator.t.sol` | A Safe-style 2-of-3 ERC-1271 arbitrator rules (relayed, by its own call, on-chain message); below threshold it cannot. |
-| `test/fork/ArcTestnet.fork.t.sol`         | Arc testnet fork tests against the deployed escrow, collector and USDC.                   |
-| `test/fork/BaseMainnet.fork.t.sol`        | Read-only Base mainnet checks: the escrow's bytecode and USDC's EIP-712 domain.           |
-| `test/DeploySidequestOperator.t.sol`      | The deploy script refuses mainnets without the exact opt-in, dry-runs, reads the env.     |
-| `script/DeploySidequestOperator.s.sol`    | Deployment: testnets; a mainnet only with its exact opt-in phrase; a dry run anywhere.    |
+| `test/fork/ArcTestnet.fork.t.sol`             | Arc testnet fork tests against the deployed escrow, collector and USDC.                                                |
+| `test/fork/BaseMainnet.fork.t.sol`            | Read-only Base mainnet checks: the escrow's bytecode and USDC's EIP-712 domain.                                        |
+| `test/DeploySidequestOperator.t.sol`          | The deploy script refuses mainnets without the exact opt-in, dry-runs, reads the env.                                  |
+| `script/DeploySidequestOperator.s.sol`        | Deployment: testnets; a mainnet only with its exact opt-in phrase; a dry run anywhere.                                 |
 
 ## Running
 
