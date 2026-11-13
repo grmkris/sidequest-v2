@@ -1,10 +1,10 @@
 import { JobView } from '@sidequest/fold'
 import {
   Bytes32,
-  IndexFunding,
-  IndexPaymentStatus,
-  IndexSettlementReason,
-  IndexSettlementRefused,
+  EscrowFunding,
+  EscrowPaymentStatus,
+  EscrowRefusalReason,
+  EscrowRefused,
   NetworkRef,
   NotIndexed,
   RateLimited,
@@ -22,7 +22,7 @@ import { PublishFailure } from '../../../Publishing.ts'
 import { Connection } from '../../../Wallet.ts'
 
 // The hire's money on the job page, for its buyer and its worker (ADR-0003: only wallet signatures bind). Each step is
-// one signature in the person's wallet over typed data the API prepared, which the API relays through the sessionless
+// one signature in the person's wallet over typed data the API prepared, which the API relays through the
 // escrow endpoints: fund (the buyer's ERC-3009 authorization), deliver (the worker's delivery hash, after their signed
 // delivery note), approve or reject (the buyer, a rejection after their signed reason). Before anything is signed the
 // page checks that the connected wallet is the one the step needs; after the relay it reads the job until the fold
@@ -59,7 +59,7 @@ export const stepOf = (work: Work): Step =>
 /** Why a step stopped: the API's typed refusal, its rate limit, a job it does not index, an event that was not
  * published, or a problem with the wallet or the network. */
 export const MoneyFailure = defineTaggedUnion({
-  Refused: { reason: IndexSettlementReason, maybeDetail: Schema.Option(Schema.String) },
+  Refused: { reason: EscrowRefusalReason, maybeDetail: Schema.Option(Schema.String) },
   RateLimited: { retryAfterSeconds: Schema.Int },
   NotIndexed: {},
   Unpublished: { failure: PublishFailure },
@@ -84,7 +84,7 @@ export type Connected = typeof Connected.Type
 export const Prepared = Schema.Struct({
   ...Connected.fields,
   typedData: TypedData,
-  maybeFunding: Schema.Option(IndexFunding),
+  maybeFunding: Schema.Option(EscrowFunding),
 })
 export type Prepared = typeof Prepared.Type
 
@@ -114,14 +114,14 @@ export const Model = Schema.Struct({
   job: Schema.String,
   flow: Flow,
   /** The escrow and the relayed calls, once the job is funded: the transactions the page links to. */
-  maybePayment: Schema.Option(IndexPaymentStatus),
+  maybePayment: Schema.Option(EscrowPaymentStatus),
 })
 export type Model = typeof Model.Type
 
 // MESSAGE
 
 export const Message = defineMessageUnion({
-  SucceededReadPayment: { status: IndexPaymentStatus },
+  SucceededReadPayment: { status: EscrowPaymentStatus },
   FailedReadPayment: { problem: Problem },
   ClickedFund: { proposal: Schema.String, payer: WalletAddress },
   ClickedDeliver: { signer: WalletAddress, buyer: Schema.String, network: NetworkRef },
@@ -139,7 +139,7 @@ export const Message = defineMessageUnion({
   FailedReadWalletAccount: { problem: Problem },
   SucceededPublishEvent: { maybeDeliveryHash: Schema.Option(Bytes32) },
   FailedPublishEvent: { failure: PublishFailure },
-  SucceededPrepare: { typedData: TypedData, maybeFunding: Schema.Option(IndexFunding) },
+  SucceededPrepare: { typedData: TypedData, maybeFunding: Schema.Option(EscrowFunding) },
   FailedPrepare: { failure: MoneyFailure },
   ClickedSwitchNetwork: {},
   SucceededSwitchNetwork: { chainId: Schema.Int },
@@ -165,7 +165,7 @@ export type OutMessage = typeof OutMessage.Type
 
 /** The API's refusal of a money call, or any other error, as a {@link MoneyFailure}. */
 export const moneyFailureOf = (error: unknown): MoneyFailure => {
-  if (error instanceof IndexSettlementRefused) {
+  if (error instanceof EscrowRefused) {
     return MoneyFailure.Refused({ reason: error.reason, maybeDetail: Option.fromNullishOr(error.detail) })
   }
   if (error instanceof RateLimited) {

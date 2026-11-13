@@ -31,7 +31,7 @@ export const OpenJob = Schema.Struct({
 export type OpenJob = typeof OpenJob.Type
 
 /**
- * The index's jobs, public and sessionless like the rest of the index: one job folded from its signed events and the
+ * The index's jobs, public like the rest of the index: one job folded from its signed events and the
  * chain's facts (`JobView`), and the open requests, newest first, optionally without the expired.
  *
  * This group lives with the fold, not in `@sidequest/protocol` beside the `events` group, because its answer is the
@@ -55,8 +55,5 @@ export class IndexJobsApi extends HttpApiGroup.make('indexJobs').add(
   }),
 ) {}
 
-/**
- * The API the Worker serves and the website calls: `SidequestApi` and the index's jobs. The jobs are added after
- * `SidequestApi`'s `SameOrigin` middleware, exactly as its `events` group is, so that middleware never runs here.
- */
+/** The API the Worker serves and the website calls: `SidequestApi` and the index's jobs. */
 export class ServedApi extends SidequestApi.add(IndexJobsApi) {}

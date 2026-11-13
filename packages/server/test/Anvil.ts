@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
-import type { AccountId } from '@sidequest/protocol'
 import { arcTestnet, type SettlementChain } from '@sidequest/settlement/SettlementChain'
 import { Option, Redacted, Schema } from 'effect'
 import {
@@ -16,12 +15,12 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { beforeAll } from 'vitest'
-import type { EscrowConfig } from '../src/Settlement/EscrowConfig.ts'
+import type { SettlementConfig } from '../src/Settlement/SettlementConfig.ts'
 
-// A local chain for the settlement journey: Anvil with Arc testnet's chain id, the real `AuthCaptureEscrow` v1.1, its
+// A local chain for the tests that need one: Anvil with Arc testnet's chain id, the real `AuthCaptureEscrow` v1.1, its
 // `ERC3009PaymentCollector` and `SidequestOperator` from the Foundry build, and commerce-payments' ERC-3009 mock token
 // placed at Arc's USDC address. Available only where `anvil` runs and `contracts/out` holds the build
-// (`forge soldeer install && forge build` in `contracts/`); elsewhere the journeys skip with a notice, and in CI they
+// (`forge soldeer install && forge build` in `contracts/`); elsewhere those tests skip with a notice, and in CI they
 // fail instead, so CI can never pass without running them.
 
 const out = new URL('../../../contracts/out/', import.meta.url)
@@ -32,7 +31,7 @@ const artifacts = {
   operator: 'SidequestOperator.sol/SidequestOperator.json',
 } as const
 
-/** Why the journeys cannot run here, if they cannot: Anvil missing, or the contracts not built. */
+/** Why the tests on Anvil cannot run here, if they cannot: Anvil missing, or the contracts not built. */
 export const anvilMissing = (() => {
   if (spawnSync('anvil', ['--version'], { stdio: 'ignore' }).status !== 0) return 'anvil is not on PATH'
   const unbuilt = Object.values(artifacts).filter((file) => !existsSync(new URL(file, out)))
@@ -113,7 +112,7 @@ const tokenAbi = parseAbi([
 export interface LocalChain {
   readonly client: PublicClient
   /** Settlement on this chain, every confirmation counting at once. */
-  readonly config: (arbitrationOperator: Option.Option<AccountId>) => EscrowConfig
+  readonly config: SettlementConfig
   readonly chain: SettlementChain
   readonly treasury: Address
   readonly mint: (to: Address, amount: bigint) => Promise<void>
@@ -167,12 +166,11 @@ export const startChain = async (): Promise<LocalChain> => {
       client,
       chain,
       treasury,
-      config: (arbitrationOperator) => ({
+      config: {
         chain,
         relayerKey: Redacted.make(relayerKey),
         arbitratorKey: Option.some(Redacted.make(arbitratorKey)),
-        arbitrationOperator,
-      }),
+      },
       mint: async (to, amount) => {
         const hash = await wallet.writeContract({
           address: usdc,

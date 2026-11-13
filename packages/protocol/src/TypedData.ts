@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { WalletAddress } from './SessionApi.ts'
+import { WalletAddress } from './Wallet.ts'
 
 const TypedDataField = Schema.Struct({ name: Schema.String, type: Schema.String })
 

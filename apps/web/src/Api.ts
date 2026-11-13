@@ -7,7 +7,7 @@ import type * as HttpApiClient from 'effect/http-api/HttpApiClient'
 export class ClientNotLoaded extends Schema.TaggedError<ClientNotLoaded>()('ClientNotLoaded', {}) {}
 
 /** Sidequest's typed API and the index's job reads (`ServedApi`), called from the browser on the site's own origin.
- * The phase 1 session travels as the `__Host-` cookie the browser sends with every same-origin request. */
+ * No request carries a credential: what changes state carries its own signature. */
 export class SidequestClient extends Context.Service<
   SidequestClient,
   {

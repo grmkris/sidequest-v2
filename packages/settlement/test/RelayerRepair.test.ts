@@ -7,12 +7,12 @@ import { describe, expect } from 'vitest'
 import { sidequestOperatorAbi } from '../src/abi/SidequestOperator.ts'
 import { ChainRpc } from '../src/ChainRpc.ts'
 import type { OperatorCall } from '../src/OperatorCall.ts'
-import { paymentOf } from '../src/Payment.ts'
-import { SettlementStoreError } from '../src/ReaderCursors.ts'
+import { termsPaymentOf } from '../src/Payment.ts'
+import { SettlementStoreError } from '../src/RelayerIntents.ts'
 import { memoryRelayerIntents, RelayerIntents, type RelayIntent } from '../src/RelayerIntents.ts'
 import { CallReverted, Relayer, type RepairPolicy } from '../src/Relayer.ts'
 import { type FakeRpc, fakeRpc, type Transaction } from './FakeRpc.ts'
-import { agreement, payer, receiver, vectorChain } from './fixtures.ts'
+import { signedTerms, payer, receiver, vectorChain } from './fixtures.ts'
 
 // The relayer's nonce repair against the fake chain. A nonce the chain never uses holds up every later transaction
 // from the key, so each case ends with the gap closed: the stuck nonce used by exactly one transaction of its intent,
@@ -23,7 +23,7 @@ const key = Redacted.make(keccak256(toHex('relayer')))
 const relayerAddress = privateKeyToAccount(Redacted.value(key)).address.toLowerCase()
 const operator = vectorChain.operator.toLowerCase()
 const policy: RepairPolicy = { stuckAfterMillis: 60_000, maxReplacements: 2, bumpPercent: 25 }
-const payment = Effect.runSync(paymentOf(agreement(), { payer, receiver }, vectorChain))
+const payment = Effect.runSync(termsPaymentOf(signedTerms(), { payer, receiver }, vectorChain))
 const settleAfterReview: OperatorCall = { function: 'settleAfterReview', info: payment.info }
 const refundUndelivered: OperatorCall = { function: 'refundUndelivered', info: payment.info }
 const settleUnruled: OperatorCall = { function: 'settleUnruled', info: payment.info }

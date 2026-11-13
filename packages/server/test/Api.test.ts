@@ -1,19 +1,12 @@
-import { AccountRef, SessionView, Status } from '@sidequest/protocol'
+import { ServedApi } from '@sidequest/fold/api'
+import { Status } from '@sidequest/protocol'
 import { Schema } from 'effect'
+import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
 import { releaseFromEnvironment } from '../src/Status.ts'
-import { ada, ben, origin, withApi } from './HttpWorld.ts'
+import { withApi } from './HttpWorld.ts'
 
-// The typed HTTP API as a client sees it: requests in, responses out, over the model in memory and a local D1.
-
-const post = (body: unknown, cookie?: string): RequestInit => ({
-  method: 'POST',
-  headers: { 'content-type': 'application/json', ...(cookie === undefined ? {} : { cookie }) },
-  body: JSON.stringify(body),
-})
-
-const Challenge = Schema.Struct({ message: Schema.String, expiresAt: Schema.Number })
-const Refusal = Schema.Struct({ _tag: Schema.String, reason: Schema.optional(Schema.String) })
+// The typed HTTP API as a client sees it: requests in, responses out, over the index on a local D1.
 
 describe('releaseFromEnvironment', () => {
   test('uses the deployment release when present', () => {
@@ -27,65 +20,88 @@ describe('releaseFromEnvironment', () => {
 })
 
 describe('GET /api/status', () => {
-  test('answers with the Status schema and the given release', () =>
+  test('answers with the Status schema, the given release and phase 2’s protocol', () =>
     withApi(async ({ fetch }) => {
       const response = await fetch('/api/status')
       expect(response.status).toBe(200)
-      expect(Schema.decodeUnknownSync(Status)(await response.json()).release).toBe('234a6c5')
+      expect(Schema.decodeUnknownSync(Status)(await response.json())).toMatchObject({
+        release: '234a6c5',
+        protocolVersion: '0.3-phase2',
+      })
     }))
 })
 
-describe('the session API', () => {
-  test('signs a wallet in with a __Host- cookie, reads the session with it, and signs out', () =>
+/** Every endpoint the API serves, as `METHOD /path`. */
+const endpoints = () => {
+  const found: Array<string> = []
+  HttpApi.reflect(ServedApi, {
+    onGroup: () => undefined,
+    onEndpoint: ({ endpoint }) => {
+      found.push(`${endpoint.method} ${endpoint.path}`)
+    },
+  })
+  return found.toSorted()
+}
+
+describe('what the API reads as authority', () => {
+  test('serves no session, account or agent endpoint: every state change carries its own signature', () => {
+    expect(endpoints().filter((endpoint) => !endpoint.startsWith('GET '))).toEqual([
+      // A Nostr event, signed by its author.
+      'POST /api/events',
+      // The escrow: each carries a wallet signature the contract verifies (the ruling, a NIP-98 authorization).
+      'POST /api/index/jobs/:id/approval',
+      'POST /api/index/jobs/:id/delegated-delivery',
+      'POST /api/index/jobs/:id/delivery',
+      'POST /api/index/jobs/:id/proposals/:proposal/funding',
+      'POST /api/index/jobs/:id/rejection',
+      'POST /api/index/jobs/:id/ruling',
+    ])
+    // Phase 1's groups are gone; the index's own reads (`/api/index/…`, `/api/people`, `/api/wallets`) remain.
+    for (const endpoint of endpoints())
+      expect(endpoint).not.toMatch(/ \/api\/(session|account|agents|connect|inbox|rooms|listings|jobs|settlement)\b/u)
+  })
+
+  test('ignores a cookie: a request with one is answered exactly as one without', () =>
     withApi(async ({ fetch }) => {
-      expect((await fetch('/api/session')).status).toBe(401)
+      const event = '0'.repeat(64)
+      const plain = await fetch(`/api/events/${event}`)
+      const withCookie = await fetch(`/api/events/${event}`, {
+        headers: { cookie: '__Host-sidequest-session=' + 'ab'.repeat(32) },
+      })
+      expect([withCookie.status, await withCookie.json()]).toEqual([plain.status, await plain.json()])
+      expect(withCookie.headers.get('set-cookie')).toBeNull()
+    }))
+})
 
-      const challenge = await fetch('/api/session/challenge', post({ address: ada.address }))
-      expect(challenge.status).toBe(200)
-      const { message } = Schema.decodeUnknownSync(Challenge)(await challenge.json())
-      expect(message).toContain(`sidequest.test wants you to sign in with your Ethereum account:\n${ada.address}`)
-      expect(message).toContain(`URI: ${origin}`)
+describe('requests from another origin', () => {
+  const foreign = { origin: 'https://elsewhere.example', 'sec-fetch-site': 'cross-site' }
 
-      const verified = await fetch(
-        '/api/session/verify',
-        post({ message, signature: await ada.signMessage({ message }) }),
-      )
-      expect(verified.status).toBe(200)
-      const session = Schema.decodeUnknownSync(SessionView)(await verified.json())
-      expect(session.wallet).toBe(AccountRef.make(`eip155:5042002:${ada.address}`))
-
-      // A host-only cookie: no Domain, the whole site, HTTPS only, out of scripts' reach, not sent by other sites'
-      // requests. `__Host-` makes browsers hold the server to that.
-      const setCookie = verified.headers.get('set-cookie') ?? ''
-      const [pair = '', ...attributes] = setCookie.split('; ')
-      expect(pair).toMatch(/^__Host-sidequest-session=[0-9a-f]{64}$/)
-      expect(attributes.toSorted()).toEqual(['HttpOnly', 'Max-Age=604800', 'Path=/', 'SameSite=Lax', 'Secure'])
-      const cookie = pair
-
-      const current = await fetch('/api/session', { headers: { cookie } })
-      expect(current.status).toBe(200)
-      expect(Schema.decodeUnknownSync(SessionView)(await current.json())).toEqual(session)
-
-      const signedOut = await fetch('/api/session/sign-out', post({}, cookie))
-      expect(signedOut.status).toBe(204)
-      expect(signedOut.headers.get('set-cookie')).toMatch(/^__Host-sidequest-session=; Max-Age=0; Path=\/;/)
-      expect((await fetch('/api/session', { headers: { cookie } })).status).toBe(401)
+  test('are served like any other, and answered without CORS headers', () =>
+    withApi(async ({ fetch }) => {
+      const read = await fetch('/api/status', { headers: foreign })
+      expect(read.status).toBe(200)
+      const posted = await fetch('/api/events', {
+        method: 'POST',
+        headers: { ...foreign, 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      // Refused for what it is (not a signed event), never for where it came from.
+      expect(posted.status).toBe(400)
+      for (const response of [read, posted])
+        expect([...response.headers.keys()].filter((name) => name.startsWith('access-control-'))).toEqual([])
     }))
 
-  test('refuses a message signed by another key, and a signature that is not hex', () =>
+  test('get no CORS preflight granted, so a page on another origin cannot send JSON or read an answer', () =>
     withApi(async ({ fetch }) => {
-      const challenge = await fetch('/api/session/challenge', post({ address: ada.address }))
-      const { message } = Schema.decodeUnknownSync(Challenge)(await challenge.json())
-      const forged = await fetch(
-        '/api/session/verify',
-        post({ message, signature: await ben.signMessage({ message }) }),
-      )
-      expect(forged.status).toBe(401)
-      expect(forged.headers.get('set-cookie')).toBeNull()
-      expect(Schema.decodeUnknownSync(Refusal)(await forged.json())).toEqual({
-        _tag: 'SignInRefused',
-        reason: 'bad_signature',
+      const preflight = await fetch('/api/events', {
+        method: 'OPTIONS',
+        headers: {
+          ...foreign,
+          'access-control-request-method': 'POST',
+          'access-control-request-headers': 'content-type',
+        },
       })
-      expect((await fetch('/api/session/verify', post({ message, signature: 'signed' }))).status).toBe(400)
+      expect(preflight.headers.get('access-control-allow-origin')).toBeNull()
+      expect(preflight.headers.get('access-control-allow-methods')).toBeNull()
     }))
 })

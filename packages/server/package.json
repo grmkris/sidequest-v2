@@ -8,9 +8,7 @@
   },
   "dependencies": {
     "@alchemy.run/cloudflare": "catalog:",
-    "@alchemy.run/domain": "catalog:",
     "@effect/sql-d1": "catalog:",
-    "@sidequest/domain": "workspace:*",
     "@sidequest/fold": "workspace:*",
     "@sidequest/nostr": "workspace:*",
     "@sidequest/protocol": "workspace:*",
@@ -21,7 +19,6 @@
     "viem": "2.57.12"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "2.4.0",
     "@types/node": "catalog:"
   }
 }

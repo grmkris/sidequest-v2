@@ -1,20 +1,20 @@
 import { ChainRpc } from '@sidequest/settlement/ChainRpc'
 import { Layer, Option } from 'effect'
-import { ArcRpc } from '../SignIn/ArcRpc.ts'
-import { D1SettlementStores } from './D1SettlementStores.ts'
-import { Escrow } from './Escrow.ts'
-import type { EscrowConfig } from './EscrowConfig.ts'
+import { ArcRpc } from './ArcRpc.ts'
+import { D1RelayerIntents } from './D1RelayerIntents.ts'
+import { Settlement } from './Settlement.ts'
+import type { SettlementConfig } from './SettlementConfig.ts'
 
-/** Settlement reads and relays through the same Arc RPC client sign-in uses. */
+/** Settlement reads and relays through the Arc RPC client the Worker's configuration names. */
 export const ChainRpcFromArc = Layer.effect(ChainRpc, ArcRpc)
 
 /**
- * The escrow for `config`, with its stores on D1, or none when settlement is not configured. Needs `ArcRpc` and the
- * database's `SqlClient`.
+ * Settlement for `config`, its relayer's intents on D1, or none when settlement is not configured. Needs `ArcRpc` and
+ * the database's `SqlClient`.
  */
-export const escrowLive = (config: Option.Option<EscrowConfig>) =>
+export const settlementLive = (config: Option.Option<SettlementConfig>) =>
   Option.match(config, {
-    onNone: () => Escrow.disabled,
+    onNone: () => Settlement.disabled,
     onSome: (configured) =>
-      Escrow.layer(configured).pipe(Layer.provide(Layer.mergeAll(D1SettlementStores, ChainRpcFromArc))),
+      Settlement.layer(configured).pipe(Layer.provide(Layer.mergeAll(D1RelayerIntents, ChainRpcFromArc))),
   })

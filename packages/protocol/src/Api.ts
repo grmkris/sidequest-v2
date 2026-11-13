@@ -1,16 +1,6 @@
 import { HttpApi, HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
-import { AccountApi } from './AccountApi.ts'
-import { AgentsApi } from './AgentsApi.ts'
-import { ConnectApi } from './ConnectApi.ts'
+import { EscrowApi } from './EscrowGroup.ts'
 import { EventsApi } from './EventsGroup.ts'
-import { IndexSettlementApi } from './IndexSettlementGroup.ts'
-import { SameOrigin } from './Guards.ts'
-import { InboxApi } from './InboxApi.ts'
-import { JobsApi } from './JobsApi.ts'
-import { ListingsApi } from './ListingsGroup.ts'
-import { RoomsApi } from './RoomsApi.ts'
-import { SessionApi } from './SessionGroup.ts'
-import { SettlementApi } from './SettlementApi.ts'
 import { Status } from './Status.ts'
 
 export class SystemApi extends HttpApiGroup.make('system').add(
@@ -18,25 +8,18 @@ export class SystemApi extends HttpApiGroup.make('system').add(
 ) {}
 
 /**
- * Sidequest's HTTP API. Every endpoint refuses a state-changing request from another site ({@link SameOrigin}), except
- * the index's ({@link EventsApi}) and the sessionless escrow ({@link IndexSettlementApi}, whose wallet signatures are
- * their own authority), which are added after the middleware so it never receives them: `HttpApi.middleware`
- * applies to the groups added before it only. Publishing a signed event uses nothing ambient (no cookie, no session,
- * no credential a browser attaches), so another site making a browser send one can do no more than the event's
- * author could by sending it themselves.
+ * Sidequest's HTTP API: the status, the index over signed Nostr events ({@link EventsApi}) and the escrow
+ * ({@link EscrowApi}). The index's jobs are added beside it, with the fold (`@sidequest/fold/api`).
+ *
+ * No endpoint reads anything a browser attaches by itself: there is no cookie, no session and no other ambient
+ * credential. What changes state carries its own authority: `POST /api/events` a Nostr signature over the event, each
+ * escrow POST a wallet signature the contract verifies, and the ruling a NIP-98 authorization by the arbitration key.
+ * So every endpoint may be called from any origin, and a page on another site that makes a browser send one achieves
+ * only what the signer could by sending it themselves; there is no same-origin rule to keep.
+ *
+ * The API sends no CORS headers. Its clients are Sidequest's own website (same origin) and servers such as the agent
+ * gateway, which call it server-side and need none; a browser page on another origin can send the simple requests a
+ * form can, but cannot read the answers or send JSON, which needs a preflight the API does not grant. Granting CORS to
+ * third-party web clients is a later decision, not an oversight.
  */
-export class SidequestApi extends HttpApi.make('sidequest')
-  .add(
-    SystemApi,
-    SessionApi,
-    AccountApi,
-    AgentsApi,
-    ListingsApi,
-    JobsApi,
-    SettlementApi,
-    RoomsApi,
-    InboxApi,
-    ConnectApi,
-  )
-  .middleware(SameOrigin)
-  .add(EventsApi, IndexSettlementApi) {}
+export class SidequestApi extends HttpApi.make('sidequest').add(SystemApi, EventsApi, EscrowApi) {}

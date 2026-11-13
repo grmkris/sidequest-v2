@@ -6,7 +6,6 @@
       "name": "sidequestappv2",
       "devDependencies": {
         "@alchemy.run/cloudflare": "catalog:",
-        "@alchemy.run/domain": "catalog:",
         "@alchemy.run/frontend-frameworks": "catalog:",
         "@cloudflare/workers-types": "5.20261028.1",
         "@effect/platform-bun": "catalog:",
@@ -74,15 +73,6 @@
         "vite": "catalog:",
       },
     },
-    "packages/domain": {
-      "name": "@sidequest/domain",
-      "dependencies": {
-        "@alchemy.run/domain": "catalog:",
-        "@sidequest/protocol": "workspace:*",
-        "alchemy": "catalog:",
-        "effect": "catalog:",
-      },
-    },
     "packages/fold": {
       "name": "@sidequest/fold",
       "dependencies": {
@@ -127,9 +117,7 @@
       "name": "@sidequest/server",
       "dependencies": {
         "@alchemy.run/cloudflare": "catalog:",
-        "@alchemy.run/domain": "catalog:",
         "@effect/sql-d1": "catalog:",
-        "@sidequest/domain": "workspace:*",
         "@sidequest/fold": "workspace:*",
         "@sidequest/nostr": "workspace:*",
         "@sidequest/protocol": "workspace:*",
@@ -140,7 +128,6 @@
         "viem": "2.57.12",
       },
       "devDependencies": {
-        "@modelcontextprotocol/client": "2.4.0",
         "@types/node": "catalog:",
       },
     },
@@ -166,12 +153,9 @@
   ],
   "patchedDependencies": {
     "@foldkit/vite-plugin@0.28.0": "patches/@foldkit%2Fvite-plugin@0.28.0.patch",
-    "@alchemy.run/domain@2.0.0-beta.84": "patches/@alchemy.run%2Fdomain@2.0.0-beta.84.patch",
-    "@alchemy.run/cloudflare@2.0.0-beta.84": "patches/@alchemy.run%2Fcloudflare@2.0.0-beta.84.patch",
   },
   "catalog": {
     "@alchemy.run/cloudflare": "2.0.0-beta.84",
-    "@alchemy.run/domain": "2.0.0-beta.84",
     "@alchemy.run/frontend-frameworks": "2.0.0-beta.84",
     "@effect/platform-browser": "4.0.7",
     "@effect/platform-bun": "4.0.7",
@@ -204,8 +188,6 @@
     "@alchemy.run/cloudflare-runtime": ["@alchemy.run/cloudflare-runtime@2.0.0-beta.84", "", { "dependencies": { "@alchemy.run/node-utils": "2.0.0-beta.84", "@cloudflare/unenv-preset": "^2.16.2", "@puppeteer/browsers": "^3.2.4", "capnp-es": "^0.0.16", "magic-string": "^0.30.21", "mime": "^4.1.1", "sharp": "^0.35.5", "unenv": "^2.0.0-rc.24", "workerd": "1.20261012.1", "yauzl": "^3.4.0" }, "peerDependencies": { "@distilled.cloud/cloudflare": "1.0.0-rc.17", "@effect/platform-bun": "^4.0.5", "@effect/platform-node": "^4.0.5", "effect": "^4.0.5", "rolldown": "1.2.13", "vite": "^7.0.0 || ^8.0.0" }, "optionalPeers": ["@effect/platform-bun", "@effect/platform-node", "rolldown", "vite"] }, "sha512-wmlfbJHBEpyKpKosIKi6yte0T6WKofed0rDHR1zk7tZdqwUKNNSRcbR9ejfJ4mty7lkQH0fLKn4vcmfnlX9KDQ=="],
 
     "@alchemy.run/docker": ["@alchemy.run/docker@2.0.0-beta.84", "", { "dependencies": { "rolldown": "1.2.13" }, "peerDependencies": { "@effect/platform-bun": "^4.0.5", "alchemy": "2.0.0-beta.84", "effect": "^4.0.5" }, "optionalPeers": ["@effect/platform-bun"] }, "sha512-VaUNlldyPcCrrGDCfFUJD+pvNt3Rpbly+0lzZ4S8AfkpxMD4rZy7GdXcfPzeA26tcDzfsDVax7BGlArzupEc0g=="],
-
-    "@alchemy.run/domain": ["@alchemy.run/domain@2.0.0-beta.84", "", { "peerDependencies": { "alchemy": "2.0.0-beta.84", "effect": "^4.0.5" } }, "sha512-ZIx1ICV2+O41nSrso/cwpYGcVWMCOh6rDuBzjoNID6dMzWnLAyCw/2WlanuM9CQeS7moVYHar9X7MmBsJCr+Hw=="],
 
     "@alchemy.run/frontend-frameworks": ["@alchemy.run/frontend-frameworks@2.0.0-beta.84", "", { "dependencies": { "@alchemy.run/cloudflare-runtime": "2.0.0-beta.84", "@distilled.cloud/aws": "1.0.0-rc.17", "@distilled.cloud/cloudflare": "1.0.0-rc.17", "@effect/platform-node": "^4.0.5", "esbuild": "^0.28.1", "rolldown": "1.2.13", "srvx": "1.0.5", "tinyglobby": "^0.2.17" }, "peerDependencies": { "@effect/platform-bun": "^4.0.5", "@octanejs/vite-plugin": ">=0.1.22", "@opennextjs/cloudflare": "1.20.1", "@sveltejs/kit": ">=3.0.0", "@vitejs/plugin-react": "^6.0.2", "astro": "^7.0.0", "effect": "^4.0.5", "hono": "^4.12.14", "nuxt": ">=4.5.0", "vinext": "^1.0.1", "vite": "^7.0.0 || ^8.0.0", "vocs": "2.8.2", "waku": "1.0.0-beta.7" }, "optionalPeers": ["@effect/platform-bun", "@octanejs/vite-plugin", "@opennextjs/cloudflare", "@sveltejs/kit", "@vitejs/plugin-react", "astro", "hono", "nuxt", "vinext", "vite", "vocs", "waku"] }, "sha512-WTwfylsYH59+qQ/ycC1LQ3IyuTeLIVv0TZ2IigF90yxtwCCc/h7ykHTH8r7OpMleHM5xeFqaGaDwNlCdkuGtmg=="],
 
@@ -624,8 +606,6 @@
     "@scure/bip32": ["@scure/bip32@1.7.0", "", { "dependencies": { "@noble/curves": "~1.9.0", "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-E4FFX/N3f4B80AKWp5dP6ow+flD1LQZo/w8UnLGYZO674jS6YnYeepycOOksv+vLPSpgN35wgKgy+ybfTb2SMw=="],
 
     "@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
-
-    "@sidequest/domain": ["@sidequest/domain@workspace:packages/domain"],
 
     "@sidequest/fold": ["@sidequest/fold@workspace:packages/fold"],
 

@@ -1,7 +1,6 @@
 {
   "sources": {
     "anti-slop": "https://github.com/dmmulroy/anti-slop/tree/c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
-    "alchemy-domain": "https://github.com/alchemy-run/alchemy/tree/3bb45b0f089597f4b0f9c908b2f5d615201d1405",
     "nip44-vectors": "https://github.com/paulmillr/nip44/blob/671a1f04bcfacaf125b0db68adc45bc9ce0e763b/nip44.vectors.json",
     "bip340-vectors": "https://github.com/bitcoin/bips/blob/b34d9f751791d4feb22feff4f2ed00bcac83961b/bip-0340/test-vectors.csv"
   },
@@ -67,34 +66,6 @@
       "sha256": "461f1c2ca5d55b63cb52573994e6be53b8dc9516899f39426963c786aab3aa9b"
     },
     {
-      "path": ".agents/skills/alchemy-domain/SKILL.md",
-      "sha256": "0e70d45940d08a31283ea8c937d8c5a27adc47be8cdebfdf16b77f49c8fe33ed"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/building-blocks.md",
-      "sha256": "b7d228692b095de138940429198b1c70fc9fe3c6b56ba09735abb56e479e380b"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/frontend.md",
-      "sha256": "193ad9fdcbad3bc33bc1eeff7b1071e010c9c8dad087196759967ba63418d667"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/hosting.md",
-      "sha256": "a38a0ebc332d806f209a715691e6cd3e25ac4c0e6b1253439d19617f6f7cb68c"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/layout.md",
-      "sha256": "2d80db62e2deac622b287c5d54695be16be96b44436221a5f34d850f801cbb44"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/modeling.md",
-      "sha256": "89eb88b88140567a5a04242b73653bc41be3d390adef6890a027176d9c5130ea"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/references/testing.md",
-      "sha256": "0b0e4dca66039fcdbe05b03488211448491f5c57408e1bd2756c5c1fd28159f3"
-    },
-    {
       "path": ".agents/skills/durable-objects/LICENSE",
       "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
     },
@@ -116,7 +87,7 @@
     },
     {
       "path": ".agents/skills/sources.json",
-      "sha256": "59c38707a05028cc5812ab5809f709634c05db97a8a77382e0c0fcd3d9cfba98"
+      "sha256": "d5eb9bb463328ac30abab642c40ff03517afe6ce9753dc12f041ffa70582c0f3"
     },
     {
       "path": ".agents/skills/thermo-nuclear-code-quality-review/LICENSE",
@@ -153,10 +124,6 @@
     {
       "path": ".agents/skills/wrangler/agents/openai.yaml",
       "sha256": "a1499d95abd8447558c535fe5554adcc3c9b988a0a39264a6283d430effe1e94"
-    },
-    {
-      "path": ".agents/skills/alchemy-domain/LICENSE",
-      "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a"
     },
     {
       "path": "packages/nostr/test/vectors/nip44.vectors.json",

@@ -7,7 +7,7 @@ import { maxLogRange } from '../src/LogScan.ts'
 import { escrowLog, type FakeRpc, fakeRpc, operatorLog } from './FakeRpc.ts'
 import { arbitrator, payer, receiver, vectorChain } from './fixtures.ts'
 
-// Every job's operator logs and escrow reclaims, read as plain facts without an agreement to check them against.
+// Every job's operator logs and escrow reclaims, read as plain facts with nothing to check them against.
 
 const chain = vectorChain
 const payment: Hex = `0x${'cd'.repeat(32)}`

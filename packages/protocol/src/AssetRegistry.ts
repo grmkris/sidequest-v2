@@ -15,7 +15,7 @@ export const UsdcOnArcTestnet = Schema.decodeSync(AssetRef)({
   symbol: 'USDC',
 })
 
-/** Phase 1 settles in USDC on Arc testnet only. */
+/** Sidequest settles in USDC on Arc testnet only, for now (ADR-0002). */
 const registered: ReadonlyArray<AssetRef> = [UsdcOnArcTestnet]
 
 export const findAsset = (id: AssetId): Option.Option<AssetRef> =>

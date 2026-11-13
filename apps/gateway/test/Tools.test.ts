@@ -248,7 +248,7 @@ describe('the tools, against the core double', () => {
       })
       await gateway.asOperator(operatorKey, 'POST', path, { job, signature, expiry: now() + day })
       gateway.core.nextRelay.refusal = new CoreRefused({
-        refusal: 'IndexSettlementRefused',
+        refusal: 'EscrowRefused',
         reason: 'ChainRefused',
         detail: 'DelegationRevoked',
       })

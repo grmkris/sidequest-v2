@@ -1,5 +1,5 @@
 import type { JobView } from '@sidequest/fold'
-import { IndexFunding, IndexPaymentStatus, TypedData, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { EscrowFunding, EscrowPaymentStatus, TypedData, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { bidderKey, foldedJob, now, proposalFrom, requestId } from '../../Fixtures.ts'
 
@@ -30,7 +30,7 @@ export const typedDataOn = (primaryType: string, chainId = arcChain): TypedData 
   })
 
 /** The quote for the bidder's proposal, paid from the buyer's wallet to the worker's, with Sidequest's 5 % fee. */
-export const quote = Schema.decodeSync(IndexFunding)({
+export const quote = Schema.decodeSync(EscrowFunding)({
   job: requestId,
   proposal: proposal.id,
   paymentHash,
@@ -146,8 +146,8 @@ export const moneyJob = (
 }
 
 /** The payment as `GET /api/index/jobs/:id/payment` answers it: the escrow, and the calls relayed so far. */
-export const payment = (intents: ReadonlyArray<string>): IndexPaymentStatus =>
-  Schema.decodeSync(IndexPaymentStatus)({
+export const payment = (intents: ReadonlyArray<string>): EscrowPaymentStatus =>
+  Schema.decodeSync(EscrowPaymentStatus)({
     escrow,
     paymentHash,
     chainTime: now + 3 * day,

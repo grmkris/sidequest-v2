@@ -37,8 +37,6 @@ export class Wallet extends Context.Service<
     readonly connect: Effect.Effect<Connection, WalletError>
     /** Move the wallet to Arc testnet, adding the chain first if the wallet does not know it. */
     readonly switchToArc: Effect.Effect<void, WalletError>
-    /** EIP-191 `personal_sign` of a text, such as a sign-in message. */
-    readonly signMessage: (address: WalletAddress, message: string) => Effect.Effect<WalletSignature, WalletError>
     /** `eth_signTypedData_v4` of typed data the server prepared, on the chain its domain names. */
     readonly signTypedData: (address: WalletAddress, data: TypedData) => Effect.Effect<WalletSignature, WalletError>
     /** `eth_signTypedData_v4` of typed data already in the wallet's JSON, `EIP712Domain` type included, on `chainId`:
@@ -70,10 +68,6 @@ const ChainIdHex = Schema.String.check(Schema.isPattern(/^0x[0-9a-fA-F]+$/u))
 const decodeAccounts = decodeOr(Schema.NonEmptyArray(WalletAddress))
 const decodeChain = decodeOr(ChainIdHex)
 const decodeSignature = decodeOr(WalletSignature)
-
-/** UTF-8 text as `0x`-prefixed hex, the form every wallet accepts for `personal_sign`. */
-export const hexOfText = (text: string): string =>
-  `0x${[...new TextEncoder().encode(text)].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`
 
 const domainType = [
   { name: 'name', type: 'string' },
@@ -127,11 +121,6 @@ export const makeWallet = (findProvider: Effect.Effect<Option.Option<Eip1193Prov
       return { address: accounts[0], chainId: yield* chainId }
     }).pipe(Effect.withSpan('Sidequest.Web.Wallet.connect')),
     switchToArc: switchToArc.pipe(Effect.withSpan('Sidequest.Web.Wallet.switchToArc')),
-    signMessage: (address, message) =>
-      call('personal_sign', [hexOfText(message), address]).pipe(
-        Effect.flatMap(decodeSignature),
-        Effect.withSpan('Sidequest.Web.Wallet.signMessage'),
-      ),
     signTypedData: (address, data) =>
       signJson(address, data.domain.chainId, typedDataJson(data)).pipe(
         Effect.withSpan('Sidequest.Web.Wallet.signTypedData'),

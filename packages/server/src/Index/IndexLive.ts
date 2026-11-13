@@ -6,7 +6,7 @@ import { D1EventStore } from './EventStore.ts'
 import { Ingest } from './Ingest.ts'
 import { Jobs } from './Jobs.ts'
 import { Listings } from './Listings.ts'
-import { Settler } from '../Native/Settler.ts'
+import { Settler } from '../Escrow/Settler.ts'
 import { Outbox } from './Outbox.ts'
 import { Poller } from './Poller.ts'
 import { RateLimiter } from '@sidequest/serving/RateLimiter'
@@ -33,7 +33,7 @@ const logged = <A, E>(name: string, effect: Effect.Effect<A, E>) =>
 
 /**
  * The index's schedule, as Cron Triggers on the API Worker (`Cloudflare.Workers.cron`): the outbox, the pruning of
- * rate-limit windows, the chain log poller and then the settler of Nostr-native jobs (`Native/Settler.ts`, which reads
+ * rate-limit windows, the chain log poller and then the escrow's settler (`Escrow/Settler.ts`, which reads
  * what the poller just recorded) every minute, in that order, and the relay poller every ten. The chain log poller and
  * the settler are disabled, and run nothing, on a stage without settlement. A Cron Trigger rather than a Durable Object alarm: the work
  * is one job for the whole index (no per-entity state to keep), the pinned Alchemy wires a trigger and its handler in

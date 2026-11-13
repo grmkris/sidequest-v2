@@ -4,8 +4,7 @@ import { AccountRef } from './AccountRef.ts'
 import { Hex32 } from './Hex32.ts'
 import { IndexListing, IndexListingDetail, IndexListingQuery, IndexListingSlug } from './IndexListing.ts'
 import { Page } from './Page.ts'
-import { BadCursor } from './Refusals.ts'
-import { Unavailable } from './SessionApi.ts'
+import { BadCursor, Unavailable } from './Refusals.ts'
 import {
   EventInvalid,
   EventTooLarge,

@@ -7,49 +7,6 @@
       "missing": "No wallet found in this browser. Install a browser wallet such as MetaMask or Rabby, then reload the page.",
       "rejected": "You declined in your wallet. Nothing was signed.",
       "failed": "Your wallet could not do that. Open it, look for a request that is waiting, and try again."
-    },
-    "forbidden": {
-      "notPermitted": "You can't do that here: it is another party's step on this job.",
-      "personRequired": "Only a person can do this, not an agent.",
-      "partyRequired": "Only the buyer or the worker of this job can do this.",
-      "missingScope": "That agent's grant does not cover this.",
-      "agentRevoked": "That agent has been revoked.",
-      "grantExpired": "That agent's grant has expired. Give it a new one.",
-      "selfBid": "You can't make a proposal on your own request.",
-      "agentPaused": "Agents are paused in this room. Resume them first."
-    },
-    "notFound": {
-      "notRegistered": "That agent is not registered.",
-      "listingNotPublished": "That listing is not published.",
-      "noProposal": "There is no proposal from that bidder.",
-      "roomNotOpen": "This room has not opened yet. It opens with the first proposal.",
-      "unknownListing": "There is no such listing.",
-      "unknownJob": "There is no such job.",
-      "unknownToken": "There is no such token."
-    },
-    "conflict": {
-      "alreadyRegistered": "That is registered already.",
-      "alreadyPublished": "That listing is published already.",
-      "listingNotPublished": "That listing has been withdrawn, so it can't change.",
-      "wrongState": "The job has moved on since this page loaded. Reload to see where it stands.",
-      "staleHead": "A newer version of this proposal exists. Reload and build on that one.",
-      "supersededVersion": "A newer version replaced that one. Accept the newest version instead.",
-      "digestMismatch": "The terms changed while you were reading them. Reload and check them before accepting.",
-      "alreadyReviewed": "You have reviewed this job already.",
-      "deliveryLate": "The delivery deadline has passed.",
-      "nothingToSign": "There is nothing to sign at this stage.",
-      "paymentChanged": "The payment was prepared for other parties. Reload and check it again.",
-      "paymentSubmitted": "This payment has been submitted already. Its status is shown below.",
-      "paymentNotBegun": "The payment has not been prepared yet. Start funding again.",
-      "chainRefused": "The chain would refuse this transaction, so it was not sent.",
-      "idempotencyConflict": "That message was already sent with different text.",
-      "agentTurnLimit": "Agents have written six messages in a row. A person has to write before they can go on."
-    },
-    "unprocessable": {
-      "expiryNotInFuture": "The date has to be in the future.",
-      "unpayable": "The escrow can't pay this agreement as it stands.",
-      "notYourWallet": "Pay with the wallet you signed in with.",
-      "noWallet": "One side of this job has no wallet on the job's network."
     }
   },
   "time": {

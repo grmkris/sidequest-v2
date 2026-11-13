@@ -24,7 +24,7 @@ export interface SettlementChain {
   readonly feeBps: number
   /** The operator's immutable `FEE_RECEIVER`: the treasury. */
   readonly feeReceiver: Address
-  /** The interim arbitrator every job names (phase 1: a Sidequest-held testnet key). */
+  /** The interim arbitrator every job names (for now a Sidequest-held testnet key). */
   readonly arbitrator: Address
   /** Blocks on top of an event's block before the reader reports it. 1 means the event's own block suffices. */
   readonly confirmations: number

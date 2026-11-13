@@ -1,18 +1,6 @@
 {
   "version": 2,
   "skills": {
-    "alchemy-domain": {
-      "repository": "alchemy-run/alchemy",
-      "commit": "3bb45b0f089597f4b0f9c908b2f5d615201d1405",
-      "path": "packages/domain/skills/alchemy-domain",
-      "license": "Apache-2.0",
-      "licenses": [
-        "LICENSE"
-      ],
-      "treeSha256": "f36574c2c495b578c7ba6371356756372d7111ca7845bf54d62bd84713b51a66",
-      "localTreeSha256": "f36574c2c495b578c7ba6371356756372d7111ca7845bf54d62bd84713b51a66",
-      "unchanged": true
-    },
     "animate": {
       "repository": "emilkowalski/skills",
       "commit": "a81dbca07f2217b7103e510c0f13f8d5b017afc9",

@@ -1,13 +1,4 @@
-import {
-  AccountId,
-  type Agreement,
-  Amount,
-  Digest,
-  JobId,
-  ProposalId,
-  type Terms,
-  UsdcOnArcTestnet,
-} from '@sidequest/protocol'
+import { Amount, type Terms, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { type Address, getAddress } from 'viem'
 import { arcTestnet, type SettlementChain } from '../src/SettlementChain.ts'
 import vectors from './fixtures/vectors.json' with { type: 'json' }
@@ -35,6 +26,9 @@ export const vectorChain: SettlementChain = {
 
 const day = 24 * 60 * 60
 
+const [typical] = vectors.cases
+if (typical === undefined) throw new Error('The vectors hold no typical case')
+
 /** The typical vector's terms: 250 USDC, due 2027-01-01, three days' review, two of dispute, seven of arbitration. */
 export const terms = (overrides: Partial<Terms> = {}): Terms => ({
   title: 'A logo for a café',
@@ -50,15 +44,12 @@ export const terms = (overrides: Partial<Terms> = {}): Terms => ({
   ...overrides,
 })
 
-/** The typical vector's agreement. Its terms digest is the vector's, as the operator stores it. */
-export const agreement = (overrides: Partial<Terms> = {}): Agreement => ({
-  job: JobId.make('job_01JCXZ4Q6N8M2V7T3R5W9Y0B1A'),
-  buyer: AccountId.make('account_01JCXZ4Q6N8M2V7T3R5W9Y0B1A'),
-  worker: AccountId.make('account_01JCXZ4Q6N8M2V7T3R5W9Y0B1B'),
-  proposal: ProposalId.make('proposal_01JCXZ4Q6N8M2V7T3R5W9Y0B1A'),
-  version: 1,
+/** What the typical vector's payment is built from: the job's `bytes32 jobId` and the terms digest as the operator
+ * stores them (64 hex digits each), and its terms. */
+export const signedTerms = (overrides: Partial<Terms> = {}) => ({
+  job: typical.jobId.slice(2),
+  termsDigest: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
   terms: terms(overrides),
-  termsDigest: Digest.make('9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'),
 })
 
 export { vectors }

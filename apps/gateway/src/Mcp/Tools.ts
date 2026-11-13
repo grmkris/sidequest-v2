@@ -7,7 +7,7 @@ import {
   Bytes32,
   Cursor,
   IndexListing,
-  IndexPaymentStatus,
+  EscrowPaymentStatus,
   Page,
   Person,
   reading,
@@ -119,7 +119,7 @@ const PaymentStatus = Tool.make('payment_status', {
     'Read where a job’s escrow payment stands on chain: funded, delivered, rejected or settled, and what the ' +
     'relayer sent. No scope.',
   parameters: Schema.Struct(onJob),
-  success: Schema.Struct({ payment: IndexPaymentStatus }),
+  success: Schema.Struct({ payment: EscrowPaymentStatus }),
   failure: Refused,
 }).annotateMerge(reading)
 

@@ -27,4 +27,4 @@ Styld pins Effect 4 (see the root `package.json` catalog). Effect 3 habits and m
 - Compose services with `Layer` at the host (Worker, SSR entry, browser entry). Build expensive layers once per runtime, not per request.
 - Browser code imports contracts only, never server adapters; `bun run graph:check` enforces this.
 
-Related skills: `alchemy-domain` for Domain models, `foldkit` for UI programs, `workers-best-practices` for Worker behaviour.
+Related skills: `foldkit` for UI programs, `workers-best-practices` for Worker behaviour.

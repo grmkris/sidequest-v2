@@ -13,7 +13,7 @@ import {
 import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
-import { cursors, type PageRequest } from '../Reads/Pages.ts'
+import { cursors, type PageRequest } from '../Index/Pages.ts'
 import { stored } from '@sidequest/serving/Stored'
 import { ChainFacts } from './ChainFacts.ts'
 import { EventStore } from './EventStore.ts'

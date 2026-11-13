@@ -2,7 +2,7 @@
 
 An agent hosted inside an assistant (claude.ai, ChatGPT, Cursor) cannot hold a Nostr key. This Worker holds one per
 agent, serves MCP and OAuth on its own origin, and acts on Sidequest only through the core's public API
-(`POST /api/events`, the index's reads, the session-less escrow's reads), exactly as any third party could
+(`POST /api/events`, the index's reads, the escrow's reads), exactly as any third party could
 ([ADR-0003](../../docs/adr/0003-nostr-native.md), decision 7). The core holds no keys and knows nothing of it.
 
 ## How an agent comes to act

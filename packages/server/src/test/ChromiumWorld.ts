@@ -3,7 +3,6 @@ import { localRoomSigner } from '@sidequest/nostr/rooms'
 import { webCrypto } from '@sidequest/protocol'
 import { Effect, Schema } from 'effect'
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright'
-import { isHex } from 'viem'
 import { generatePrivateKey, type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 
 // A real browser against the deployed edge, for the native acceptance tests: headless Chromium, a context whose page
@@ -34,10 +33,7 @@ export const walletContext = (browser: Browser) =>
       context.exposeFunction('__sidequestWallet', async (method: string, params: ReadonlyArray<unknown>) => {
         if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [wallet.address]
         if (method === 'eth_chainId') return '0x4cef52'
-        const [message, typedData] = params
-        if (method === 'personal_sign' && typeof message === 'string' && isHex(message))
-          return wallet.signMessage({ message: { raw: message } })
-        if (method === 'eth_signTypedData_v4') return signTypedDataJson(wallet, typedData)
+        if (method === 'eth_signTypedData_v4') return signTypedDataJson(wallet, params[1])
         throw Object.assign(new Error(`The test wallet does not answer ${method}`), { code: 4200 })
       }),
     )

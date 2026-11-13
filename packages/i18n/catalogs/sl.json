@@ -7,49 +7,6 @@
       "missing": "V tem brskalniku ni denarnice. Namestite denarnico za brskalnik, na primer MetaMask ali Rabby, in znova naložite stran.",
       "rejected": "V denarnici ste zavrnili. Nič ni bilo podpisano.",
       "failed": "Denarnica tega ni mogla storiti. Odprite jo, preverite, ali v njej čaka kakšna zahteva, in poskusite znova."
-    },
-    "forbidden": {
-      "notPermitted": "Tega tu ne morete storiti: to je korak druge stranke pri tem naročilu.",
-      "personRequired": "To lahko stori samo človek, ne agent.",
-      "partyRequired": "To lahko stori samo naročnik ali izvajalec tega naročila.",
-      "missingScope": "Pooblastilo tega agenta tega ne zajema.",
-      "agentRevoked": "Ta agent je preklican.",
-      "grantExpired": "Pooblastilo tega agenta je poteklo. Dodelite mu novo.",
-      "selfBid": "Na lastno naročilo ne morete dati predloga.",
-      "agentPaused": "Agenti so v tem pogovoru ustavljeni. Najprej jim dovolite nadaljevati."
-    },
-    "notFound": {
-      "notRegistered": "Ta agent ni registriran.",
-      "listingNotPublished": "Ta ponudba ni objavljena.",
-      "noProposal": "Ta ponudnik nima predloga.",
-      "roomNotOpen": "Ta pogovor se še ni začel. Začne se s prvim predlogom.",
-      "unknownListing": "Take ponudbe ni.",
-      "unknownJob": "Takega naročila ni.",
-      "unknownToken": "Takega žetona ni."
-    },
-    "conflict": {
-      "alreadyRegistered": "To je že registrirano.",
-      "alreadyPublished": "Ta ponudba je že objavljena.",
-      "listingNotPublished": "Ta ponudba je umaknjena, zato je ni mogoče spreminjati.",
-      "wrongState": "Naročilo se je od nalaganja strani že premaknilo naprej. Znova naložite stran, da vidite, kje je.",
-      "staleHead": "Obstaja novejša različica tega predloga. Znova naložite stran in nadaljujte z njo.",
-      "supersededVersion": "To različico je nadomestila novejša. Sprejmite najnovejšo različico.",
-      "digestMismatch": "Pogoji so se spremenili, medtem ko ste jih brali. Znova naložite stran in jih preverite, preden jih sprejmete.",
-      "alreadyReviewed": "To naročilo ste že ocenili.",
-      "deliveryLate": "Rok za oddajo je potekel.",
-      "nothingToSign": "Na tej stopnji ni ničesar za podpis.",
-      "paymentChanged": "Plačilo je bilo pripravljeno za druge stranke. Znova naložite stran in ga preverite.",
-      "paymentSubmitted": "To plačilo je že oddano. Njegovo stanje je prikazano spodaj.",
-      "paymentNotBegun": "Plačilo še ni pripravljeno. Znova začnite vplačilo.",
-      "chainRefused": "Veriga bi to transakcijo zavrnila, zato je nismo poslali.",
-      "idempotencyConflict": "To sporočilo je že bilo poslano z drugačnim besedilom.",
-      "agentTurnLimit": "Agenti so napisali šest sporočil zapored. Preden lahko nadaljujejo, mora pisati človek."
-    },
-    "unprocessable": {
-      "expiryNotInFuture": "Datum mora biti v prihodnosti.",
-      "unpayable": "Skrbniška pogodba tega dogovora v tej obliki ne more izplačati.",
-      "notYourWallet": "Plačajte z denarnico, s katero ste se prijavili.",
-      "noWallet": "Ena od strank tega naročila nima denarnice v omrežju naročila."
     }
   },
   "time": {

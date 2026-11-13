@@ -1,6 +1,6 @@
 import {
-  IndexSettlementReason,
-  IndexSettlementRefused,
+  EscrowRefusalReason,
+  EscrowRefused,
   maxKeyJobs,
   NotIndexed,
   TypedData,
@@ -44,7 +44,7 @@ export type WorkerJob = typeof WorkerJob.Type
  * gateway's authorization, or a problem with the wallet or the network (the wallet saying no among them). */
 export const DelegationFailure = defineTaggedUnion({
   Gateway: { refusal: GatewayRefusal },
-  Core: { reason: IndexSettlementReason },
+  Core: { reason: EscrowRefusalReason },
   SignerFailed: { reason: SignerFailure },
   Failed: { problem: Problem },
 })
@@ -54,7 +54,7 @@ export const delegationFailureOf = (error: unknown): DelegationFailure => {
   if (error instanceof GatewayRefused) {
     return DelegationFailure.Gateway({ refusal: error.refusal })
   }
-  if (error instanceof IndexSettlementRefused) {
+  if (error instanceof EscrowRefused) {
     return DelegationFailure.Core({ reason: error.reason })
   }
   if (error instanceof SignerFailed) {
@@ -176,7 +176,7 @@ export const PrepareDelegation = Command.define('PrepareDelegation', {
       )
       const expiry = Math.floor((yield* Clock.currentTimeMillis) / 1000) + Number(days) * 86_400
       const api = yield* (yield* SidequestClient).api
-      const typedData = yield* api.indexSettlement.deliveryDelegationToSign({
+      const typedData = yield* api.escrow.deliveryDelegationToSign({
         params: { id: job },
         query: { delegate, expiry },
       })

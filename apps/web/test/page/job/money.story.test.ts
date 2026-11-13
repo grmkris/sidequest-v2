@@ -1,4 +1,4 @@
-import { IndexSettlementReason, IndexSettlementRefused, NetworkRef, NotIndexed, RateLimited } from '@sidequest/protocol'
+import { EscrowRefusalReason, EscrowRefused, NetworkRef, NotIndexed, RateLimited } from '@sidequest/protocol'
 import { Array, Option } from 'effect'
 import { Command, expectNoOutMessage, expectOutMessage, given, message, model, story } from 'foldkit/story'
 import { describe, expect, test } from 'vitest'
@@ -110,7 +110,7 @@ describe('funding', () => {
   })
 
   test('every refusal of the quote stops the step with its reason, and so does one of the relay', () => {
-    for (const reason of IndexSettlementReason.literals) {
+    for (const reason of EscrowRefusalReason.literals) {
       const refused = MoneyFailure.Refused({ reason, maybeDetail: Option.none() })
       story(
         update,
@@ -135,10 +135,10 @@ describe('funding', () => {
   })
 
   test('reads every typed error of the API as its failure', () => {
-    expect(moneyFailureOf(new IndexSettlementRefused({ reason: 'PayerNotLinked' }))).toEqual(
+    expect(moneyFailureOf(new EscrowRefused({ reason: 'PayerNotLinked' }))).toEqual(
       MoneyFailure.Refused({ reason: 'PayerNotLinked', maybeDetail: Option.none() }),
     )
-    expect(moneyFailureOf(new IndexSettlementRefused({ reason: 'ChainRefused', detail: 'x' }))).toEqual(
+    expect(moneyFailureOf(new EscrowRefused({ reason: 'ChainRefused', detail: 'x' }))).toEqual(
       MoneyFailure.Refused({ reason: 'ChainRefused', maybeDetail: Option.some('x') }),
     )
     expect(moneyFailureOf(new RateLimited({ retryAfterSeconds: 12 }))).toEqual(

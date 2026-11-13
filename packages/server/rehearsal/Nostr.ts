@@ -27,7 +27,7 @@ import type { Hex } from 'viem'
 import { generatePrivateKey, type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { bodyOf, eventually, type Reply } from './Surfaces.ts'
 
-// A person of the Nostr-native path, over the public surfaces only: a Nostr key that signs events, published through
+// A person, over the public surfaces only: a Nostr key that signs events, published through
 // `POST /api/events`, and a wallet linked to that key that signs only money. No sign-in, no session, no cookie.
 
 const arc = UsdcOnArcTestnet.network

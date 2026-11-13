@@ -41,7 +41,7 @@ export const ReadPayment = Command.define('ReadPayment', {
   execute: ({ job }) =>
     Effect.gen(function* () {
       const api = yield* (yield* SidequestClient).api
-      const status = yield* api.indexSettlement.payment({ params: { id: job } })
+      const status = yield* api.escrow.payment({ params: { id: job } })
       return Message.SucceededReadPayment({ status })
     }).pipe(Effect.catch(failedWith(Message.FailedReadPayment))),
 })
@@ -62,7 +62,7 @@ export const Quote = Command.define('Quote', {
   execute: ({ job, proposal, payer }) =>
     Effect.gen(function* () {
       const api = yield* (yield* SidequestClient).api
-      const funding = yield* api.indexSettlement.quote({ params: { id: job, proposal }, query: { payer } })
+      const funding = yield* api.escrow.quote({ params: { id: job, proposal }, query: { payer } })
       return Message.SucceededPrepare({ typedData: funding.typedData, maybeFunding: Option.some(funding) })
     }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedPrepare({ failure: moneyFailureOf(error) })))),
 })
@@ -80,10 +80,10 @@ export const PrepareSignature = Command.define('PrepareSignature', {
       const api = yield* (yield* SidequestClient).api
       const params = { id: job }
       const typedData = yield* step === 'approve'
-        ? api.indexSettlement.approvalToSign({ params })
+        ? api.escrow.approvalToSign({ params })
         : step === 'reject'
-          ? api.indexSettlement.rejectionToSign({ params })
-          : api.indexSettlement.deliveryToSign({
+          ? api.escrow.rejectionToSign({ params })
+          : api.escrow.deliveryToSign({
               params,
               query: { deliveryHash: Option.getOrElse(maybeDeliveryHash, () => '') },
             })
@@ -168,7 +168,7 @@ export const Submit = Command.define('Submit', {
   messages: [Message.SucceededSubmit, Message.FailedSubmit],
   execute: ({ job, work, signer, signature, maybeDeliveryHash }) =>
     Effect.gen(function* () {
-      const api = (yield* (yield* SidequestClient).api).indexSettlement
+      const api = (yield* (yield* SidequestClient).api).escrow
       const params = { id: job }
       const relayed = yield* Work.match(work, {
         Fund: ({ proposal }) => api.fund({ params: { id: job, proposal }, payload: { payer: signer, signature } }),

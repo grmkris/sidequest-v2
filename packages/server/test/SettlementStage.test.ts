@@ -1,9 +1,8 @@
 import { it } from '@effect/vitest'
 import { Effect, Option, Redacted } from 'effect'
 import { ConfigProvider } from 'effect'
-import { describe, expect, it as plain } from 'vitest'
-import { escrowConfigFrom } from '../src/Settlement/EscrowConfig.ts'
-import { sagaTimingFrom } from '../src/Settlement/SagaTiming.ts'
+import { describe, expect } from 'vitest'
+import { settlementConfigFrom } from '../src/Settlement/SettlementConfig.ts'
 import { settlementVariablesFromShell } from '../src/Settlement/SettlementStage.ts'
 
 // What a stage binds for settlement, read from the deploying shell: nothing when nothing is set, everything (keys as
@@ -17,7 +16,7 @@ const complete = {
   SIDEQUEST_ARBITRATOR_ADDRESS: '0x00000000000000000000000000000000000000a3',
   SIDEQUEST_RELAYER_KEY: relayerKey,
   SIDEQUEST_ARBITRATOR_KEY: arbitratorKey,
-  SIDEQUEST_ARBITRATION_OPERATOR: 'account_01JCXZ4Q6N8M2V7T3R5W9Y0B1Z',
+  SIDEQUEST_ARBITRATION_PUBKEY: 'ab'.repeat(32),
   SIDEQUEST_CONFIRMATIONS: '1',
 }
 
@@ -31,7 +30,7 @@ describe('settlement from the deploying shell', () => {
     Effect.gen(function* () {
       const bound = yield* fromShell({ PATH: '/usr/bin' })
       expect(bound).toEqual({})
-      expect(escrowConfigFrom(bound)).toEqual(Option.none())
+      expect(settlementConfigFrom(bound)).toEqual(Option.none())
     }),
   )
 
@@ -49,11 +48,11 @@ describe('settlement from the deploying shell', () => {
           Redacted.isRedacted(value) ? Redacted.value(value) : value,
         ]),
       )
-      const config = Option.getOrThrow(escrowConfigFrom(worker))
+      const config = Option.getOrThrow(settlementConfigFrom(worker))
       expect(config.chain).toMatchObject({ chainId: 5042002, confirmations: 1, feeBps: 500 })
       expect(Redacted.value(config.relayerKey)).toBe(relayerKey)
       expect(Option.map(config.arbitratorKey, Redacted.value)).toEqual(Option.some(arbitratorKey))
-      expect(config.arbitrationOperator).toEqual(Option.some(complete.SIDEQUEST_ARBITRATION_OPERATOR))
+      expect(worker['SIDEQUEST_ARBITRATION_PUBKEY']).toBe(complete.SIDEQUEST_ARBITRATION_PUBKEY)
     }),
   )
 
@@ -64,18 +63,8 @@ describe('settlement from the deploying shell', () => {
       expect(missing.message).toContain('SIDEQUEST_TREASURY_ADDRESS')
       expect(missing.message).toContain('SIDEQUEST_RELAYER_KEY')
       expect(missing.message).not.toContain('0x5a5a')
-      const operator = yield* Effect.flip(fromShell({ ...complete, SIDEQUEST_ARBITRATION_OPERATOR: 'cy' }))
-      expect(operator.message).toContain('SIDEQUEST_ARBITRATION_OPERATOR')
+      const arbitration = yield* Effect.flip(fromShell({ ...complete, SIDEQUEST_ARBITRATION_PUBKEY: 'cy' }))
+      expect(arbitration.message).toContain('SIDEQUEST_ARBITRATION_PUBKEY')
     }),
   )
-})
-
-describe('the settlement sagas’ pace', () => {
-  plain('reads poll, longest poll and idle wait in milliseconds, and keeps the default for anything else', () => {
-    expect(sagaTimingFrom({ SIDEQUEST_SETTLEMENT_TIMING: '250,1000,2000' })).toEqual(
-      Option.some({ pollMillis: 250, maxPollMillis: 1000, idleMillis: 2000 }),
-    )
-    for (const value of [undefined, '', '250,1000', '250,1000,2000,1', '0,1000,2000', '250,x,2000'])
-      expect(sagaTimingFrom({ SIDEQUEST_SETTLEMENT_TIMING: value })).toEqual(Option.none())
-  })
 })

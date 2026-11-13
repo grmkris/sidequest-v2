@@ -45,8 +45,8 @@ export class ChainFacts extends Context.Service<
     readonly record: (logs: ReadonlyArray<ChainLog>) => Effect.Effect<void, Unavailable>
     /**
      * The facts the fold needs for a job, by the `bytes32 jobId` as the chain has it (64 hex digits): its fundings and
-     * the later facts of its earliest funding's payment, bounded by `chainFactLimits`. A phase 1 job's word names no
-     * request, so its facts fold to nothing; the two are never bridged.
+     * the later facts of its earliest funding's payment, bounded by `chainFactLimits`. A job funded around Sidequest,
+     * whose word names no indexed request, folds to nothing.
      */
     readonly forJob: (job: string) => Effect.Effect<ReadonlyArray<ChainFact>, Unavailable>
     /** The last block the poller scanned on `chain`, if it has scanned any. */

@@ -41,7 +41,7 @@ export const relayDelegatedDelivery = Effect.fnUntraced(function* (
   const core = yield* Core
   const digest = deliveryDigestOfTypedData(delivery.typedData)
   if (Option.isNone(digest))
-    return yield* new CoreRefused({ refusal: 'IndexSettlementRefused', detail: 'The core served no Delivery to sign.' })
+    return yield* new CoreRefused({ refusal: 'EscrowRefused', detail: 'The core served no Delivery to sign.' })
   const signature = yield* keys
     .withKey(agent, (key) => Effect.succeed(signDigestAsEvm(digest.value, key)))
     .pipe(

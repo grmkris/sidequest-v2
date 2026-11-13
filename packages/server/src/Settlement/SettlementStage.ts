@@ -1,6 +1,6 @@
 import { Config, ConfigProvider, Effect, Option, Redacted, Schema } from 'effect'
-import { arcTestnetRpcUrl } from '../SignIn/ArcRpc.ts'
-import { malformedSettlementVariables, requiredSettlementVariables } from './EscrowConfig.ts'
+import { arcTestnetRpcUrl } from './ArcRpc.ts'
+import { malformedSettlementVariables, requiredSettlementVariables } from './SettlementConfig.ts'
 
 /** The API Worker's settlement bindings for a stage: plain text, and secrets as `Redacted`, which bind as secrets. */
 export type SettlementVariables = Readonly<Record<string, string | Redacted.Redacted>>
@@ -11,7 +11,8 @@ export class SettlementMisconfigured extends Schema.TaggedError<SettlementMiscon
 }) {}
 
 // Settlement's variables, read from the environment of the shell that deploys a stage (`alchemy.run.ts`). With all of
-// them unset, settlement stays disabled exactly as before: the funding endpoints answer 503 and the saga reads nothing.
+// them unset, settlement stays disabled: the escrow endpoints answer 503, and the settler and the chain log poller do
+// nothing.
 //
 // Required together:
 //   SIDEQUEST_OPERATOR_ADDRESS      the deployed `SidequestOperator`
@@ -20,10 +21,9 @@ export class SettlementMisconfigured extends Schema.TaggedError<SettlementMiscon
 //   SIDEQUEST_RELAYER_KEY           secret: the key that relays operator calls and pays their gas (0x + 64 hex)
 // Optional:
 //   SIDEQUEST_ARBITRATOR_KEY        secret: the interim arbitrator's key; without it rulings answer 503
-//   SIDEQUEST_ARBITRATION_OPERATOR  the account id allowed to issue rulings
 //   SIDEQUEST_CONFIRMATIONS         blocks that make an event count (default 3)
 //   SIDEQUEST_FEE_BPS               the operator's immutable `FEE_BPS` (default 500)
-//   SIDEQUEST_ARBITRATION_PUBKEY    the Nostr key (64 hex) whose NIP-98 authorization asks for a Nostr-native ruling
+//   SIDEQUEST_ARBITRATION_PUBKEY    the Nostr key (64 hex) whose NIP-98 authorization asks for a ruling
 //   SIDEQUEST_OPERATOR_DEPLOY_BLOCK the operator's deployment block, where the chain log poller first starts
 //   SIDEQUEST_ARC_RPC_URL           the Arc testnet RPC endpoint (default the public one), read by `stageRpcUrl`
 //
@@ -33,7 +33,6 @@ const plainNames = [
   'SIDEQUEST_OPERATOR_ADDRESS',
   'SIDEQUEST_TREASURY_ADDRESS',
   'SIDEQUEST_ARBITRATOR_ADDRESS',
-  'SIDEQUEST_ARBITRATION_OPERATOR',
   'SIDEQUEST_CONFIRMATIONS',
   'SIDEQUEST_FEE_BPS',
   'SIDEQUEST_ARBITRATION_PUBKEY',

@@ -6,7 +6,7 @@ import { publicFor } from './EventsHttp.ts'
 import { ServedApi } from '@sidequest/fold/api'
 
 /**
- * The index's job reads: a job folded from what the index holds, and the open requests. Public and sessionless; a
+ * The index's job reads: a job folded from what the index holds, and the open requests. Public; a
  * job changes with every event and chain fact, so caches keep an answer for seconds only.
  */
 export const indexJobsHandlers = HttpApiBuilder.group(ServedApi, 'indexJobs', (handlers) =>

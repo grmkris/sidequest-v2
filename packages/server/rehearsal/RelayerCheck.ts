@@ -4,7 +4,8 @@ import { Schema } from 'effect'
 import { isAddressEqual, isHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import type { RelayerAccount } from './Evidence.ts'
-import type { World } from './Hire.ts'
+import type { RehearsalChain } from './Chain.ts'
+import type { RpcProxy } from './RpcProxy.ts'
 
 // After the cases: the relayer has nothing left in flight. On chain, its pending nonce equals its mined one (no
 // transaction queued behind a gap), and every transaction it handed the node was either mined or replaced at its
@@ -53,7 +54,7 @@ const storedIntents = (signer: string) => {
 }
 
 /** Whether the chain mined one of `hashes`. */
-const anyMined = async (world: Pick<World, 'chain'>, hashes: string | null) => {
+const anyMined = async (world: { readonly chain: RehearsalChain }, hashes: string | null) => {
   for (const hash of (hashes ?? '').split(',').filter((each) => isHex(each))) {
     const receipt = await world.chain.client.getTransactionReceipt({ hash }).catch(() => undefined)
     if (receipt !== undefined) return true
@@ -62,7 +63,10 @@ const anyMined = async (world: Pick<World, 'chain'>, hashes: string | null) => {
 }
 
 /** The relayer's account of its nonces; fails if anything it sent is still unsettled. */
-export const relayerSettled = async (world: Pick<World, 'chain' | 'proxy'>): Promise<RelayerAccount> => {
+export const relayerSettled = async (world: {
+  readonly chain: RehearsalChain
+  readonly proxy: RpcProxy
+}): Promise<RelayerAccount> => {
   const address = privateKeyToAccount(world.chain.keys.relayer).address
   const client = world.chain.client
   const latestNonce = await client.getTransactionCount({ address, blockTag: 'latest' })

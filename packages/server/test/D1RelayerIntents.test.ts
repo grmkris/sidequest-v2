@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { memoryRelayerIntents, RelayerIntents, type RelayTransaction } from '@sidequest/settlement/RelayerIntents'
 import { Effect, Layer, Match, Schema } from 'effect'
 import { describe, expect } from 'vitest'
-import { D1RelayerIntents } from '../src/Settlement/D1SettlementStores.ts'
+import { D1RelayerIntents } from '../src/Settlement/D1RelayerIntents.ts'
 import { localSql } from './LocalSql.ts'
 
 // The relayer's D1 store against the memory store, the model its port describes: any history of reservations,

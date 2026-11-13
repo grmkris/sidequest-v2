@@ -6,8 +6,8 @@ import {
   type DelegatedDelivery,
   EventsApi,
   type IndexListing,
-  type IndexPaymentStatus,
-  IndexSettlementApi,
+  type EscrowPaymentStatus,
+  EscrowApi,
   type Person,
   type Published,
   type TypedData,
@@ -25,11 +25,11 @@ import { GatewaySettings } from '../Settings.ts'
 // every write is an event the agent's own key signed, or a delivery the contract checks the signatures of.
 
 /** The part of the core's API the gateway calls. */
-export class CoreApi extends HttpApi.make('core').add(EventsApi, IndexJobsApi, IndexSettlementApi) {}
+export class CoreApi extends HttpApi.make('core').add(EventsApi, IndexJobsApi, EscrowApi) {}
 
 /**
  * The core refused what the gateway asked, and why, in the core's own words: its error's tag (`EventInvalid`,
- * `RateLimited`, `IndexSettlementRefused`, ...) and, where it has one, its reason and detail.
+ * `RateLimited`, `EscrowRefused`, ...) and, where it has one, its reason and detail.
  */
 export class CoreRefused extends Schema.TaggedError<CoreRefused>()('CoreRefused', {
   refusal: Schema.String,
@@ -59,7 +59,7 @@ export interface CoreService {
   readonly listings: (
     query: PageQuery & { readonly q?: string | undefined; readonly tag?: string | undefined },
   ) => Effect.Effect<{ readonly items: ReadonlyArray<IndexListing>; readonly next: Cursor | null }, CoreError>
-  readonly payment: (job: string) => Effect.Effect<IndexPaymentStatus, CoreError>
+  readonly payment: (job: string) => Effect.Effect<EscrowPaymentStatus, CoreError>
   readonly deliveryToSign: (job: string, deliveryHash: string) => Effect.Effect<TypedData, CoreError>
   /**
    * Relays a delivery the agent's key signed as the delegate, with the operator wallet's delegation. The contract
@@ -81,7 +81,7 @@ const coreRefusals: ReadonlySet<string> = new Set([
   'RateLimited',
   'BadCursor',
   'NotIndexed',
-  'IndexSettlementRefused',
+  'EscrowRefused',
 ])
 
 const textField = (error: object, name: string): Option.Option<string> =>
@@ -137,15 +137,13 @@ export const CoreLive = Layer.effect(
             query: { ...pageOf(page), ...(q === undefined ? {} : { q }), ...(tag === undefined ? {} : { tag }) },
           })
           .pipe(Effect.mapError(coreErrorOf)),
-      payment: (job) => client.indexSettlement.payment({ params: { id: job } }).pipe(Effect.mapError(coreErrorOf)),
+      payment: (job) => client.escrow.payment({ params: { id: job } }).pipe(Effect.mapError(coreErrorOf)),
       deliveryToSign: (job, deliveryHash) =>
-        client.indexSettlement
+        client.escrow
           .deliveryToSign({ params: { id: job }, query: { deliveryHash } })
           .pipe(Effect.mapError(coreErrorOf)),
       deliverDelegated: (job, delivery) =>
-        client.indexSettlement
-          .deliverDelegated({ params: { id: job }, payload: delivery })
-          .pipe(Effect.mapError(coreErrorOf)),
+        client.escrow.deliverDelegated({ params: { id: job }, payload: delivery }).pipe(Effect.mapError(coreErrorOf)),
     })
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer))

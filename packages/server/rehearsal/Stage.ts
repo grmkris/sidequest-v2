@@ -16,8 +16,8 @@ import type { RpcProxy } from './RpcProxy.ts'
 // settlement configured as a stage would configure it, against a chain reached only through the rehearsal's proxy.
 
 /**
- * Settlement as a stage binds it, for this chain: the keys as secrets, a fast saga pace for a chain whose clock moves,
- * and `extra` plain variables (the arbitration operator, the arbitration key, the operator's deployment block).
+ * Settlement as a stage binds it, for this chain: the keys as secrets, and `extra` plain variables (the arbitration
+ * key, the operator's deployment block).
  */
 export const settlementFor = (chain: RehearsalChain, extra: Readonly<Record<string, string>>) => {
   const local =
@@ -34,7 +34,6 @@ export const settlementFor = (chain: RehearsalChain, extra: Readonly<Record<stri
     SIDEQUEST_TREASURY_ADDRESS: chain.treasury,
     SIDEQUEST_ARBITRATOR_ADDRESS: privateKeyToAccount(chain.keys.arbitrator).address,
     SIDEQUEST_CONFIRMATIONS: String(chain.confirmations),
-    SIDEQUEST_SETTLEMENT_TIMING: chain.mode === 'anvil' ? '250,1000,1000' : '2000,15000,15000',
     ...local,
     ...extra,
   }

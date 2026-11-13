@@ -15,10 +15,8 @@ import {
 import { authCaptureEscrowAbi } from './abi/AuthCaptureEscrow.ts'
 import { sidequestOperatorAbi } from './abi/SidequestOperator.ts'
 import { rpcCall } from './ChainRpc.ts'
-import { maxLogRange, toRaw } from './LogScan.ts'
-import type { RawLog } from './ReaderCursors.ts'
+import { hexParts, maxLogRange, type RawLog, toRaw } from './LogScan.ts'
 import type { SettlementChain } from './SettlementChain.ts'
-import { hexParts } from './Verify.ts'
 import { accountRefOf, wordDigest } from './Words.ts'
 
 // Every job's logs, not one payment's: what the index records as chain facts. The chain reader (`ChainReader.ts`)

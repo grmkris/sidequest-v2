@@ -1,6 +1,6 @@
 import { Schema } from 'effect'
 
-export const ProtocolVersion = Schema.Literal('0.2-phase1')
+export const ProtocolVersion = Schema.Literal('0.3-phase2')
 export const Status = Schema.Struct({
   service: Schema.Literal('sidequest-v2'),
   status: Schema.Literal('ok'),

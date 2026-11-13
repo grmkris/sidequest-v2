@@ -5,14 +5,14 @@ import { describe, expect } from 'vitest'
 import { sidequestOperatorAbi } from '../src/abi/SidequestOperator.ts'
 import { ChainRpc } from '../src/ChainRpc.ts'
 import type { OperatorCall } from '../src/OperatorCall.ts'
-import { paymentOf } from '../src/Payment.ts'
+import { termsPaymentOf } from '../src/Payment.ts'
 import { memoryRelayerIntents, RelayerIntents } from '../src/RelayerIntents.ts'
 import { Relayer } from '../src/Relayer.ts'
 import { type FakeRpc, fakeRpc } from './FakeRpc.ts'
-import { agreement, payer, receiver, vectorChain } from './fixtures.ts'
+import { signedTerms, payer, receiver, vectorChain } from './fixtures.ts'
 
 const key = Redacted.make(keccak256(toHex('relayer')))
-const payment = Effect.runSync(paymentOf(agreement(), { payer, receiver }, vectorChain))
+const payment = Effect.runSync(termsPaymentOf(signedTerms(), { payer, receiver }, vectorChain))
 const settleAfterReview: OperatorCall = { function: 'settleAfterReview', info: payment.info }
 const refundUndelivered: OperatorCall = { function: 'refundUndelivered', info: payment.info }
 

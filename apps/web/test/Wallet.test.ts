@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { TypedData } from '@sidequest/protocol'
 import { Effect, Option, Schema } from 'effect'
 import { describe, expect } from 'vitest'
-import { type Eip1193Provider, hexOfText, makeWallet, NoWallet, WalletFailed, WalletRejected } from '../src/Wallet.ts'
+import { type Eip1193Provider, makeWallet, NoWallet, WalletFailed, WalletRejected } from '../src/Wallet.ts'
 
 const address = '0x1111111111111111111111111111111111111111'
 const signature = `0x${'ab'.repeat(65)}`
@@ -71,8 +71,8 @@ describe('the wallet adapter over EIP-1193', () => {
 
   it.effect('refuses an answer that is not what was asked for', () =>
     Effect.gen(function* () {
-      const { provider } = fakeProvider({ ...onArc, personal_sign: () => 'not a signature' })
-      expect(yield* Effect.flip(walletOver(provider).signMessage(address, 'hi'))).toBeInstanceOf(WalletFailed)
+      const { provider } = fakeProvider({ ...onArc, eth_requestAccounts: () => ['not an address'] })
+      expect(yield* Effect.flip(walletOver(provider).connect)).toBeInstanceOf(WalletFailed)
     }),
   )
 
@@ -94,16 +94,6 @@ describe('the wallet adapter over EIP-1193', () => {
         'wallet_switchEthereumChain',
       ])
       expect(calls[1]?.params[0]).toMatchObject({ chainId: '0x4cef52', rpcUrls: ['https://rpc.testnet.arc.io'] })
-    }),
-  )
-
-  it.effect('signs a sign-in message as UTF-8 hex for the connected account', () =>
-    Effect.gen(function* () {
-      const { provider, calls } = fakeProvider({ ...onArc, personal_sign: () => signature })
-      const message = 'sidequest.test wants you to sign in with your Ethereum account:\nčšž'
-      expect(yield* walletOver(provider).signMessage(address, message)).toBe(signature)
-      expect(calls[0]).toEqual({ method: 'personal_sign', params: [hexOfText(message), address] })
-      expect(hexOfText('čš')).toBe('0xc48dc5a1')
     }),
   )
 

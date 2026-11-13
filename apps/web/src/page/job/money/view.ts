@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
 import type { FundingView, JobView, ProposalView } from '@sidequest/fold'
-import { type IndexSettlementReason, NetworkRef } from '@sidequest/protocol'
+import { type EscrowRefusalReason, NetworkRef } from '@sidequest/protocol'
 import { Array, Option, Schema } from 'effect'
 import { type Html, Submodel } from 'foldkit'
 import { formatAmount } from '../../../Amount.ts'
@@ -46,8 +46,8 @@ const doneKeys: Readonly<Record<Step, PlainKey>> = {
   reject: 'money.done.reject',
 }
 
-/** Every refusal of the sessionless escrow, in one plain sentence. */
-export const refusalKeys: Readonly<Record<IndexSettlementReason, PlainKey>> = {
+/** Every refusal of the escrow, in one plain sentence. */
+export const refusalKeys: Readonly<Record<EscrowRefusalReason, PlainKey>> = {
   RequestNotIndexed: 'money.refused.requestNotIndexed',
   ProposalNotIndexed: 'money.refused.proposalNotIndexed',
   ProposalForOtherBuyer: 'money.refused.proposalForOtherBuyer',
@@ -64,7 +64,7 @@ export const refusalKeys: Readonly<Record<IndexSettlementReason, PlainKey>> = {
 }
 
 /** The refusals the job as read no longer explains: reading it again shows what changed. */
-const readAgainReasons: ReadonlyArray<IndexSettlementReason> = [
+const readAgainReasons: ReadonlyArray<EscrowRefusalReason> = [
   'ProposalNotIndexed',
   'ProposalExpired',
   'ProposalWithdrawn',
@@ -80,7 +80,7 @@ const progress = (h: H, language: Language, step: Step, key: PlainKey) =>
 const transaction = (h: H, language: Language, hash: string) =>
   h.p(styled(h, s.meta()), [say(language, 'money.transaction'), ' ', Ui.dataText(h, hash)])
 
-const refusedNotice = (h: H, reader: Reader, reason: IndexSettlementReason, maybeDetail: Option.Option<string>) => {
+const refusedNotice = (h: H, reader: Reader, reason: EscrowRefusalReason, maybeDetail: Option.Option<string>) => {
   const language = reader.language
   return Ui.notice(h, 'danger', [
     h.p([], [say(language, refusalKeys[reason])]),

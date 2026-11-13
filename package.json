@@ -15,7 +15,6 @@
       "@effect/sql-d1": "4.0.7",
       "alchemy": "2.0.0-beta.84",
       "@alchemy.run/cloudflare": "2.0.0-beta.84",
-      "@alchemy.run/domain": "2.0.0-beta.84",
       "@alchemy.run/frontend-frameworks": "2.0.0-beta.84",
       "foldkit": "0.169.0",
       "@foldkit/vite-plugin": "0.28.0",
@@ -44,7 +43,6 @@
     "test:native": "VITE_SIDEQUEST_RELEASE=acceptance bun run build && ALCHEMY_TEST_DEV=1 bun test packages/server/src/test/Runtime.native.test.ts tools/acceptance/Gateway.native.test.ts",
     "test:unit": "vitest run --exclude **/*.native.test.ts",
     "gate:rehearse": "bun tools/gate-rehearsal.ts",
-    "gate:rehearse:events": "REHEARSAL_PATH=events bun tools/gate-rehearsal.ts",
     "gate:rehearse:browser": "REHEARSAL_PATH=browser bun tools/gate-rehearsal.ts",
     "check": "bun run format:check && bun run agents:check && bun run provenance:check && bun run vendor:check && bun run i18n:check && bun run translations:check && bun run graph:check && bun run suppressions:check && bun run canaries:check && bun run typecheck && bun run lint && bun run unused:check && bun run unused:production && bun run duplicates:check && bun run test && bun run bundle:check",
     "i18n:check": "bun tools/i18n-check.ts",
@@ -66,7 +64,6 @@
   },
   "devDependencies": {
     "@alchemy.run/cloudflare": "catalog:",
-    "@alchemy.run/domain": "catalog:",
     "@alchemy.run/frontend-frameworks": "catalog:",
     "@cloudflare/workers-types": "5.20261028.1",
     "@effect/platform-bun": "catalog:",
@@ -104,9 +101,7 @@
   },
   "packageManager": "bun@1.4.2",
   "patchedDependencies": {
-    "@alchemy.run/domain@2.0.0-beta.84": "patches/@alchemy.run%2Fdomain@2.0.0-beta.84.patch",
-    "@foldkit/vite-plugin@0.28.0": "patches/@foldkit%2Fvite-plugin@0.28.0.patch",
-    "@alchemy.run/cloudflare@2.0.0-beta.84": "patches/@alchemy.run%2Fcloudflare@2.0.0-beta.84.patch"
+    "@foldkit/vite-plugin@0.28.0": "patches/@foldkit%2Fvite-plugin@0.28.0.patch"
   },
   "trustedDependencies": [
     "esbuild",

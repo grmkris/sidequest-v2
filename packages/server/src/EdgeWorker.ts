@@ -16,7 +16,7 @@ export type EdgeEnvironment = {
   readonly SIDEQUEST_GATEWAY_URL?: string
 }
 
-const apiNamespaces = ['/api', '/rpc', '/mcp', '/oauth', '/.well-known', '/out', '/cdn'] as const
+const apiNamespaces = ['/api', '/rpc', '/out', '/cdn'] as const
 export const isApiPath = (path: string): boolean =>
   apiNamespaces.some((namespace) => path === namespace || path.startsWith(`${namespace}/`))
 

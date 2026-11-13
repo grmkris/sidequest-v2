@@ -22,10 +22,7 @@ export default {
     'apps/gateway': { entry: ['test/**/*.test.ts'], project: ['src/**/*.ts!', 'test/**/*.ts'] },
     'packages/serving': { project: ['src/**/*.ts!', 'test/**/*.ts'] },
     ...Object.fromEntries(
-      ['domain', 'observability', 'server', 'settlement'].map((name) => [
-        `packages/${name}`,
-        { project: ['src/**/*.ts!'] },
-      ]),
+      ['observability', 'server', 'settlement'].map((name) => [`packages/${name}`, { project: ['src/**/*.ts!'] }]),
     ),
     'packages/i18n': { project: ['src/**/*.ts!'] },
     'packages/protocol': { project: ['src/**/*.ts!'] },

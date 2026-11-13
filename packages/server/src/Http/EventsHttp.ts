@@ -108,12 +108,10 @@ const linkSpelling = (account: string) => (account.startsWith('eip155:') ? accou
 /**
  * The `events` group: publish-through and the index's public reads.
  *
- * Publishing takes one signed event from anyone, with no session and no cookie: the event's signature is its
- * authority. The group is added to `SidequestApi` after its `SameOrigin` middleware, so that middleware never runs
- * here, and this is the only group so placed. That is safe because nothing ambient is used: no cookie, session or
- * other credential a browser attaches is read, so a page on another site that makes a browser post an event achieves
- * only what the event's author could do by posting it themselves. What limits abuse is the rate limiter: per client
- * address before anything is checked, and per key once the signature verified (a forged key spends no one's quota).
+ * Publishing takes one signed event from anyone: the event's signature is its authority, and nothing ambient (no
+ * cookie, no session, no credential a browser attaches) is read, so any origin may send one (see `SidequestApi`). What
+ * limits abuse is the rate limiter: per client address before anything is checked, and per key once the signature
+ * verified (a forged key spends no one's quota).
  */
 export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (handlers) =>
   Effect.gen(function* () {

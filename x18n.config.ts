@@ -21,10 +21,9 @@ export default defineConfig({
     // `noopener noreferrer` is the `rel` of a link to a delivery, an attribute value rather than text.
     ignore: ['Sidequest', 'English', 'Slovenščina', '/^Sidequest\\.[A-Za-z]+/', 'noopener noreferrer'],
     ignoreByFile: {
-      // The D1 stores' and reads' text is SQL.
-      'packages/server/src/Projections/**/*.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/Reads/**/*.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/Settlement/D1SettlementStores.ts': ['/[\\s\\S]*/'],
+      // The relayer's D1 store and the index's pages: SQL.
+      'packages/server/src/Settlement/D1RelayerIntents.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/Index/Pages.ts': ['/[\\s\\S]*/'],
       // The index's D1 tables: SQL, and the relay errors an outbox row records for operators.
       'packages/server/src/Index/EventStore.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/Outbox.ts': ['/[\\s\\S]*/'],
@@ -34,8 +33,8 @@ export default defineConfig({
       'packages/server/src/Index/ChainFacts.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/JobEvents.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/Jobs.ts': ['/[\\s\\S]*/'],
-      // Nostr-native settlement's SQL, and the reasons it gives operators and API clients in the protocol's English.
-      'packages/server/src/Native/**/*.ts': ['/[\\s\\S]*/'],
+      // The escrow's SQL, and the reasons it gives operators and API clients in the protocol's English.
+      'packages/server/src/Escrow/**/*.ts': ['/[\\s\\S]*/'],
       // The EIP-712 type strings the operator and the escrow hash: part of the signed protocol, not text.
       'packages/settlement/src/Payment.ts': ['/^(JobParams|PaymentInfo)\\(/'],
       // The EIP-712 type strings of a wallet's link to a Nostr key, likewise signed protocol.
@@ -44,27 +43,13 @@ export default defineConfig({
       'packages/nostr/src/EvmKey.ts': ['/^(EIP712Domain|Delivery)\\(/'],
       // Contract ABIs generated from the Foundry build: Solidity type names, not text.
       'packages/settlement/src/abi/*.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/SignIn/Nonces.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/SignIn/Sessions.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/Agents/AgentTokens.ts': ['/[\\s\\S]*/'],
-      // The MCP contract and endpoint speak to agents, in English like the protocol itself: tool and parameter
-      // descriptions, the server's instructions, next-action descriptions, and RFC 6750 bearer challenges. None of it
-      // is shown to people by the website.
-      'packages/protocol/src/Tools/*.ts': ['/[\\s\\S]*/'],
-      'packages/server/src/Mcp/**/*.ts': ['/[\\s\\S]*/'],
-      // OAuth's endpoints answer MCP clients' developers in OAuth's English (RFC 6749 error descriptions) and their
-      // SQL. The one text a person may see, a request so malformed it cannot be sent back to its client, is English too.
-      'packages/server/src/OAuth/**/*.ts': ['/[\\s\\S]*/'],
-      // The same account-free OAuth, MCP and D1 pieces, shared by the core and the agent gateway: OAuth's English,
-      // MCP's JSON-RPC errors and SQL.
+      // What MCP tools share speaks to agents, in English like the protocol itself: their hints' descriptions.
+      'packages/protocol/src/Tools.ts': ['/[\\s\\S]*/'],
+      // The OAuth, MCP and D1 pieces the agent gateway serves with: OAuth's English, MCP's JSON-RPC errors and SQL.
       'packages/serving/src/**/*.ts': ['/[\\s\\S]*/'],
-      // The agent gateway speaks to agents and MCP clients in English like the core's MCP and OAuth (tool
-      // descriptions, refusals, OAuth errors, SQL), and its one page, the operator's OAuth consent, is English too, as
-      // the core's own OAuth answers are; the website's agent pages, which come later, are translated.
+      // The agent gateway speaks to agents and MCP clients in English (tool descriptions, refusals, OAuth errors, SQL),
+      // and its one page, the operator's OAuth consent, is English too; the website's agents page is translated.
       'apps/gateway/src/**/*.ts': ['/[\\s\\S]*/'],
-      // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for
-      // everyone, like the rest of the EIP-4361 message around it.
-      'packages/server/src/SignIn/Siwe.ts': ['/^Sign in to Sidequest\\.$/'],
       'apps/web/src/**/*.styles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/GlobalStyles.ts': ['/[\\s\\S]*/'],
       'apps/web/src/zyzz.config.ts': ['/[\\s\\S]*/'],

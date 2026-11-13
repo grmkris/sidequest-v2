@@ -55,12 +55,11 @@ export interface RelayerAccount {
   }>
 }
 
-/** Which gate a rehearsal rehearses: phase 1's, through accounts and MCP, or phase 2's, through signed events, from a
- * script or from the website in Chromium. */
-export type Rehearsal = 'phase-1-technical-gate' | 'phase-2-events-gate' | 'phase-2-browser-gate'
+/** Which rehearsal of the phase 2 gate: through signed events, the escrow endpoints and the gateway from a script, or
+ * on the website in Chromium. Evidence files carry the name. */
+export type Rehearsal = 'phase-2-events-gate' | 'phase-2-browser-gate'
 
 const titles: Readonly<Record<Rehearsal, string>> = {
-  'phase-1-technical-gate': 'Phase 1 technical gate rehearsal',
   'phase-2-events-gate': 'Phase 2 gate rehearsal through signed events',
   'phase-2-browser-gate': 'Phase 2 gate rehearsal on the website, in Chromium',
 }
@@ -86,7 +85,7 @@ export const evidenceFor = (
   mode: string,
   release: string,
   chain: Readonly<Record<string, string | number>>,
-  rehearsal: Rehearsal = 'phase-1-technical-gate',
+  rehearsal: Rehearsal,
 ): Evidence => ({
   rehearsal,
   mode,

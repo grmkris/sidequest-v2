@@ -1,9 +1,7 @@
 import { publicKeyOf } from '@sidequest/nostr'
-import { LinkedWallet, Person, SameOrigin, SignedEvent } from '@sidequest/protocol'
+import { LinkedWallet, Person, SignedEvent } from '@sidequest/protocol'
 import { Schema } from 'effect'
-import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
-import { ServedApi } from '@sidequest/fold/api'
 import { publishLimits } from '../src/Index/PublishLimits.ts'
 import { eventLimits } from '../src/Index/Validation.ts'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
@@ -64,9 +62,9 @@ describe('publishing a signed event', () => {
     }))
 
   test('serves what the index knows of a key: its latest profile and relay lists', () =>
-    withApi(async ({ fetch, anonymous }) => {
+    withApi(async ({ fetch }) => {
       const pubkey = publicKeyOf(bob)
-      expect((await anonymous.get(`/api/people/${pubkey}`)).status).toBe(404)
+      expect((await fetch(`/api/people/${pubkey}`)).status).toBe(404)
       const latest = profile(bob, now(), { name: 'Bob', picture: 'https://example.com/bob.png' })
       for (const event of [
         profile(bob, now() - 60, { name: 'Old Bob' }),
@@ -236,56 +234,11 @@ describe('the publish-through rate limit', () => {
   )
 })
 
-describe('the same-origin rule', () => {
-  test('does not apply to publishing an event: another site may publish one, as its author could', () =>
+describe('publishing from another origin', () => {
+  test('is allowed: another site may publish an event, as its author could', () =>
     withApi(async ({ fetch }) => {
       const event = request(alice, now())
       const crossSite = await publish(fetch, event, { origin: 'https://evil.example', 'sec-fetch-site': 'cross-site' })
       expect(await reply(crossSite)).toEqual({ status: 200, body: { id: event.id, status: 'stored' } })
-    }))
-
-  test('still guards every other endpoint of the API', () =>
-    withApi(async ({ fetch }) => {
-      const unguarded: Array<string> = []
-      HttpApi.reflect(ServedApi, {
-        onGroup: () => undefined,
-        onEndpoint: ({ endpoint, middleware }) => {
-          if (!Array.from(middleware, ({ key }) => key).includes(SameOrigin.key))
-            unguarded.push(`${endpoint.method} ${endpoint.path}`)
-        },
-      })
-      expect(unguarded.toSorted()).toEqual([
-        'GET /api/events/:id',
-        'GET /api/index/jobs',
-        'GET /api/index/jobs/:id',
-        'GET /api/index/jobs/:id/approval',
-        'GET /api/index/jobs/:id/delivery',
-        'GET /api/index/jobs/:id/delivery-delegation',
-        'GET /api/index/jobs/:id/payment',
-        'GET /api/index/jobs/:id/proposals/:proposal/funding',
-        'GET /api/index/jobs/:id/rejection',
-        'GET /api/index/jobs/:id/terms',
-        'GET /api/index/listings',
-        'GET /api/index/listings/:pubkey/:slug',
-        'GET /api/people',
-        'GET /api/people/:pubkey',
-        'GET /api/people/:pubkey/jobs',
-        'GET /api/wallets/:account',
-        'POST /api/events',
-        // The sessionless escrow: each carries a wallet signature (or the ruling's NIP-98 authorization).
-        'POST /api/index/jobs/:id/approval',
-        'POST /api/index/jobs/:id/delegated-delivery',
-        'POST /api/index/jobs/:id/delivery',
-        'POST /api/index/jobs/:id/proposals/:proposal/funding',
-        'POST /api/index/jobs/:id/rejection',
-        'POST /api/index/jobs/:id/ruling',
-      ])
-      // And it is the middleware that runs: a cross-site state change elsewhere is still refused.
-      const forged = await fetch('/api/session/challenge', {
-        method: 'POST',
-        headers: { origin: 'https://evil.example', 'content-type': 'application/json' },
-        body: JSON.stringify({ address: '0x0000000000000000000000000000000000000001' }),
-      })
-      expect(await reply(forged)).toEqual({ status: 403, body: { _tag: 'CrossSiteRequest' } })
     }))
 })

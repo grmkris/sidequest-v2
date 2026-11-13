@@ -411,42 +411,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'private.sending': Readonly<Record<string, never>>
   'private.sent': Readonly<Record<string, never>>
   'problem.badCursor': Readonly<Record<string, never>>
-  'problem.conflict.agentTurnLimit': Readonly<Record<string, never>>
-  'problem.conflict.alreadyPublished': Readonly<Record<string, never>>
-  'problem.conflict.alreadyRegistered': Readonly<Record<string, never>>
-  'problem.conflict.alreadyReviewed': Readonly<Record<string, never>>
-  'problem.conflict.chainRefused': Readonly<Record<string, never>>
-  'problem.conflict.deliveryLate': Readonly<Record<string, never>>
-  'problem.conflict.digestMismatch': Readonly<Record<string, never>>
-  'problem.conflict.idempotencyConflict': Readonly<Record<string, never>>
-  'problem.conflict.listingNotPublished': Readonly<Record<string, never>>
-  'problem.conflict.nothingToSign': Readonly<Record<string, never>>
-  'problem.conflict.paymentChanged': Readonly<Record<string, never>>
-  'problem.conflict.paymentNotBegun': Readonly<Record<string, never>>
-  'problem.conflict.paymentSubmitted': Readonly<Record<string, never>>
-  'problem.conflict.staleHead': Readonly<Record<string, never>>
-  'problem.conflict.supersededVersion': Readonly<Record<string, never>>
-  'problem.conflict.wrongState': Readonly<Record<string, never>>
-  'problem.forbidden.agentPaused': Readonly<Record<string, never>>
-  'problem.forbidden.agentRevoked': Readonly<Record<string, never>>
-  'problem.forbidden.grantExpired': Readonly<Record<string, never>>
-  'problem.forbidden.missingScope': Readonly<Record<string, never>>
-  'problem.forbidden.notPermitted': Readonly<Record<string, never>>
-  'problem.forbidden.partyRequired': Readonly<Record<string, never>>
-  'problem.forbidden.personRequired': Readonly<Record<string, never>>
-  'problem.forbidden.selfBid': Readonly<Record<string, never>>
-  'problem.notFound.listingNotPublished': Readonly<Record<string, never>>
-  'problem.notFound.noProposal': Readonly<Record<string, never>>
-  'problem.notFound.notRegistered': Readonly<Record<string, never>>
-  'problem.notFound.roomNotOpen': Readonly<Record<string, never>>
-  'problem.notFound.unknownJob': Readonly<Record<string, never>>
-  'problem.notFound.unknownListing': Readonly<Record<string, never>>
-  'problem.notFound.unknownToken': Readonly<Record<string, never>>
   'problem.unavailable': Readonly<Record<string, never>>
-  'problem.unprocessable.expiryNotInFuture': Readonly<Record<string, never>>
-  'problem.unprocessable.noWallet': Readonly<Record<string, never>>
-  'problem.unprocessable.notYourWallet': Readonly<Record<string, never>>
-  'problem.unprocessable.unpayable': Readonly<Record<string, never>>
   'problem.unreachable': Readonly<Record<string, never>>
   'problem.wallet.failed': Readonly<Record<string, never>>
   'problem.wallet.missing': Readonly<Record<string, never>>
@@ -613,4 +578,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '625c3c9410918046e03bced22c6082ffa52a1685a53e4b9a35b80df39c3b8ffc'
+export const catalogVersion = 'df991482593f0f31d42a0d422b29ddd1fa41c38f1fd884ab83ebcbaa213d5f13'

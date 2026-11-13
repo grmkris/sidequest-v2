@@ -2,12 +2,6 @@ import { Effect, Schema } from 'effect'
 import { webCrypto } from './WebCrypto.ts'
 
 const prefixes = {
-  AccountId: 'account',
-  AgentId: 'agent',
-  ListingId: 'listing',
-  JobId: 'job',
-  ProposalId: 'proposal',
-  AgentTokenId: 'token',
   ConnectionId: 'connection',
   ConnectRequestId: 'connect',
 } as const
@@ -20,19 +14,9 @@ const ulid = '[0-7][0-9A-HJKMNP-TV-Z]{25}'
 // `<prefix>_<ULID>`.
 const id = (kind: IdKind) => Schema.String.check(Schema.isPattern(new RegExp(`^${prefixes[kind]}_${ulid}$`, 'u')))
 
-export const AccountId = id('AccountId').pipe(Schema.brand('AccountId'))
-export type AccountId = typeof AccountId.Type
-export const AgentId = id('AgentId').pipe(Schema.brand('AgentId'))
-export type AgentId = typeof AgentId.Type
-export const ListingId = id('ListingId').pipe(Schema.brand('ListingId'))
-export type ListingId = typeof ListingId.Type
-export const JobId = id('JobId').pipe(Schema.brand('JobId'))
-export type JobId = typeof JobId.Type
-export const ProposalId = id('ProposalId').pipe(Schema.brand('ProposalId'))
-export type ProposalId = typeof ProposalId.Type
-/** An access token an operator issued to one of their agents. The id names it; it is not the secret. */
-export const AgentTokenId = id('AgentTokenId').pipe(Schema.brand('AgentTokenId'))
-export type AgentTokenId = typeof AgentTokenId.Type
+// The agent gateway's own records mint these. Everything Sidequest coordinates is named by a Nostr event id or a
+// public key instead (ADR-0003).
+
 /** One consent a person gave an MCP client to act as one of their agents, over OAuth. */
 export const ConnectionId = id('ConnectionId').pipe(Schema.brand('ConnectionId'))
 export type ConnectionId = typeof ConnectionId.Type
@@ -40,35 +24,7 @@ export type ConnectionId = typeof ConnectionId.Type
 export const ConnectRequestId = id('ConnectRequestId').pipe(Schema.brand('ConnectRequestId'))
 export type ConnectRequestId = typeof ConnectRequestId.Type
 
-/** A negotiation room is the buyer and one bidder; an engagement room is the buyer and the worker. */
-export const RoomKind = Schema.Literals(['negotiation', 'engagement'])
-export type RoomKind = typeof RoomKind.Type
-
-/**
- * A room is never minted: its id derives from its job, its kind and, for a negotiation, the bidder, so whoever opens
- * it names the same room. `room_<job ULID>_engagement` or `room_<job ULID>_negotiation_<bidder ULID>`.
- */
-export const RoomId = Schema.String.check(
-  Schema.isPattern(new RegExp(`^room_${ulid}_(?:engagement|negotiation_${ulid})$`, 'u')),
-).pipe(Schema.brand('RoomId'))
-export type RoomId = typeof RoomId.Type
-
-/** Which room: the job's engagement room, or the negotiation room of one bidder on it. */
-export type RoomOf =
-  | { readonly job: JobId; readonly kind: 'engagement' }
-  | { readonly job: JobId; readonly kind: 'negotiation'; readonly bidder: AccountId }
-
-const ulidOf = (prefixed: string) => prefixed.slice(prefixed.indexOf('_') + 1)
-
-/** The id of a room, from what identifies it. */
-export const roomIdOf = (room: RoomOf): RoomId =>
-  RoomId.make(
-    room.kind === 'engagement'
-      ? `room_${ulidOf(room.job)}_engagement`
-      : `room_${ulidOf(room.job)}_negotiation_${ulidOf(room.bidder)}`,
-  )
-
-const ids = { AccountId, AgentId, ListingId, JobId, ProposalId, AgentTokenId, ConnectionId, ConnectRequestId }
+const ids = { ConnectionId, ConnectRequestId }
 
 /** Mints a fresh, time-ordered id of the given kind. */
 export const generateId = <Kind extends IdKind>(kind: Kind): Effect.Effect<(typeof ids)[Kind]['Type']> =>

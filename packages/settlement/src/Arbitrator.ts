@@ -5,7 +5,7 @@ import type { SettlementChain } from './SettlementChain.ts'
 import { rulingTypedData } from './TypedData.ts'
 
 /**
- * Phase 1's interim arbitrator on testnet: a Sidequest-held key that signs a `Ruling` for a disputed job. It signs
+ * The interim arbitrator on testnet: a Sidequest-held key that signs a `Ruling` for a disputed job. It signs
  * only rulings, in the operator's domain, so the signature can do nothing but settle that one dispute. Staked
  * arbitrators replace it in phase 3.
  */

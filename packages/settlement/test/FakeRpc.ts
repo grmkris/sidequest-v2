@@ -14,7 +14,7 @@ import {
 } from 'viem'
 import { authCaptureEscrowAbi } from '../src/abi/AuthCaptureEscrow.ts'
 import { sidequestOperatorAbi } from '../src/abi/SidequestOperator.ts'
-import type { RawLog } from '../src/ReaderCursors.ts'
+import type { RawLog } from '../src/LogScan.ts'
 
 // A JSON-RPC endpoint in memory for the reader and the relayer: blocks with timestamps and logs, the operator's stored
 // status, and a mempool. Tests build its state directly; the code under test reaches it only over EIP-1193.

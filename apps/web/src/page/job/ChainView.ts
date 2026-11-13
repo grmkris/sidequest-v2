@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
 import type { ChainEnding, Deadlines, FundingView, JobView, OperatorOutcome } from '@sidequest/fold'
-import type { IndexPaymentStatus, RelayedCall } from '@sidequest/protocol'
+import type { EscrowPaymentStatus, RelayedCall } from '@sidequest/protocol'
 import { Array, Match, Option } from 'effect'
 import type { Html } from 'foldkit'
 import { formatAmount, workerPart } from '../../Amount.ts'
@@ -17,7 +17,7 @@ import * as js from './Job.styles.ts'
 
 type ChainReader = {
   readonly view: JobView
-  readonly maybePayment: Option.Option<IndexPaymentStatus>
+  readonly maybePayment: Option.Option<EscrowPaymentStatus>
   readonly language: Language
   readonly timeZone: string
 }
@@ -128,7 +128,11 @@ const callRow = <M>(h: Html.HtmlBuilder<M>, language: Language, call: RelayedCal
   })
 
 /** The transactions Sidequest relayed for the payment, oldest first. */
-const transactions = <M>(h: Html.HtmlBuilder<M>, language: Language, maybePayment: Option.Option<IndexPaymentStatus>) =>
+const transactions = <M>(
+  h: Html.HtmlBuilder<M>,
+  language: Language,
+  maybePayment: Option.Option<EscrowPaymentStatus>,
+) =>
   Option.match(
     Option.filter(maybePayment, (payment) => Array.some(payment.relayed, (call) => call.transactionHash !== null)),
     {

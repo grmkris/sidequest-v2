@@ -2,8 +2,7 @@ import { ChainFact } from '@sidequest/fold'
 import type { Unavailable } from '@sidequest/protocol'
 import { type ChainUnavailable, ChainRpc, rpcCall } from '@sidequest/settlement/ChainRpc'
 import { jobLogFact, jobLogsBetween, needsBlockTime } from '@sidequest/settlement/JobLogs'
-import { confirmedHead, maxLogRange } from '@sidequest/settlement/LogScan'
-import type { RawLog } from '@sidequest/settlement/ReaderCursors'
+import { confirmedHead, maxLogRange, type RawLog } from '@sidequest/settlement/LogScan'
 import type { SettlementChain } from '@sidequest/settlement/SettlementChain'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import type { PublicClient } from 'viem'
@@ -49,7 +48,7 @@ const factsOf = (rpc: PublicClient, chain: SettlementChain, logs: ReadonlyArray<
 
 /**
  * The chain log poller: reads the operator's and the escrow's logs into `chain_facts`, through the settlement chain's
- * RPC, independently of phase 1's per-payment reader and its cursors. It reads only blocks at the chain's confirmation
+ * RPC. It reads only blocks at the chain's confirmation
  * depth and moves its per-chain cursor only past blocks it has read and recorded, so a pass cut short is redone by the
  * next. A reorganisation deeper than the confirmation depth is not handled: a fact it undid stays recorded (labelling
  * or removing it is later tooling's work).

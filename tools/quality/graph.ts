@@ -20,7 +20,6 @@ const directions: Readonly<Record<string, readonly string[]>> = {
     '@sidequest/protocol',
   ],
   '@sidequest/server': [
-    '@sidequest/domain',
     '@sidequest/fold',
     '@sidequest/i18n',
     '@sidequest/nostr',
@@ -32,13 +31,11 @@ const directions: Readonly<Record<string, readonly string[]>> = {
   // The agent gateway (ADR-0003, decision 7): a separate Worker that holds agents' keys and serves MCP and OAuth. It
   // reaches the core only through its public API, so it never imports the core's server or model; nothing imports it.
   '@sidequest/gateway': ['@sidequest/fold', '@sidequest/nostr', '@sidequest/protocol', '@sidequest/serving'],
-  // Account-free serving pieces both Workers share: D1 store calls and rate limits, OAuth 2.1 for MCP clients, MCP's
-  // protocol revisions. Never a key, an account or the model.
+  // Serving pieces both Workers share: D1 store calls and rate limits, OAuth 2.1 for MCP clients, MCP's protocol
+  // revisions. Never a key.
   '@sidequest/serving': ['@sidequest/protocol'],
   // Browser-safe contracts: the typed API and the schemas assistants and the website share.
   '@sidequest/protocol': [],
-  // The model: aggregates over the shared protocol schemas, never server or browser code.
-  '@sidequest/domain': ['@sidequest/protocol'],
   // Server-only: the chain adapters (keys, RPC, the relayer). Only the server may depend on it.
   '@sidequest/settlement': ['@sidequest/protocol'],
   // Nostr events, keys and private messages: browser-safe and Workers-safe, over the shared protocol schemas only.

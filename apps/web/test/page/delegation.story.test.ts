@@ -1,4 +1,4 @@
-import { IndexSettlementRefused } from '@sidequest/protocol'
+import { EscrowRefused } from '@sidequest/protocol'
 import { Option } from 'effect'
 import { AsyncData } from 'foldkit'
 import { Command, given, message, model, story } from 'foldkit/story'
@@ -150,7 +150,7 @@ describe('delivery delegation', () => {
   })
 
   test('reads each error as its failure', () => {
-    expect(delegationFailureOf(new IndexSettlementRefused({ reason: 'AlreadyFunded' }))).toEqual(
+    expect(delegationFailureOf(new EscrowRefused({ reason: 'AlreadyFunded' }))).toEqual(
       DelegationFailure.Core({ reason: 'AlreadyFunded' }),
     )
     expect(delegationFailureOf(new GatewayRefused({ refusal: GatewayRefusal.Invalid() }))).toEqual(

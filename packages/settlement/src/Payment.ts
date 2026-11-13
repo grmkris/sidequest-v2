@@ -1,8 +1,7 @@
-import type { Agreement, Terms } from '@sidequest/protocol'
+import type { Terms } from '@sidequest/protocol'
 import { Effect, Option, Schema } from 'effect'
 import { type Address, encodeAbiParameters, getAddress, type Hex, isAddressEqual, keccak256, toHex } from 'viem'
 import { operatorMargin, type SettlementChain } from './SettlementChain.ts'
-import { digestWord, jobIdWord } from './Words.ts'
 
 /** `SidequestOperator.JobParams`: what `PaymentInfo` has no field for, bound into it by the salt. */
 export interface JobParams {
@@ -41,8 +40,8 @@ export interface Payment {
   readonly nonce: Hex
 }
 
-/** The agreement cannot be paid through this chain's escrow as it stands. */
-export class UnpayableAgreement extends Schema.TaggedError<UnpayableAgreement>()('UnpayableAgreement', {
+/** The terms cannot be paid through this chain's escrow as they stand. */
+export class UnpayableTerms extends Schema.TaggedError<UnpayableTerms>()('UnpayableTerms', {
   reason: Schema.Literals(['network', 'asset', 'amount', 'deadline', 'arbitrator']),
 }) {}
 
@@ -135,17 +134,6 @@ export const paymentInfoHash = (info: PaymentInfo, chain: Pick<SettlementChain, 
     ),
   )
 
-/** The job parameters an agreement fixes on `chain`: its windows, its deadline and the chain's arbitrator. */
-export const jobParamsOf = (agreement: Agreement, chain: SettlementChain): JobParams => ({
-  jobId: jobIdWord(agreement.job),
-  termsDigest: digestWord(agreement.termsDigest),
-  deliveryDeadline: agreement.terms.deliveryDeadline,
-  reviewWindow: agreement.terms.reviewWindowSeconds,
-  disputeWindow: agreement.terms.disputeWindowSeconds,
-  arbitrationWindow: agreement.terms.arbitrationWindowSeconds,
-  arbitrator: chain.arbitrator,
-})
-
 /**
  * The earliest `authorizationExpiry` the operator accepts: the delivery deadline plus every window plus `MARGIN`, so
  * the payer's `reclaim` can never pre-empt a window still open.
@@ -153,7 +141,7 @@ export const jobParamsOf = (agreement: Agreement, chain: SettlementChain): JobPa
 export const authorizationExpiryOf = (params: JobParams) =>
   params.deliveryDeadline + params.reviewWindow + params.disputeWindow + params.arbitrationWindow + operatorMargin
 
-const refuse = (reason: UnpayableAgreement['reason']) => Effect.fail(new UnpayableAgreement({ reason }))
+const refuse = (reason: UnpayableTerms['reason']) => Effect.fail(new UnpayableTerms({ reason }))
 
 /** Fails with the first way terms cannot be paid with `params` between these parties on `chain`. */
 const payable = (terms: Terms, params: JobParams, parties: Parties, chain: SettlementChain) => {
@@ -173,7 +161,7 @@ export interface Parties {
   readonly receiver: Address
 }
 
-/** The escrow payment of `maxAmount` with `params` between the parties on `chain` (see `paymentOf`). */
+/** The escrow payment of `maxAmount` with `params` between the parties on `chain` (see `termsPaymentOf`). */
 const paymentWith = (params: JobParams, maxAmount: bigint, parties: Parties, chain: SettlementChain): Payment => {
   const authorizationExpiry = authorizationExpiryOf(params)
   const info: PaymentInfo = {
@@ -199,24 +187,11 @@ const paymentWith = (params: JobParams, maxAmount: bigint, parties: Parties, cha
 }
 
 /**
- * The exact escrow payment for an agreement between `payer` and `receiver` on `chain`: the operator's fee terms, the
- * whole amount, the minimal `authorizationExpiry`, a pre-approval that lapses at the delivery deadline (funding is
- * impossible from then on), and `salt = jobSalt(params)`. Deterministic: the same inputs build the same payment.
- */
-export const paymentOf = Effect.fn('Sidequest.Settlement.paymentOf')(function* (
-  agreement: Agreement,
-  parties: Parties,
-  chain: SettlementChain,
-) {
-  const params = jobParamsOf(agreement, chain)
-  const maxAmount = yield* payable(agreement.terms, params, parties, chain)
-  return paymentWith(params, maxAmount, parties, chain)
-})
-
-/**
- * The escrow payment for a Nostr-native job, built exactly as `paymentOf` builds one for an agreement: `job` is the
- * request event's id (the `bytes32 jobId`), `termsDigest` the proposal's, both as 64 hex digits, and the terms the
- * proposal's signed terms. Deterministic, so a client and the server build the same payment from the same proposal.
+ * The exact escrow payment for a job between `payer` and `receiver` on `chain`: `job` is the request event's id (the
+ * `bytes32 jobId`), `termsDigest` the proposal's, both as 64 hex digits, and the terms the proposal's signed terms. It
+ * carries the operator's fee terms, the whole amount, the minimal `authorizationExpiry`, a pre-approval that lapses at
+ * the delivery deadline (funding is impossible from then on), and `salt = jobSalt(params)`. Deterministic, so a client
+ * and the server build the same payment from the same proposal.
  */
 export const termsPaymentOf = Effect.fn('Sidequest.Settlement.termsPaymentOf')(function* (
   signed: { readonly job: string; readonly termsDigest: string; readonly terms: Terms },
@@ -254,7 +229,7 @@ export interface FundedPayment {
 }
 
 /**
- * The escrow payment a `JobFunded` log is about, rebuilt the way `paymentOf` builds one, if it hashes to the log's
+ * The escrow payment a `JobFunded` log is about, rebuilt the way `termsPaymentOf` builds one, if it hashes to the log's
  * payment hash. A payment someone funded directly on chain with other expiries (`preApprovalExpiry`, `refundExpiry`)
  * cannot be rebuilt from the log alone: the operator's later calls need its exact `PaymentInfo`, so it is `None`.
  */

@@ -1,5 +1,5 @@
 import type { JobView } from '@sidequest/fold'
-import { type IndexPaymentStatus, IndexSettlementReason } from '@sidequest/protocol'
+import { type EscrowPaymentStatus, EscrowRefusalReason } from '@sidequest/protocol'
 import { Option } from 'effect'
 import { Command, click, expect, given, label, role, scene, submit, text, type, withViewInputs } from 'foldkit/scene'
 import { describe, test } from 'vitest'
@@ -37,7 +37,7 @@ const opened = (
   me: Me,
   job: JobView,
   flow: Flow = Flow.Idle(),
-  maybePayment: Option.Option<IndexPaymentStatus> = Option.none(),
+  maybePayment: Option.Option<EscrowPaymentStatus> = Option.none(),
 ): Model => {
   const model = init(
     'en',
@@ -120,7 +120,7 @@ describe('the money panel', () => {
   })
 
   test('every refusal gets its own sentence; an unlinked payer is led to link the wallet', () => {
-    const sentences: Readonly<Record<IndexSettlementReason, RegExp>> = {
+    const sentences: Readonly<Record<EscrowRefusalReason, RegExp>> = {
       RequestNotIndexed: /does not hold this request as a valid one/u,
       ProposalNotIndexed: /does not hold this proposal for this job/u,
       ProposalForOtherBuyer: /names another buyer/u,
@@ -135,7 +135,7 @@ describe('the money panel', () => {
       Unpayable: /cannot be paid through this network's escrow/u,
       ChainRefused: /The chain refused this step/u,
     }
-    for (const reason of IndexSettlementReason.literals) {
+    for (const reason of EscrowRefusalReason.literals) {
       const failure = MoneyFailure.Refused({ reason, maybeDetail: Option.some('Reverted') })
       scene(
         { update, view: page() },

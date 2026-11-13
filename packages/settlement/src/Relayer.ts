@@ -16,8 +16,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { sidequestOperatorAbi } from './abi/SidequestOperator.ts'
 import { ChainRpc, ChainUnavailable, rpcCall } from './ChainRpc.ts'
 import { type OperatorCall, operatorCalldata } from './OperatorCall.ts'
-import type { SettlementStoreError } from './ReaderCursors.ts'
-import { type RelayIntent, RelayerIntents, type RelayTransaction } from './RelayerIntents.ts'
+import { type RelayIntent, RelayerIntents, type RelayTransaction, type SettlementStoreError } from './RelayerIntents.ts'
 import type { SettlementChain } from './SettlementChain.ts'
 
 /** The id names another call already: one id is one action on one job, and its call never changes. */

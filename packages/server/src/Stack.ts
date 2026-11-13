@@ -2,7 +2,7 @@ import * as Cloudflare from '@alchemy.run/cloudflare'
 import { Stage } from 'alchemy/Stage'
 import { Effect } from 'effect'
 import { SidequestDatabase, SidequestMedia } from './Resources.ts'
-import { arcTestnetRpcUrl } from './SignIn/ArcRpc.ts'
+import { arcTestnetRpcUrl } from './Settlement/ArcRpc.ts'
 import type { SettlementVariables } from './Settlement/SettlementStage.ts'
 import type { IndexVariables } from './Index/IndexConfig.ts'
 import type { RelayUrlPolicy } from './Index/RelayUrls.ts'
@@ -26,9 +26,10 @@ export const edgeWorker = {
 }
 
 /** Sidequest's Workers around one website: the API Worker with its database (migrated from
- * `packages/server/migrations`), its media bucket and the model's Durable Object classes, which the API Worker declares
- * as it builds; the website, made with a service binding to the API Worker (`API`) that it reads a page's data
- * through as it renders it; the edge in front of both; and the stage, release and Arc RPC endpoint the API runs with. Production
+ * `packages/server/migrations`) and its media bucket; the website, made with a service binding to the API Worker
+ * (`API`) that it reads a page's data through as it renders it; the edge in front of both; and the stage, release and
+ * Arc RPC endpoint the API runs with. The API Worker hosts no Durable Object class: a stage deployed with phase 1's
+ * classes has them deleted by the next deploy (docs/PHASE-2.md, "Deploying over phase 1"). Production
  * builds the website from source and reads Arc testnet's public RPC; the native acceptance test runs the built
  * artifact, because Foldkit's dev mode runs Vite in Node rather than the deployed Worker, and names an RPC endpoint
  * that must not be called. Settlement is bound only when `settlement` names it (see `Settlement/SettlementStage.ts`):

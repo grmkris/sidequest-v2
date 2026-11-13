@@ -1,8 +1,16 @@
 import { Schema } from 'effect'
 import { Hex32 } from './Hex32.ts'
-import { PriceHint } from './Listing.ts'
+import { Amount } from './Amount.ts'
+import { AssetId } from './AssetRef.ts'
 import { NetworkRef } from './NetworkRef.ts'
 import { PageQuery } from './Page.ts'
+
+/** What a seller expects to be paid, as a hint: only accepted terms bind. */
+export const PriceHint = Schema.Struct({ amount: Amount, asset: AssetId })
+export type PriceHint = typeof PriceHint.Type
+
+/** What a search matches in a listing's title or tags, letter case aside. */
+export const SearchText = Schema.String.check(Schema.isTrimmed(), Schema.isMinLength(1), Schema.isMaxLength(100))
 
 /** A listing's `d` tag: the slug its seller chose once (NIP-99, as `@sidequest/nostr` reads it). */
 export const IndexListingSlug = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u))

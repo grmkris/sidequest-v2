@@ -1,5 +1,9 @@
 import { Context, Effect, Option, Schema } from 'effect'
-import { SettlementStoreError } from './ReaderCursors.ts'
+
+/** A settlement store could not be read or written: settlement treats it like an unreachable chain, and tries later. */
+export class SettlementStoreError extends Schema.TaggedError<SettlementStoreError>()('SettlementStoreError', {
+  store: Schema.String,
+}) {}
 
 /**
  * One signed transaction of an intent, recorded before it is broadcast: the intent's call, or a release (a transfer of

@@ -1,13 +1,23 @@
-import { Effect, Option } from 'effect'
-import { type Hex, numberToHex, type PublicClient } from 'viem'
+import { Effect, Option, Schema } from 'effect'
+import { isAddress, isHex, type PublicClient } from 'viem'
 import { rpcCall } from './ChainRpc.ts'
-import { type Cursor, type RawLog, ReaderCursors } from './ReaderCursors.ts'
 import type { SettlementChain } from './SettlementChain.ts'
+
+/** A log as the RPC returned it, kept undecoded until it is read as a fact. */
+export const RawLog = Schema.Struct({
+  address: Schema.String,
+  topics: Schema.Array(Schema.String),
+  data: Schema.String,
+  blockNumber: Schema.String,
+  transactionHash: Schema.NullOr(Schema.String),
+  logIndex: Schema.NullOr(Schema.Int),
+})
+export type RawLog = typeof RawLog.Type
 
 /** The widest block range one `eth_getLogs` asks for; public RPCs refuse wider ones. */
 export const maxLogRange = 5_000n
 
-/** The newest block at the confirmation depth, and its timestamp: what the reader may report on. */
+/** The newest block at the confirmation depth, and its timestamp: what the poller and the settler may act on. */
 export const confirmedHead = Effect.fnUntraced(function* (rpc: PublicClient, chain: SettlementChain) {
   const head = yield* rpcCall('eth_blockNumber', () => rpc.getBlockNumber({ cacheTime: 0 }))
   const depth = BigInt(Math.max(chain.confirmations, 1) - 1)
@@ -37,42 +47,12 @@ export const toRaw = (log: {
         logIndex: log.logIndex === null ? null : Number(log.logIndex),
       })
 
-const logsBetween = (rpc: PublicClient, chain: SettlementChain, paymentHash: Hex, from: bigint, to: bigint) =>
-  rpcCall('eth_getLogs', () =>
-    rpc.request({
-      method: 'eth_getLogs',
-      params: [
-        {
-          address: [chain.operator, chain.escrow],
-          fromBlock: numberToHex(from),
-          toBlock: numberToHex(to),
-          topics: [null, paymentHash],
-        },
-      ],
-    }),
-  ).pipe(Effect.map((logs) => logs.flatMap((log) => Option.toArray(toRaw(log)))))
-
-/**
- * Every log of the operator and the escrow about `paymentHash` from `fromBlock` up to the confirmed block `safe`:
- * those found before (the payment's cursor) plus a scan of the blocks since, in ranges an RPC accepts. Only confirmed
- * blocks are scanned and stored, so a reorganisation within the confirmation depth never reaches the result.
- */
-export const confirmedLogs = Effect.fnUntraced(function* (
-  rpc: PublicClient,
-  chain: SettlementChain,
-  paymentHash: Hex,
-  fromBlock: bigint,
-  safe: bigint,
-) {
-  const cursors = yield* ReaderCursors
-  const stored = yield* cursors.load(paymentHash)
-  const start = Option.match(stored, { onNone: () => fromBlock, onSome: ({ scannedTo }) => BigInt(scannedTo) + 1n })
-  let cursor: Cursor = Option.getOrElse(stored, () => ({ scannedTo: String(fromBlock - 1n), logs: [] }))
-  for (let from = start; from <= safe; from += maxLogRange) {
-    const to = from + maxLogRange - 1n < safe ? from + maxLogRange - 1n : safe
-    const found = yield* logsBetween(rpc, chain, paymentHash, from, to)
-    cursor = { scannedTo: String(to), logs: [...cursor.logs, ...found] }
-    yield* cursors.save(paymentHash, cursor)
-  }
-  return cursor.logs
-})
+/** A log's parts as hex, if every one is: an RPC that answers otherwise answered nothing usable. */
+export const hexParts = (log: RawLog) => {
+  const [signature, ...rest] = log.topics
+  if (!isAddress(log.address, { strict: false }) || !isHex(log.data) || signature === undefined || !isHex(signature))
+    return Option.none()
+  const others = rest.filter((topic) => isHex(topic))
+  if (others.length !== rest.length) return Option.none()
+  return Option.some({ address: log.address, data: log.data, topics: [signature, ...others] as const })
+}

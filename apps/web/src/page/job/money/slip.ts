@@ -1,5 +1,5 @@
 import { format } from '@sidequest/i18n'
-import type { IndexFunding } from '@sidequest/protocol'
+import type { EscrowFunding } from '@sidequest/protocol'
 import type { Html } from 'foldkit'
 import { formatAmount, splitFee } from '../../../Amount.ts'
 import type { Language } from '../../../Language.ts'
@@ -21,7 +21,7 @@ const sentences = (
   h: Html.HtmlBuilder<Message>,
   language: Language,
   timeZone: string,
-  funding: IndexFunding,
+  funding: EscrowFunding,
 ): ReadonlyArray<Html.Html> => {
   const amount = (atomic: string) => formatAmount(atomic, funding.asset, language)
   const { paymentInfo: info, jobParams: params } = funding
@@ -79,7 +79,7 @@ export const fundingSlip = (
   config: {
     readonly language: Language
     readonly timeZone: string
-    readonly funding: IndexFunding
+    readonly funding: EscrowFunding
     readonly walletChain: number
   },
 ): Html.Html => {

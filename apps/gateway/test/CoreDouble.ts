@@ -216,7 +216,7 @@ export const coreDouble = (): CoreDouble => {
     deliveryToSign: (job, deliveryHash) =>
       funded.has(job)
         ? Effect.succeed(deliveryTypedData(job, deliveryHash))
-        : Effect.fail(new CoreRefused({ refusal: 'IndexSettlementRefused', reason: 'NotFunded' })),
+        : Effect.fail(new CoreRefused({ refusal: 'EscrowRefused', reason: 'NotFunded' })),
     deliverDelegated: (job, delivery) =>
       Effect.suspend(() => {
         const refusal = nextRelay.refusal
