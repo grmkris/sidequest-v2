@@ -23,8 +23,8 @@ export const postRequest = (page: Page, title: string) =>
     return new URL(page.url()).pathname
   })
 
-/** A bidder proposes at `price` USDC, then revises it to `revised`, and sees the first labelled as revised. */
-export const proposeThenRevise = (page: Page, price: string, revised: string) =>
+/** A bidder proposes at `price` USDC, delivered within a week, and sees it published. */
+export const propose = (page: Page, price: string) =>
   Effect.gen(function* () {
     yield* Effect.promise(() => page.getByRole('button', { name: 'Make a proposal' }).click({ timeout: 15000 }))
     yield* fillIn(page, {
@@ -33,6 +33,12 @@ export const proposeThenRevise = (page: Page, price: string, revised: string) =>
       'Price in USDC': price,
     })
     yield* clickThenSee(page, 'Send proposal', 'Your proposal is published.')
+  })
+
+/** A bidder proposes at `price` USDC, then revises it to `revised`, and sees the first labelled as revised. */
+export const proposeThenRevise = (page: Page, price: string, revised: string) =>
+  Effect.gen(function* () {
+    yield* propose(page, price)
     yield* Effect.promise(() => page.getByRole('button', { name: 'Revise' }).click({ timeout: 15000 }))
     yield* fillIn(page, { 'Price in USDC': revised })
     yield* Effect.promise(() => page.getByRole('button', { name: 'Publish the revision' }).click())

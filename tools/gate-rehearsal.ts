@@ -11,17 +11,22 @@ import { Schema } from 'effect'
 // sessionless escrow endpoints (packages/server/rehearsal/EventsRehearsal.native.test.ts), on a local chain only; its
 // evidence is .artifacts/gate-rehearsal/<mode>-events.json.
 //
+// `bun run gate:rehearse:browser` (REHEARSAL_PATH=browser): a hire released and one rejected on the website, by two
+// people in Chromium with a NIP-07 extension and a test wallet each (BrowserRehearsal.native.test.ts), on a local chain
+// only; its evidence is .artifacts/gate-rehearsal/<mode>-browser.json.
+//
 // Arc testnet sends real testnet transactions from the keys given, so it runs only when asked for by name; it refuses
 // any chain but Arc testnet, and never a mainnet.
 
 const mode = process.env['REHEARSAL_CHAIN'] === 'arc-testnet' ? 'arc-testnet' : 'anvil'
-const events = process.env['REHEARSAL_PATH'] === 'events'
-if (events && mode !== 'anvil') {
-  console.error('The events rehearsal runs on a local chain only: unset REHEARSAL_CHAIN.')
+const paths = { events: 'EventsRehearsal', browser: 'BrowserRehearsal' } as const
+const path = Object.keys(paths).find((name) => name === process.env['REHEARSAL_PATH'])
+if (path !== undefined && mode !== 'anvil') {
+  console.error(`The ${path} rehearsal runs on a local chain only: unset REHEARSAL_CHAIN.`)
   process.exit(2)
 }
-const file = events ? 'EventsRehearsal' : 'GateRehearsal'
-const written = events ? `${mode}-events` : mode
+const file = path === 'events' ? paths.events : path === 'browser' ? paths.browser : 'GateRehearsal'
+const written = path === undefined ? mode : `${mode}-${path}`
 const release = process.env['VITE_SIDEQUEST_RELEASE'] ?? 'rehearsal'
 const environment = { ...process.env, VITE_SIDEQUEST_RELEASE: release, ALCHEMY_TEST_DEV: '1' }
 
@@ -42,7 +47,7 @@ if (existsSync(evidence)) {
   )
   const { cases } = Schema.decodeUnknownSync(Evidence)(readFileSync(evidence, 'utf8'))
   console.log(
-    `Gate rehearsal${events ? ' through events' : ''} on ${mode}: ${cases.map((result) => `${result.case} ${result.status}`).join(', ')}`,
+    `Gate rehearsal${path === undefined ? '' : ` (${path})`} on ${mode}: ${cases.map((result) => `${result.case} ${result.status}`).join(', ')}`,
   )
   console.log(`Evidence: ${evidence.pathname}; ${Math.round((Date.now() - started) / 1000)} s with the build`)
 }
