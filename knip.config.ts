@@ -18,6 +18,8 @@ export default {
       // it is no package to list.
       ignoreDependencies: ['cloudflare'],
     },
+    // The agent gateway: `alchemy.run.ts` deploys its stack function, which reaches its Worker entry.
+    'apps/gateway': { entry: ['test/**/*.test.ts'], project: ['src/**/*.ts!', 'test/**/*.ts'] },
     'packages/serving': { project: ['src/**/*.ts!', 'test/**/*.ts'] },
     ...Object.fromEntries(
       ['domain', 'observability', 'server', 'settlement'].map((name) => [

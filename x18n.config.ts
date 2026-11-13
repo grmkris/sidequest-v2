@@ -56,6 +56,10 @@ export default defineConfig({
       // The same account-free OAuth, MCP and D1 pieces, shared by the core and the agent gateway: OAuth's English,
       // MCP's JSON-RPC errors and SQL.
       'packages/serving/src/**/*.ts': ['/[\\s\\S]*/'],
+      // The agent gateway speaks to agents and MCP clients in English like the core's MCP and OAuth (tool
+      // descriptions, refusals, OAuth errors, SQL), and its one page, the operator's OAuth consent, is English too, as
+      // the core's own OAuth answers are; the website's agent pages, which come later, are translated.
+      'apps/gateway/src/**/*.ts': ['/[\\s\\S]*/'],
       // The statement of the SIWE message a wallet signs: part of the signed protocol text, one English line for
       // everyone, like the rest of the EIP-4361 message around it.
       'packages/server/src/SignIn/Siwe.ts': ['/^Sign in to Sidequest\\.$/'],

@@ -1,0 +1,49 @@
+import type { RateLimiter } from '@sidequest/serving/RateLimiter'
+import { Effect, Option } from 'effect'
+import { Core } from '../Core/Core.ts'
+import type { GrantGate } from '../Grants/GrantGate.ts'
+import type { AgentKeys } from '../Keys/AgentKeys.ts'
+import { GatewaySettings } from '../Settings.ts'
+import { acting, refusedByCore } from './Acting.ts'
+import { GatewayToolkit, Refused } from './Tools.ts'
+import { accept, deliver, propose, withdrawProposal } from './WriteTools.ts'
+
+/** The services every tool call runs with, captured once when the handlers are built. */
+type ToolServices = Core | GrantGate | RateLimiter | AgentKeys
+
+/**
+ * Every tool's handler. Reads need an active grant; writes, the scope their tool names. The registry is shared by
+ * every request, so the services are captured when it is built and the caller is read from the request.
+ */
+export const GatewayHandlers = GatewayToolkit.toLayer(
+  Effect.gen(function* () {
+    const services = yield* Effect.context<ToolServices>()
+    const core = yield* Core
+    const { coreUrl } = yield* GatewaySettings
+    const run = <A, E>(effect: Effect.Effect<A, E, ToolServices>) => Effect.provideContext(effect, services)
+    /** A read the core answers, after the agent passed the gate; its error as the tool's refusal. */
+    const read = <A>(answer: Effect.Effect<A, Parameters<typeof refusedByCore>[0]>) =>
+      run(Effect.flatMap(acting(null), () => Effect.mapError(answer, refusedByCore)))
+    const found = <A, B>(
+      answer: Effect.Effect<Option.Option<A>, Parameters<typeof refusedByCore>[0]>,
+      missing: Refused,
+      shown: (value: A) => B,
+    ) =>
+      Effect.flatMap(read(answer), (value) =>
+        Option.match(value, { onNone: () => Effect.fail(missing), onSome: (some) => Effect.succeed(shown(some)) }),
+      )
+    return GatewayToolkit.of({
+      whoami: () => run(Effect.map(acting(null), ({ agent, operator, grant }) => ({ agent, operator, grant }))),
+      search_listings: ({ text, tag, limit, cursor }) => read(core.listings({ q: text, tag, limit, cursor })),
+      list_open_requests: ({ limit, cursor }) => read(core.openJobs({ limit, cursor })),
+      get_job: ({ job }) => found(core.job(job), new Refused({ reason: 'UnknownJob' }), (view) => ({ job: view })),
+      get_person: ({ pubkey }) =>
+        found(core.person(pubkey), new Refused({ reason: 'UnknownPerson' }), (person) => ({ person })),
+      payment_status: ({ job }) => Effect.map(read(core.payment(job)), (payment) => ({ payment })),
+      propose: (input) => run(propose(input)),
+      withdraw_proposal: (input) => run(withdrawProposal(input)),
+      accept: (input) => run(accept(input)),
+      deliver: (input) => run(deliver(input, coreUrl)),
+    })
+  }),
+)

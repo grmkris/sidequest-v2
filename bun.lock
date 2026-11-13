@@ -16,6 +16,7 @@
         "@foldkit/oxlint-plugin": "0.15.3",
         "@formatjs/icu-messageformat-parser": "catalog:",
         "@oxlint/plugins": "1.89.0",
+        "@sidequest/gateway": "workspace:*",
         "@sidequest/server": "workspace:*",
         "@types/bun": "catalog:",
         "@types/node": "catalog:",
@@ -37,6 +38,20 @@
         "vite": "catalog:",
         "vitest": "catalog:",
         "zyzz": "catalog:",
+      },
+    },
+    "apps/gateway": {
+      "name": "@sidequest/gateway",
+      "dependencies": {
+        "@alchemy.run/cloudflare": "catalog:",
+        "@effect/sql-d1": "catalog:",
+        "@noble/ciphers": "catalog:",
+        "@sidequest/fold": "workspace:*",
+        "@sidequest/nostr": "workspace:*",
+        "@sidequest/protocol": "workspace:*",
+        "@sidequest/serving": "workspace:*",
+        "alchemy": "catalog:",
+        "effect": "catalog:",
       },
     },
     "apps/web": {
@@ -610,6 +625,8 @@
     "@sidequest/domain": ["@sidequest/domain@workspace:packages/domain"],
 
     "@sidequest/fold": ["@sidequest/fold@workspace:packages/fold"],
+
+    "@sidequest/gateway": ["@sidequest/gateway@workspace:apps/gateway"],
 
     "@sidequest/i18n": ["@sidequest/i18n@workspace:packages/i18n"],
 

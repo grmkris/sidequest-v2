@@ -118,6 +118,18 @@ test.each(['fs', 'fs/promises', 'node:fs', 'bun:sqlite'])(
   },
 )
 
+test('the agent gateway reaches the core only through its public contracts, and nothing reaches the gateway', () => {
+  for (const allowed of ['@sidequest/nostr', '@sidequest/protocol', '@sidequest/fold', '@sidequest/serving'])
+    expect(() => checkDirection('@sidequest/gateway', allowed)).not.toThrow()
+  for (const core of ['@sidequest/server', '@sidequest/domain', '@sidequest/settlement'])
+    expect(() => checkDirection('@sidequest/gateway', core)).toThrow('Forbidden dependency')
+  for (const from of ['@sidequest/server', '@sidequest/domain', '@sidequest/web', '@sidequest/serving'])
+    expect(() => checkDirection(from, '@sidequest/gateway')).toThrow('Forbidden dependency')
+  // The shared serving pieces hold no account, key or model.
+  expect(() => checkDirection('@sidequest/serving', '@sidequest/domain')).toThrow('Forbidden dependency')
+  expect(() => checkDirection('@sidequest/server', '@sidequest/serving')).not.toThrow()
+})
+
 test('resolves extensionless barrels and TypeScript implementations of JavaScript imports', async () => {
   await withSources(
     {
