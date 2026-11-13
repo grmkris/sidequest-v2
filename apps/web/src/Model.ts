@@ -21,6 +21,11 @@ export const Flags = Schema.Struct({
   /** The stage's agent gateway (`SIDEQUEST_GATEWAY_URL`), whose MCP endpoint the agents page shows; none when the stage
    * has none, and the agents page then says so. The page reaches its operator API through the edge's `/gateway`. */
   maybeGatewayUrl: Schema.OptionFromNullOr(Schema.String),
+  /** The site's one public URL (`SIDEQUEST_SITE_URL`) when the stage has a domain; the agents page works only there. */
+  maybeSiteUrl: Schema.OptionFromNullOr(Schema.String),
+  /** The WebAuthn relying party ID for passkey-derived keys on this page's hostname (`SIDEQUEST_PASSKEY_RP_ID`); none
+   * when the stage offers no passkeys, or this hostname is not within it. */
+  maybePasskeyRpId: Schema.OptionFromNullOr(Schema.String),
 })
 export type Flags = typeof Flags.Type
 

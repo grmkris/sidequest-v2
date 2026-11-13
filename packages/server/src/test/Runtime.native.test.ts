@@ -20,6 +20,7 @@ import {
   rendersRequestsOnTheServer,
 } from './NostrJourneys.ts'
 import { startTestRelay } from '../../test/TestRelay.ts'
+import { derivesKeyFromPasskey, fallsBackWithoutPrf } from './PasskeyJourneys.ts'
 import { talksInARoom } from './RoomJourneys.ts'
 import { postJson, signedProfile, until } from './EdgeWorld.ts'
 
@@ -46,7 +47,12 @@ const Stack = Alchemy.Stack(
           main: 'apps/web/dist/server/fetch.js',
           assets: { directory: 'apps/web/dist/client' },
           compatibility,
-          env: { API: api, SIDEQUEST_DEFAULT_INBOX_RELAYS: inboxRelay.url },
+          env: {
+            API: api,
+            SIDEQUEST_DEFAULT_INBOX_RELAYS: inboxRelay.url,
+            // Passkeys for the page's own hostname, as the virtual authenticator's relying party.
+            SIDEQUEST_PASSKEY_RP_ID: 'localhost',
+          },
         }),
       unreachableRpc,
       {},
@@ -220,6 +226,20 @@ test(
     Effect.provide(FetchHttpClient.layer),
   ),
   { timeout: 120000 },
+)
+
+test(
+  'derives a key from a passkey, unlocks it with the passkey after a reload and finds it with storage wiped',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => derivesKeyFromPasskey(url))).pipe(
+    Effect.provide(FetchHttpClient.layer),
+  ),
+  { timeout: 120000 },
+)
+
+test(
+  'says plainly when a passkey cannot derive a key (no PRF) and offers the in-browser key instead',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => fallsBackWithoutPrf(url))),
+  { timeout: 60000 },
 )
 
 test(

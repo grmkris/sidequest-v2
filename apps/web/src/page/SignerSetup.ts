@@ -6,8 +6,11 @@ import { modifyFields } from 'foldkit/struct'
 import { Language } from '../Language.ts'
 import { Password, PubkeyHex, SignerFailure, SignerIdentity, Signers } from '../Signer.ts'
 
-// Choosing a Nostr signer: the browser's extension when it has one, else a key made here (with a backup the person
-// must confirm they saved) or restored from a backup; after a reload, a local key unlocks with its password.
+// Choosing a Nostr signer, in ADR-0003's order: the browser's extension when it has one; else, where the stage offers
+// passkeys and the browser has WebAuthn, a key a passkey derives (with an encrypted backup offered, which the person
+// takes or declines); else a key made here (with a backup the person must confirm they saved). A key is also restored
+// from a backup, or found with a passkey made on another device. After a reload, a local key unlocks with its password
+// and a passkey key with its passkey.
 
 // MODEL
 
@@ -15,7 +18,9 @@ import { Password, PubkeyHex, SignerFailure, SignerIdentity, Signers } from '../
 const FormState = Schema.Literals(['editing', 'working'])
 
 /** Where the person is in choosing a signer. `Choosing` is "no signer"; `Locked` is a local key kept in this browser,
- * waiting for its password; `Ready` signs. */
+ * waiting for its password, and `PasskeyLocked` a passkey key waiting for its passkey; `Ready` signs. A passkey key
+ * just made waits in `PasskeyMade` for the backup choice, and one found that is not the remembered key waits in
+ * `PasskeyOtherKey` for the person to choose. */
 export const Step = defineTaggedUnion({
   Detecting: {},
   Choosing: {},
@@ -24,6 +29,12 @@ export const Step = defineTaggedUnion({
   BackingUp: { pubkey: PubkeyHex, ncryptsec: Schema.String, saved: Schema.Boolean },
   Restoring: { ncryptsec: Schema.String, password: Password, form: FormState },
   Locked: { pubkey: PubkeyHex, password: Password, form: FormState },
+  CreatingPasskey: {},
+  PasskeyMade: { pubkey: PubkeyHex, form: FormState },
+  PasskeyBackup: { pubkey: PubkeyHex, password: Password, confirmation: Password, form: FormState },
+  FindingPasskey: {},
+  PasskeyOtherKey: { pubkey: PubkeyHex, other: PubkeyHex, form: FormState },
+  PasskeyLocked: { pubkey: PubkeyHex, form: FormState },
   Ready: { identity: SignerIdentity },
 })
 export type Step = typeof Step.Type
@@ -35,10 +46,18 @@ export const SetupProblem = Schema.Union([
 ])
 export type SetupProblem = typeof SetupProblem.Type
 
+/** Passkeys on this page: not offered (the stage offers none here, or the browser has no WebAuthn), offered, or found
+ * unable to derive a key (no PRF), after which the in-browser key is offered instead. */
+export const PasskeyOffer = Schema.Literals(['notOffered', 'offered', 'unsupported'])
+export type PasskeyOffer = typeof PasskeyOffer.Type
+
 export const Model = Schema.Struct({
   language: Language,
   /** Whether the browser has a NIP-07 extension, as last detected. */
   extension: Schema.Boolean,
+  /** The WebAuthn relying party ID the stage makes passkeys for on this page; none, it offers none here. */
+  maybePasskeyRpId: Schema.Option(Schema.String),
+  passkey: PasskeyOffer,
   step: Step,
   maybeProblem: Schema.Option(SetupProblem),
 })
@@ -52,6 +71,7 @@ export const minimumPassword = 8
 export const Message = defineMessageUnion({
   CompletedDetectSigner: {
     extension: Schema.Boolean,
+    passkeys: Schema.Boolean,
     maybeRemembered: Schema.Option(SignerIdentity),
     maybeUnlocked: Schema.Option(SignerIdentity),
   },
@@ -71,6 +91,22 @@ export const Message = defineMessageUnion({
   ClickedFinishBackup: {},
   SucceededConfirmBackup: { identity: SignerIdentity },
   FailedConfirmBackup: { reason: SignerFailure },
+  ClickedCreatePasskey: {},
+  SucceededCreatePasskey: { pubkey: PubkeyHex },
+  FailedCreatePasskey: { reason: SignerFailure },
+  ClickedBackUpPasskey: {},
+  SubmittedPasskeyBackup: {},
+  SucceededBackUpPasskey: { pubkey: PubkeyHex, ncryptsec: Schema.String },
+  FailedBackUpPasskey: { reason: SignerFailure },
+  ClickedSkipBackup: {},
+  ClickedUsePasskey: {},
+  SucceededFindPasskey: { pubkey: PubkeyHex, maybeOther: Schema.Option(PubkeyHex) },
+  FailedFindPasskey: { reason: SignerFailure },
+  ClickedUseFoundKey: {},
+  SucceededKeepPasskey: { identity: SignerIdentity },
+  FailedKeepPasskey: { reason: SignerFailure },
+  CompletedDropCreated: {},
+  ClickedUnlockPasskey: {},
   SubmittedRestoreKey: {},
   SucceededRestoreKey: { identity: SignerIdentity },
   FailedRestoreKey: { reason: SignerFailure },
@@ -120,7 +156,7 @@ export const CreateKey = Command.define('CreateKey', {
 export const ConfirmBackup = Command.define('ConfirmBackup', {
   messages: [Message.SucceededConfirmBackup, Message.FailedConfirmBackup],
   execute: Effect.gen(function* () {
-    const identity = yield* (yield* Signers).confirmBackup
+    const identity = yield* (yield* Signers).keepCreated
     return Message.SucceededConfirmBackup({ identity })
   }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedConfirmBackup({ reason: error.reason })))),
 })
@@ -145,6 +181,62 @@ export const UnlockKey = Command.define('UnlockKey', {
     }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedUnlock({ reason: error.reason })))),
 })
 
+export const CreatePasskey = Command.define('CreatePasskey', {
+  args: { rpId: Schema.String },
+  messages: [Message.SucceededCreatePasskey, Message.FailedCreatePasskey],
+  execute: ({ rpId }) =>
+    Effect.gen(function* () {
+      const pubkey = yield* (yield* Signers).createPasskey(rpId)
+      return Message.SucceededCreatePasskey({ pubkey })
+    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedCreatePasskey({ reason: error.reason })))),
+})
+
+export const BackUpPasskey = Command.define('BackUpPasskey', {
+  args: { password: Password },
+  messages: [Message.SucceededBackUpPasskey, Message.FailedBackUpPasskey],
+  execute: ({ password }) =>
+    Effect.gen(function* () {
+      const backup = yield* (yield* Signers).backUpCreated(password)
+      return Message.SucceededBackUpPasskey(backup)
+    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedBackUpPasskey({ reason: error.reason })))),
+})
+
+export const FindPasskey = Command.define('FindPasskey', {
+  args: { rpId: Schema.String },
+  messages: [Message.SucceededFindPasskey, Message.FailedFindPasskey],
+  execute: ({ rpId }) =>
+    Effect.gen(function* () {
+      const found = yield* (yield* Signers).findPasskey(rpId)
+      return Message.SucceededFindPasskey(found)
+    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedFindPasskey({ reason: error.reason })))),
+})
+
+export const KeepPasskey = Command.define('KeepPasskey', {
+  messages: [Message.SucceededKeepPasskey, Message.FailedKeepPasskey],
+  execute: Effect.gen(function* () {
+    const identity = yield* (yield* Signers).keepCreated
+    return Message.SucceededKeepPasskey({ identity })
+  }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedKeepPasskey({ reason: error.reason })))),
+})
+
+export const DropCreated = Command.define('DropCreated', {
+  messages: [Message.CompletedDropCreated],
+  execute: Effect.gen(function* () {
+    yield* (yield* Signers).dropCreated
+    return Message.CompletedDropCreated()
+  }),
+})
+
+export const UnlockPasskey = Command.define('UnlockPasskey', {
+  args: { rpId: Schema.String },
+  messages: [Message.SucceededUnlock, Message.FailedUnlock],
+  execute: ({ rpId }) =>
+    Effect.gen(function* () {
+      const identity = yield* (yield* Signers).unlockPasskey(rpId)
+      return Message.SucceededUnlock({ identity })
+    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedUnlock({ reason: error.reason })))),
+})
+
 export const ForgetSigner = Command.define('ForgetSigner', {
   messages: [Message.CompletedForget],
   execute: Effect.gen(function* () {
@@ -158,10 +250,21 @@ export const ForgetSigner = Command.define('ForgetSigner', {
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Signers>
 
 /** Nothing is known until the browser looks: the server renders the same `Detecting`, and hydration then looks. */
-export const init = (language: Language): UpdateReturn => ({
-  model: { language, extension: false, step: Step.Detecting(), maybeProblem: Option.none() },
+export const init = (language: Language, maybePasskeyRpId: Option.Option<string> = Option.none()): UpdateReturn => ({
+  model: {
+    language,
+    extension: false,
+    maybePasskeyRpId,
+    passkey: 'notOffered',
+    step: Step.Detecting(),
+    maybeProblem: Option.none(),
+  },
   commands: [DetectSigner()],
 })
+
+/** The relying party ID passkeys are made and found for, while they are offered. */
+export const offeredRpId = (model: Model): Option.Option<string> =>
+  model.passkey === 'offered' ? model.maybePasskeyRpId : Option.none()
 
 // UPDATE
 
@@ -179,24 +282,31 @@ const ready = (model: Model, identity: SignerIdentity): UpdateReturn => ({
   outMessage: OutMessage.SignerReady({ identity }),
 })
 
+/** The step a remembered signer waits in: a local key for its password, a passkey key for its passkey; an extension
+ * is offered again from the choice. */
+const lockedStep = (identity: SignerIdentity): Step =>
+  identity.signerKind === 'local'
+    ? Step.Locked({ pubkey: identity.pubkey, password: empty, form: 'editing' })
+    : identity.signerKind === 'passkey'
+      ? Step.PasskeyLocked({ pubkey: identity.pubkey, form: 'editing' })
+      : Step.Choosing()
+
 const detected = (
   model: Model,
-  found: { readonly extension: boolean; readonly maybeRemembered: Option.Option<SignerIdentity> },
+  found: {
+    readonly extension: boolean
+    readonly passkeys: boolean
+    readonly maybeRemembered: Option.Option<SignerIdentity>
+  },
   maybeUnlocked: Option.Option<SignerIdentity>,
 ): UpdateReturn => {
-  const withExtension = modifyFields(model, { extension: () => found.extension })
+  const passkey: PasskeyOffer = found.passkeys && Option.isSome(model.maybePasskeyRpId) ? 'offered' : 'notOffered'
+  const withBrowser = modifyFields(model, { extension: () => found.extension, passkey: () => passkey })
   return Option.match(maybeUnlocked, {
-    onSome: (identity) => ready(withExtension, identity),
-    onNone: () =>
-      Option.match(
-        Option.filter(found.maybeRemembered, (identity) => identity.signerKind === 'local'),
-        {
-          onSome: ({ pubkey }) => ({
-            model: withStep(withExtension, Step.Locked({ pubkey, password: empty, form: 'editing' })),
-          }),
-          onNone: () => ({ model: withStep(withExtension, Step.Choosing()) }),
-        },
-      ),
+    onSome: (identity) => ready(withBrowser, identity),
+    onNone: () => ({
+      model: withStep(withBrowser, Option.match(found.maybeRemembered, { onNone: Step.Choosing, onSome: lockedStep })),
+    }),
   })
 }
 
@@ -215,13 +325,20 @@ const onStep = (model: Model, next: (step: Step) => Option.Option<UpdateReturn>)
 
 const typedPassword = (model: Model, value: Password): UpdateReturn =>
   onStep(model, (step) =>
-    Step.guards.Creating(step)
+    Step.guards.Creating(step) || Step.guards.PasskeyBackup(step)
       ? Option.some({ model: withStep(model, modifyFields(step, { password: () => value })) })
       : Step.guards.Restoring(step)
         ? Option.some({ model: withStep(model, modifyFields(step, { password: () => value })) })
         : Step.guards.Locked(step)
           ? Option.some({ model: withStep(model, modifyFields(step, { password: () => value })) })
           : Option.none(),
+  )
+
+const typedConfirmation = (model: Model, value: Password): UpdateReturn =>
+  onStep(model, (step) =>
+    Step.guards.Creating(step) || Step.guards.PasskeyBackup(step)
+      ? Option.some({ model: withStep(model, modifyFields(step, { confirmation: () => value })) })
+      : Option.none(),
   )
 
 const submittedCreate = (model: Model): UpdateReturn =>
@@ -233,6 +350,21 @@ const submittedCreate = (model: Model): UpdateReturn =>
             onNone: () => ({
               model: withStep(model, modifyFields(step, { form: () => 'working' })),
               commands: [CreateKey({ password: step.password })],
+            }),
+          }),
+        )
+      : Option.none(),
+  )
+
+const submittedPasskeyBackup = (model: Model): UpdateReturn =>
+  onStep(model, (step) =>
+    Step.guards.PasskeyBackup(step) && step.form === 'editing'
+      ? Option.some(
+          Option.match(passwordProblem(step.password, step.confirmation), {
+            onSome: (problem) => refused(model, step, problem),
+            onNone: () => ({
+              model: withStep(model, modifyFields(step, { form: () => 'working' })),
+              commands: [BackUpPasskey({ password: step.password })],
             }),
           }),
         )
@@ -263,8 +395,41 @@ const submittedUnlock = (model: Model): UpdateReturn =>
       : Option.none(),
   )
 
+const clickedUnlockPasskey = (model: Model): UpdateReturn =>
+  onStep(model, (step) =>
+    Step.guards.PasskeyLocked(step) && step.form === 'editing'
+      ? Option.some(
+          Option.match(model.maybePasskeyRpId, {
+            onNone: () => refused(model, step, 'passkeyUnavailable'),
+            onSome: (rpId) => ({
+              model: withStep(model, modifyFields(step, { form: () => 'working' })),
+              commands: [UnlockPasskey({ rpId })],
+            }),
+          }),
+        )
+      : Option.none(),
+  )
+
+/** Keeps the passkey key just made or found, from the step that offered it. */
+const keepingPasskey = (model: Model): UpdateReturn =>
+  onStep(model, (step) =>
+    (Step.guards.PasskeyMade(step) || Step.guards.PasskeyOtherKey(step)) && step.form === 'editing'
+      ? Option.some({
+          model: withStep(model, modifyFields(step, { form: () => 'working' })),
+          commands: [KeepPasskey()],
+        })
+      : Option.none(),
+  )
+
+/** A passkey found: kept at once, unless this browser remembers another key, which the person then chooses between. */
+const foundPasskey = (model: Model, pubkey: PubkeyHex, maybeOther: Option.Option<PubkeyHex>): UpdateReturn =>
+  Option.match(maybeOther, {
+    onNone: () => ({ model: withStep(model, Step.FindingPasskey()), commands: [KeepPasskey()] }),
+    onSome: (other) => ({ model: withStep(model, Step.PasskeyOtherKey({ pubkey, other, form: 'editing' })) }),
+  })
+
 /** A failed piece of work: the form is back to editing, without the password that did not work, and says why. */
-const failedWork = (model: Model, reason: SignerFailure): UpdateReturn =>
+const failedStep = (model: Model, reason: SignerFailure): UpdateReturn =>
   Step.match(model.step, {
     Detecting: () => refused(model, Step.Choosing(), reason),
     Choosing: () => refused(model, Step.Choosing(), reason),
@@ -273,8 +438,24 @@ const failedWork = (model: Model, reason: SignerFailure): UpdateReturn =>
     BackingUp: (step) => refused(model, step, reason),
     Restoring: (step) => refused(model, modifyFields(step, { password: () => empty, form: () => 'editing' }), reason),
     Locked: (step) => refused(model, modifyFields(step, { password: () => empty, form: () => 'editing' }), reason),
+    CreatingPasskey: () => refused(model, Step.Choosing(), reason),
+    PasskeyMade: (step) => refused(model, modifyFields(step, { form: () => 'editing' }), reason),
+    PasskeyBackup: (step) =>
+      refused(
+        model,
+        modifyFields(step, { password: () => empty, confirmation: () => empty, form: () => 'editing' }),
+        reason,
+      ),
+    FindingPasskey: () => refused(model, Step.Choosing(), reason),
+    PasskeyOtherKey: (step) => refused(model, modifyFields(step, { form: () => 'editing' }), reason),
+    PasskeyLocked: (step) => refused(model, modifyFields(step, { form: () => 'editing' }), reason),
     Ready: (step) => refused(model, step, reason),
   })
+
+/** A failure says why; one that found passkeys unable to derive a key also stops offering them on this page, so the
+ * in-browser key is the offer. */
+const failedWork = (model: Model, reason: SignerFailure): UpdateReturn =>
+  failedStep(reason === 'passkeyNoPrf' ? modifyFields(model, { passkey: () => 'unsupported' }) : model, reason)
 
 const finishedBackup = (model: Model): UpdateReturn =>
   onStep(model, (step) =>
@@ -287,10 +468,25 @@ const finishedBackup = (model: Model): UpdateReturn =>
       : Option.none(),
   )
 
-export const update = (model: Model, message: Message): UpdateReturn =>
-  Message.match<UpdateReturn>(message, {
-    CompletedDetectSigner: ({ extension, maybeRemembered, maybeUnlocked }) =>
-      detected(model, { extension, maybeRemembered }, maybeUnlocked),
+/** Back: from the backup's password to the backup choice, else to the signer choice; a passkey key found but not
+ * chosen is dropped. */
+const back = (model: Model): UpdateReturn =>
+  Step.guards.PasskeyBackup(model.step)
+    ? { model: withStep(model, Step.PasskeyMade({ pubkey: model.step.pubkey, form: 'editing' })) }
+    : Step.guards.PasskeyOtherKey(model.step)
+      ? { model: withStep(model, Step.Choosing()), commands: [DropCreated()] }
+      : { model: withStep(model, Step.Choosing()) }
+
+/** One handler per Message, as `Message.match` takes them; the two halves below each give some. */
+type Handlers = {
+  readonly [Tag in Message['_tag']]: (message: Extract<Message, { readonly _tag: Tag }>) => UpdateReturn
+}
+
+/** The local key's and the extension's messages. */
+const keyHandlers = (model: Model) =>
+  ({
+    CompletedDetectSigner: ({ extension, passkeys, maybeRemembered, maybeUnlocked }) =>
+      detected(model, { extension, passkeys, maybeRemembered }, maybeUnlocked),
     ClickedUseExtension: () => ({ model: withStep(model, Step.ConnectingExtension()), commands: [ConnectExtension()] }),
     SucceededConnectExtension: ({ identity }) => ready(model, identity),
     FailedConnectExtension: ({ reason }) => failedWork(model, reason),
@@ -300,14 +496,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedRestoreKey: () => ({
       model: withStep(model, Step.Restoring({ ncryptsec: '', password: empty, form: 'editing' })),
     }),
-    ClickedBack: () => ({ model: withStep(model, Step.Choosing()) }),
+    ClickedBack: () => back(model),
     UpdatedPassword: ({ value }) => typedPassword(model, value),
-    UpdatedConfirmation: ({ value }) =>
-      onStep(model, (step) =>
-        Step.guards.Creating(step)
-          ? Option.some({ model: withStep(model, modifyFields(step, { confirmation: () => value })) })
-          : Option.none(),
-      ),
+    UpdatedConfirmation: ({ value }) => typedConfirmation(model, value),
     UpdatedBackup: ({ value }) =>
       onStep(model, (step) =>
         Step.guards.Restoring(step)
@@ -339,4 +530,48 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       model: withStep(model, Step.Choosing()),
       outMessage: OutMessage.SignerForgotten(),
     }),
-  })
+  }) satisfies Partial<Handlers>
+
+/** The passkey key's messages. */
+const passkeyHandlers = (model: Model) =>
+  ({
+    ClickedCreatePasskey: () =>
+      Option.match(offeredRpId(model), {
+        onNone: () => ({ model }),
+        onSome: (rpId) => ({ model: withStep(model, Step.CreatingPasskey()), commands: [CreatePasskey({ rpId })] }),
+      }),
+    SucceededCreatePasskey: ({ pubkey }) => ({ model: withStep(model, Step.PasskeyMade({ pubkey, form: 'editing' })) }),
+    FailedCreatePasskey: ({ reason }) => failedWork(model, reason),
+    ClickedBackUpPasskey: () =>
+      onStep(model, (step) =>
+        Step.guards.PasskeyMade(step)
+          ? Option.some({
+              model: withStep(
+                model,
+                Step.PasskeyBackup({ pubkey: step.pubkey, password: empty, confirmation: empty, form: 'editing' }),
+              ),
+            })
+          : Option.none(),
+      ),
+    SubmittedPasskeyBackup: () => submittedPasskeyBackup(model),
+    SucceededBackUpPasskey: ({ pubkey, ncryptsec }) => ({
+      model: withStep(model, Step.BackingUp({ pubkey, ncryptsec, saved: false })),
+    }),
+    FailedBackUpPasskey: ({ reason }) => failedWork(model, reason),
+    ClickedSkipBackup: () => keepingPasskey(model),
+    ClickedUsePasskey: () =>
+      Option.match(offeredRpId(model), {
+        onNone: () => ({ model }),
+        onSome: (rpId) => ({ model: withStep(model, Step.FindingPasskey()), commands: [FindPasskey({ rpId })] }),
+      }),
+    SucceededFindPasskey: ({ pubkey, maybeOther }) => foundPasskey(model, pubkey, maybeOther),
+    FailedFindPasskey: ({ reason }) => failedWork(model, reason),
+    ClickedUseFoundKey: () => keepingPasskey(model),
+    SucceededKeepPasskey: ({ identity }) => ready(model, identity),
+    FailedKeepPasskey: ({ reason }) => failedWork(model, reason),
+    CompletedDropCreated: () => ({ model }),
+    ClickedUnlockPasskey: () => clickedUnlockPasskey(model),
+  }) satisfies Partial<Handlers>
+
+export const update = (model: Model, message: Message): UpdateReturn =>
+  Message.match<UpdateReturn>(message, { ...keyHandlers(model), ...passkeyHandlers(model) })

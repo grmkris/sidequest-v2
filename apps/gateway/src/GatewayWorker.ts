@@ -3,7 +3,7 @@ import * as D1Client from '@effect/sql-d1/D1Client'
 import { ClientDocuments } from '@sidequest/serving/ClientDocuments'
 import * as AlchemyHttp from 'alchemy/Http'
 import { RuntimeContext } from 'alchemy/RuntimeContext'
-import { Effect, Layer, Logger, Result } from 'effect'
+import { Context, Effect, Layer, Logger, Option, Result } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
@@ -49,17 +49,29 @@ const misconfigured = (name: string) =>
 
 export class GatewayWorker extends Cloudflare.Worker<GatewayWorker, Cloudflare.WorkerShape>()('SidequestGateway') {}
 
+/** The gateway's custom domain on a stage that has one (`SIDEQUEST_GATEWAY_DOMAIN`, set by `Stack.ts`); none, the
+ * gateway is only on its workers.dev hostname and any attachment made outside the stack is left alone. */
+export const GatewayDomain = Context.Reference<Option.Option<string>>('Sidequest/Gateway/GatewayDomain', {
+  defaultValue: () => Option.none(),
+})
+
 /**
  * The agent gateway's Worker: its own origin and D1, reaching the core only at `SIDEQUEST_CORE_URL`. `fetch` reaches
  * only the public internet, never this zone's origin: MCP clients' metadata documents come from URLs a client names.
+ * Its workers.dev hostname stays on beside a custom domain; OAuth names whichever origin a request came to as its
+ * issuer, so each hostname is a whole authorization server of its own and the agents page names the domain's.
  */
 export default GatewayWorker.make(
-  {
-    main: import.meta.url,
-    compatibility: { date: '2026-10-19', flags: ['global_fetch_strictly_public'] },
-    workersDev: true,
-    observability: { enabled: true, redactQueryString: true, logs: { enabled: true, invocationLogs: true } },
-  },
+  Effect.gen(function* () {
+    const maybeDomain = yield* GatewayDomain
+    return {
+      main: import.meta.url,
+      compatibility: { date: '2026-10-19', flags: ['global_fetch_strictly_public'] },
+      workersDev: true,
+      ...Option.match(maybeDomain, { onNone: () => ({}), onSome: (domain) => ({ domain }) }),
+      observability: { enabled: true, redactQueryString: true, logs: { enabled: true, invocationLogs: true } },
+    }
+  }),
   Effect.gen(function* () {
     const settings = settingsFrom(yield* Cloudflare.Workers.WorkerEnvironment)
     if (Result.isFailure(settings)) return { fetch: misconfigured(settings.failure.name) }

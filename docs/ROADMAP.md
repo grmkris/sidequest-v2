@@ -50,7 +50,7 @@ Evidence levels: **local**, **testnet**, **mainnet**. Mainnet steps need Kris's 
 
 **Left in phase 2:**
 
-- **Passkey-derived keys** (slice 7): a key derived from a passkey (WebAuthn PRF) for people without a Nostr signer. The fallback, a key made in the browser behind an encrypted NIP-49 backup, is built.
+- **Passkey-derived keys** (slice 7): built ([ADR-0005](adr/0005-domains-and-passkey-scope.md)) and proven in Chromium with a virtual authenticator; left is a stage that offers them (the preview on `v2.sidequest.exchange`) and real passkey providers.
 - **Arbitration with evidence** (slice 16): the arbitrator reads disclosed room messages (a member's seal and its keys) beside the job's events before ruling; today a ruling is a NIP-98 request by the arbitration key that sees no evidence.
 - **Remote signers** (slice 17): NIP-46, so an agent's key can be scoped per action (`sign_event:<kind>`) outside the gateway.
 - **Reputation output** (slice 17): reviews and settled outcomes as a public, recomputable record per key.

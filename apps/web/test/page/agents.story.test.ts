@@ -11,6 +11,7 @@ import {
   agentsFailureOf,
   CreateAgent,
   DeleteAgent,
+  elsewhereOf,
   grantOf,
   init,
   ListAgents,
@@ -264,6 +265,22 @@ describe('the agents page', () => {
       Message.SucceededListAgents({ pubkey: 'f0'.repeat(32), agents: [entry] }),
     )
     expect(stale.model.agents).toEqual(AsyncData.Loading())
+  })
+})
+
+describe('the agents page on another hostname of the site', () => {
+  test('sends people to the site’s own URL and calls the gateway for nothing, since it accepts NIP-98 only there', () => {
+    const site = 'https://v2.sidequest.exchange'
+    expect(elsewhereOf(site, Option.some(site))).toEqual(Option.none())
+    expect(elsewhereOf('https://edge.example.workers.dev', Option.some(site))).toEqual(Option.some(site))
+    expect(elsewhereOf('https://edge.example.workers.dev', Option.none())).toEqual(Option.none())
+    const opened = init('en', me, gateway, Option.some(site))
+    expect(opened.commands ?? []).toEqual([])
+    expect(opened.model.maybeElsewhere).toEqual(Option.some(site))
+    expect((init('en', me, gateway, Option.none()).commands ?? []).map(({ name }) => name)).toEqual([
+      ListAgents.name,
+      ReadGrants.name,
+    ])
   })
 })
 

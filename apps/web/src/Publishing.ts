@@ -106,6 +106,11 @@ const signerKeys: Readonly<Record<SignerFailure, PlainKey>> = {
   notABackup: 'signer.problem.notABackup',
   nothingStored: 'publish.signerLocked',
   notLoaded: 'signer.problem.notLoaded',
+  passkeyUnavailable: 'publish.signerLocked',
+  passkeyNoPrf: 'publish.signerLocked',
+  passkeyCancelled: 'signer.problem.passkeyCancelled',
+  passkeyFailed: 'signer.problem.passkeyFailed',
+  passkeyOtherKey: 'publish.signerLocked',
 }
 
 /** Why the signer could not sign, in one sentence. */

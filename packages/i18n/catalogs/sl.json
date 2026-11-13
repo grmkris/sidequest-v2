@@ -195,7 +195,9 @@
     },
     "connectTitle": "Povežite odjemalca MCP",
     "connectUrl": "Ta naslov prilepite v svojega odjemalca MCP (claude.ai, ChatGPT, Cursor):",
-    "connectConsent": "Odjemalec vas pošlje na prehodovo stran za privolitev, kjer vaša razširitev Nostr dokaže vaš ključ in izberete tega agenta."
+    "connectConsent": "Odjemalec vas pošlje na prehodovo stran za privolitev, kjer vaša razširitev Nostr dokaže vaš ključ in izberete tega agenta.",
+    "elsewhere": "Agente upravljate na {site}, lastnem naslovu te strani: prehod za agente sprejema podpise vašega ključa samo tam.",
+    "elsewhereLink": "Upravljaj agente tam"
   },
   "terms": {
     "amount": "Znesek",
@@ -362,7 +364,8 @@
     "detecting": "Iščemo podpisnika v tem brskalniku …",
     "choose": {
       "withExtension": "Na Sidequestu vas predstavlja vaš ključ Nostr. Ta brskalnik ima razširitev Nostr: uporabite jo ali ustvarite ključ tukaj.",
-      "withoutExtension": "Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ tukaj ali ga obnovite iz varnostne kopije."
+      "withoutExtension": "Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ tukaj ali ga obnovite iz varnostne kopije.",
+      "withPasskey": "Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ s ključem za dostop (passkey): naprava ga ob vsaki prijavi izpelje znova, Sidequest pa ga nikoli ne vidi. Lahko tudi ustvarite ključ, shranjen v tem brskalniku, ali ga obnovite iz varnostne kopije."
     },
     "useExtension": "Uporabi razširitev Nostr",
     "createKey": "Ustvari ključ v tem brskalniku",
@@ -401,7 +404,8 @@
     "signer": "Podpisnik",
     "kind": {
       "nip07": "Razširitev Nostr",
-      "local": "Ključ v tem brskalniku"
+      "local": "Ključ v tem brskalniku",
+      "passkey": "Ključ iz ključa za dostop"
     },
     "problem": {
       "noExtension": "V tem brskalniku ni razširitve Nostr.",
@@ -415,7 +419,34 @@
       "passwordTooShort": "Geslo potrebuje vsaj {minimum} znakov.",
       "passwordsDiffer": "Gesli se razlikujeta.",
       "backupNotSaved": "Najprej potrdite, da ste shranili varnostno kopijo.",
-      "backupMissing": "Najprej prilepite varnostno kopijo."
+      "backupMissing": "Najprej prilepite varnostno kopijo.",
+      "passkeyUnavailable": "Ta brskalnik tukaj ne ponuja ključev za dostop.",
+      "passkeyNoPrf": "Ta brskalnik ali ponudnik ključev za dostop iz ključa za dostop ne more narediti ključa, ker nima razširitve PRF. Če je shranil ključ za dostop za Sidequest, ga lahko izbrišete. Namesto tega ustvarite ključ v tem brskalniku: shranjen je šifriran z geslom, za varnostno kopijo, ki jo shranite.",
+      "passkeyCancelled": "Poziv ključa za dostop je bil preklican ali je potekel. Poskusite znova.",
+      "passkeyFailed": "Poziv ključa za dostop ni uspel. Poskusite znova.",
+      "passkeyOtherKey": "Ta ključ za dostop izpelje drug ključ od tistega, ki si ga zapomni ta brskalnik. Uporabite ključ za dostop, ki ga je ustvaril, ali pozabite ključ tukaj."
+    },
+    "createPasskey": "Ustvari ključ s ključem za dostop",
+    "usePasskey": "Uporabi moj ključ za dostop",
+    "passkey": {
+      "creating": "Čakamo na vaš ključ za dostop …",
+      "madeLede": "Vaš ključ za dostop je ustvaril vaš ključ. Ključ ni nikjer shranjen: ključ za dostop ga ob vsaki prijavi izpelje znova, na vsaki napravi, kjer ga imate.",
+      "backupWhy": "Ključ za dostop se lahko izgubi ali ostane na napravi, ki ga ne sinhronizira. Šifrirana varnostna kopija ključa z geslom, ki ga izberete, je edina druga kopija. Brez nje z izgubo ključa za dostop izgubite tudi ključ in vam ga nihče ne more vrniti, tudi Sidequest ne.",
+      "walletRelink": "Denarnico, ki jo povežete s ključem, lahko pozneje povežete z novim ključem, če bi ta izgubili.",
+      "backUp": "Naredi šifrirano varnostno kopijo",
+      "skipBackup": "Nadaljuj brez varnostne kopije",
+      "backupLede": "Izberite geslo za varnostno kopijo. Sidequest ga nikoli ne vidi in ga ne more obnoviti.",
+      "backupSubmit": "Naredi kopijo",
+      "backupWorking": "Šifriramo varnostno kopijo …",
+      "finding": "Izberite ključ za dostop …",
+      "otherLede": "Vaš ključ za dostop izpelje drug ključ od tistega, ki si ga zapomni ta brskalnik. Tukaj uporabite ključ iz ključa za dostop ali se vrnite in obdržite zapomnjenega.",
+      "found": "Ključ iz ključa za dostop",
+      "remembered": "Zapomnjeni ključ",
+      "useFound": "Uporabi ključ iz ključa za dostop",
+      "unlockLede": "Vaš ključ izhaja iz ključa za dostop. Odklenite ga z njim v tem zavihku.",
+      "notHere": "Vaš ključ izhaja iz ključa za dostop, ki ga na tem naslovu strani ni mogoče uporabiti. Odprite stran na njenem lastnem naslovu ali pozabite ključ tukaj.",
+      "unlock": "Odkleni s ključem za dostop",
+      "unlocking": "Čakamo, da ključ za dostop odklene …"
     }
   },
   "identity": {

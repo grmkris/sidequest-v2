@@ -22,7 +22,12 @@ const ncryptsec =
 const local = { signerKind: 'local', pubkey } as const
 const nip07 = { signerKind: 'nip07', pubkey } as const
 const password = (value: string) => Redacted.make(value)
-const nothingFound = { extension: false, maybeRemembered: Option.none(), maybeUnlocked: Option.none() }
+const nothingFound = {
+  extension: false,
+  passkeys: false,
+  maybeRemembered: Option.none(),
+  maybeUnlocked: Option.none(),
+}
 
 const detecting = init('en').model
 const choosing = update(detecting, Message.CompletedDetectSigner(nothingFound)).model

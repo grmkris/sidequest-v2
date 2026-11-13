@@ -3,7 +3,8 @@ import { Entropy, finalizeEvent, publicKeyOf, SecretKey, verifyEvent } from '@si
 import { Effect, Option, Redacted, Result, Schema } from 'effect'
 import { describe, expect } from 'vitest'
 import * as NostrKit from '../src/NostrKit.ts'
-import { makeSigners, type Nip07Provider, storageKeys } from '../src/Signer.ts'
+import { memoryStorage } from './BrowserDoubles.ts'
+import { makeSigners, type Nip07Provider, type PasskeyPort, storageKeys } from '../src/Signer.ts'
 
 const password = Redacted.make('correct horse')
 const template = NostrKit.profileOf('Ada', 1_800_000_000)
@@ -13,36 +14,19 @@ const other = Schema.decodeSync(SecretKey)('6e'.repeat(32))
 // The secret of NIP-49's example backup.
 const exampleSecret = Schema.decodeSync(SecretKey)('3501454135014541350145413501453fefb02227e449e57cf4d3a3ce05378683')
 
-/** `localStorage` as a map, recording every value ever written. */
-const memoryStorage = () => {
-  const items = new Map<string, string>()
-  const written: Array<string> = []
-  const storage: Storage = {
-    get length() {
-      return items.size
-    },
-    clear: () => items.clear(),
-    getItem: (key) => items.get(key) ?? null,
-    key: (index) => [...items.keys()][index] ?? null,
-    removeItem: (key) => {
-      items.delete(key)
-    },
-    setItem: (key, value) => {
-      written.push(value)
-      items.set(key, value)
-    },
-  }
-  return { storage, items, written }
-}
-
 /** A browser whose `localStorage` throws on access, as a private window or blocked site data may. */
 const refusingStorage = (): Storage => {
   throw new DOMException('The operation is insecure.', 'SecurityError')
 }
 
-const signersOver = (storage: Storage | (() => Storage), extension: Option.Option<Nip07Provider> = Option.none()) =>
+const signersOver = (
+  storage: Storage | (() => Storage),
+  extension: Option.Option<Nip07Provider> = Option.none(),
+  authenticator: Option.Option<PasskeyPort> = Option.none(),
+) =>
   makeSigners({
     findExtension: Effect.succeed(extension),
+    findAuthenticator: Effect.succeed(authenticator),
     storage: typeof storage === 'function' ? storage : () => storage,
     kit: Effect.succeed(NostrKit),
   })
@@ -57,7 +41,7 @@ describe('a key made in the browser', () => {
       expect(items.size).toBe(0)
       expect((yield* Effect.flip(signers.active)).reason).toBe('locked')
 
-      const identity = yield* signers.confirmBackup
+      const identity = yield* signers.keepCreated
       expect(identity).toEqual({ signerKind: 'local', pubkey: created.pubkey })
       expect([...items.keys()].toSorted()).toEqual([storageKeys.identity, storageKeys.ncryptsec].toSorted())
       expect(items.get(storageKeys.ncryptsec)).toBe(created.ncryptsec)
@@ -77,11 +61,12 @@ describe('a key made in the browser', () => {
       const { storage } = memoryStorage()
       const before = yield* signersOver(storage)
       const created = yield* before.createLocal(password)
-      yield* before.confirmBackup
+      yield* before.keepCreated
 
       const reloaded = yield* signersOver(storage)
       expect(yield* reloaded.detect).toEqual({
         extension: false,
+        passkeys: false,
         maybeRemembered: Option.some({ signerKind: 'local', pubkey: created.pubkey }),
         maybeUnlocked: Option.none(),
       })
@@ -112,7 +97,7 @@ describe('a key made in the browser', () => {
       const signers = yield* signersOver(refusingStorage)
       expect((yield* signers.detect).maybeRemembered).toEqual(Option.none())
       const created = yield* signers.createLocal(password)
-      yield* signers.confirmBackup
+      yield* signers.keepCreated
       expect((yield* (yield* signers.active).signEvent(template)).pubkey).toBe(created.pubkey)
       expect((yield* Effect.flip(signers.unlockLocal(password))).reason).toBe('nothingStored')
     }),
@@ -164,7 +149,7 @@ describe('a NIP-07 extension', () => {
       const withLocalKey = memoryStorage()
       const before = yield* signersOver(withLocalKey.storage, Option.some(extension()))
       yield* before.createLocal(password)
-      yield* before.confirmBackup
+      yield* before.keepCreated
       const afterReload = yield* signersOver(withLocalKey.storage, Option.some(extension()))
       expect((yield* Effect.flip(afterReload.resume)).reason).toBe('locked')
       const nothingRemembered = yield* signersOver(memoryStorage().storage, Option.some(extension()))
@@ -237,7 +222,7 @@ describe('rooms through a signer', () => {
     Effect.gen(function* () {
       const signers = yield* signersOver(memoryStorage().storage)
       yield* signers.createLocal(password)
-      yield* signers.confirmBackup
+      yield* signers.keepCreated
       const active = yield* signers.active
       const room = Option.getOrThrow(active.maybeRoomSigner)
       expect(room.publicKey).toBe(active.publicKey)

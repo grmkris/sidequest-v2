@@ -169,6 +169,9 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'agents.connectUrl': 'Ta naslov prilepite v svojega odjemalca MCP (claude.ai, ChatGPT, Cursor):',
   'agents.connectConsent':
     'Odjemalec vas pošlje na prehodovo stran za privolitev, kjer vaša razširitev Nostr dokaže vaš ključ in izberete tega agenta.',
+  'agents.elsewhere':
+    'Agente upravljate na {site}, lastnem naslovu te strani: prehod za agente sprejema podpise vašega ključa samo tam.',
+  'agents.elsewhereLink': 'Upravljaj agente tam',
   'terms.amount': 'Znesek',
   'terms.deliverables': 'Kaj bo oddano',
   'terms.deadline': 'Rok za oddajo',
@@ -321,6 +324,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
     'Na Sidequestu vas predstavlja vaš ključ Nostr. Ta brskalnik ima razširitev Nostr: uporabite jo ali ustvarite ključ tukaj.',
   'signer.choose.withoutExtension':
     'Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ tukaj ali ga obnovite iz varnostne kopije.',
+  'signer.choose.withPasskey':
+    'Na Sidequestu vas predstavlja vaš ključ Nostr. V tem brskalniku ni razširitve Nostr, zato ustvarite ključ s ključem za dostop (passkey): naprava ga ob vsaki prijavi izpelje znova, Sidequest pa ga nikoli ne vidi. Lahko tudi ustvarite ključ, shranjen v tem brskalniku, ali ga obnovite iz varnostne kopije.',
   'signer.useExtension': 'Uporabi razširitev Nostr',
   'signer.createKey': 'Ustvari ključ v tem brskalniku',
   'signer.restoreKey': 'Obnovi ključ iz varnostne kopije',
@@ -351,6 +356,7 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'signer.signer': 'Podpisnik',
   'signer.kind.nip07': 'Razširitev Nostr',
   'signer.kind.local': 'Ključ v tem brskalniku',
+  'signer.kind.passkey': 'Ključ iz ključa za dostop',
   'signer.problem.noExtension': 'V tem brskalniku ni razširitve Nostr.',
   'signer.problem.extensionRefused': 'Razširitev je zavrnila ali ni odgovorila. Poskusite znova.',
   'signer.problem.extensionUntrusted':
@@ -364,6 +370,39 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'signer.problem.passwordsDiffer': 'Gesli se razlikujeta.',
   'signer.problem.backupNotSaved': 'Najprej potrdite, da ste shranili varnostno kopijo.',
   'signer.problem.backupMissing': 'Najprej prilepite varnostno kopijo.',
+  'signer.problem.passkeyUnavailable': 'Ta brskalnik tukaj ne ponuja ključev za dostop.',
+  'signer.problem.passkeyNoPrf':
+    'Ta brskalnik ali ponudnik ključev za dostop iz ključa za dostop ne more narediti ključa, ker nima razširitve PRF. Če je shranil ključ za dostop za Sidequest, ga lahko izbrišete. Namesto tega ustvarite ključ v tem brskalniku: shranjen je šifriran z geslom, za varnostno kopijo, ki jo shranite.',
+  'signer.problem.passkeyCancelled': 'Poziv ključa za dostop je bil preklican ali je potekel. Poskusite znova.',
+  'signer.problem.passkeyFailed': 'Poziv ključa za dostop ni uspel. Poskusite znova.',
+  'signer.problem.passkeyOtherKey':
+    'Ta ključ za dostop izpelje drug ključ od tistega, ki si ga zapomni ta brskalnik. Uporabite ključ za dostop, ki ga je ustvaril, ali pozabite ključ tukaj.',
+  'signer.createPasskey': 'Ustvari ključ s ključem za dostop',
+  'signer.usePasskey': 'Uporabi moj ključ za dostop',
+  'signer.passkey.creating': 'Čakamo na vaš ključ za dostop …',
+  'signer.passkey.madeLede':
+    'Vaš ključ za dostop je ustvaril vaš ključ. Ključ ni nikjer shranjen: ključ za dostop ga ob vsaki prijavi izpelje znova, na vsaki napravi, kjer ga imate.',
+  'signer.passkey.backupWhy':
+    'Ključ za dostop se lahko izgubi ali ostane na napravi, ki ga ne sinhronizira. Šifrirana varnostna kopija ključa z geslom, ki ga izberete, je edina druga kopija. Brez nje z izgubo ključa za dostop izgubite tudi ključ in vam ga nihče ne more vrniti, tudi Sidequest ne.',
+  'signer.passkey.walletRelink':
+    'Denarnico, ki jo povežete s ključem, lahko pozneje povežete z novim ključem, če bi ta izgubili.',
+  'signer.passkey.backUp': 'Naredi šifrirano varnostno kopijo',
+  'signer.passkey.skipBackup': 'Nadaljuj brez varnostne kopije',
+  'signer.passkey.backupLede':
+    'Izberite geslo za varnostno kopijo. Sidequest ga nikoli ne vidi in ga ne more obnoviti.',
+  'signer.passkey.backupSubmit': 'Naredi kopijo',
+  'signer.passkey.backupWorking': 'Šifriramo varnostno kopijo …',
+  'signer.passkey.finding': 'Izberite ključ za dostop …',
+  'signer.passkey.otherLede':
+    'Vaš ključ za dostop izpelje drug ključ od tistega, ki si ga zapomni ta brskalnik. Tukaj uporabite ključ iz ključa za dostop ali se vrnite in obdržite zapomnjenega.',
+  'signer.passkey.found': 'Ključ iz ključa za dostop',
+  'signer.passkey.remembered': 'Zapomnjeni ključ',
+  'signer.passkey.useFound': 'Uporabi ključ iz ključa za dostop',
+  'signer.passkey.unlockLede': 'Vaš ključ izhaja iz ključa za dostop. Odklenite ga z njim v tem zavihku.',
+  'signer.passkey.notHere':
+    'Vaš ključ izhaja iz ključa za dostop, ki ga na tem naslovu strani ni mogoče uporabiti. Odprite stran na njenem lastnem naslovu ali pozabite ključ tukaj.',
+  'signer.passkey.unlock': 'Odkleni s ključem za dostop',
+  'signer.passkey.unlocking': 'Čakamo, da ključ za dostop odklene …',
   'identity.title': 'Identiteta',
   'identity.lede':
     'Na Sidequestu vas predstavlja vaš ključ Nostr. Z njim objavite ime in povežite denarnico, s katero plačujete in prejemate plačila.',

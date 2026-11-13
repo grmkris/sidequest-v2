@@ -6,7 +6,7 @@ import { languageOf } from './Language.ts'
 import { Flags } from './Model.ts'
 import { Preload } from './Preload.ts'
 import { pageData } from './server/PageData.ts'
-import { defaultInboxRelays, gatewayUrl } from './server/StageSettings.ts'
+import { defaultInboxRelays, gatewayUrl, passkeyRpIdFor, passkeyRpIdSetting, siteUrl } from './server/StageSettings.ts'
 import { view } from './View.ts'
 // oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles.
 import './GlobalStyles.ts'
@@ -41,6 +41,8 @@ export const renderPage: Server.EntryModule['renderPage'] = (request) =>
         preload,
         defaultInboxRelays: yield* defaultInboxRelays,
         maybeGatewayUrl: yield* gatewayUrl,
+        maybeSiteUrl: yield* siteUrl,
+        maybePasskeyRpId: passkeyRpIdFor(yield* passkeyRpIdSetting, url.hostname),
       }
       const rendered = yield* Server.renderToString(application, { url: request.url, flags })
       return Server.Rendered(rendered, {

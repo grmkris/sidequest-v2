@@ -18,6 +18,8 @@ export interface MessageArgumentsByKey<_T = string> {
   'agents.done.pause': Readonly<Record<string, never>>
   'agents.done.resume': Readonly<Record<string, never>>
   'agents.done.revoke': Readonly<Record<string, never>>
+  'agents.elsewhere': { readonly site: string | number }
+  'agents.elsewhereLink': Readonly<Record<string, never>>
   'agents.empty': Readonly<Record<string, never>>
   'agents.grant': Readonly<Record<string, never>>
   'agents.grantSummary': { readonly scopes: string | number; readonly date: string | number }
@@ -517,6 +519,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'signer.backup.saved': Readonly<Record<string, never>>
   'signer.backup.warning': Readonly<Record<string, never>>
   'signer.choose.withExtension': Readonly<Record<string, never>>
+  'signer.choose.withPasskey': Readonly<Record<string, never>>
   'signer.choose.withoutExtension': Readonly<Record<string, never>>
   'signer.connecting': Readonly<Record<string, never>>
   'signer.create.confirmation': Readonly<Record<string, never>>
@@ -526,12 +529,32 @@ export interface MessageArgumentsByKey<_T = string> {
   'signer.create.submit': Readonly<Record<string, never>>
   'signer.create.working': Readonly<Record<string, never>>
   'signer.createKey': Readonly<Record<string, never>>
+  'signer.createPasskey': Readonly<Record<string, never>>
   'signer.detecting': Readonly<Record<string, never>>
   'signer.forget': Readonly<Record<string, never>>
   'signer.key': Readonly<Record<string, never>>
   'signer.kind.local': Readonly<Record<string, never>>
   'signer.kind.nip07': Readonly<Record<string, never>>
+  'signer.kind.passkey': Readonly<Record<string, never>>
   'signer.opening': Readonly<Record<string, never>>
+  'signer.passkey.backUp': Readonly<Record<string, never>>
+  'signer.passkey.backupLede': Readonly<Record<string, never>>
+  'signer.passkey.backupSubmit': Readonly<Record<string, never>>
+  'signer.passkey.backupWhy': Readonly<Record<string, never>>
+  'signer.passkey.backupWorking': Readonly<Record<string, never>>
+  'signer.passkey.creating': Readonly<Record<string, never>>
+  'signer.passkey.finding': Readonly<Record<string, never>>
+  'signer.passkey.found': Readonly<Record<string, never>>
+  'signer.passkey.madeLede': Readonly<Record<string, never>>
+  'signer.passkey.notHere': Readonly<Record<string, never>>
+  'signer.passkey.otherLede': Readonly<Record<string, never>>
+  'signer.passkey.remembered': Readonly<Record<string, never>>
+  'signer.passkey.skipBackup': Readonly<Record<string, never>>
+  'signer.passkey.unlock': Readonly<Record<string, never>>
+  'signer.passkey.unlockLede': Readonly<Record<string, never>>
+  'signer.passkey.unlocking': Readonly<Record<string, never>>
+  'signer.passkey.useFound': Readonly<Record<string, never>>
+  'signer.passkey.walletRelink': Readonly<Record<string, never>>
   'signer.password': Readonly<Record<string, never>>
   'signer.problem.backupMissing': Readonly<Record<string, never>>
   'signer.problem.backupNotSaved': Readonly<Record<string, never>>
@@ -542,6 +565,11 @@ export interface MessageArgumentsByKey<_T = string> {
   'signer.problem.notABackup': Readonly<Record<string, never>>
   'signer.problem.notLoaded': Readonly<Record<string, never>>
   'signer.problem.nothingStored': Readonly<Record<string, never>>
+  'signer.problem.passkeyCancelled': Readonly<Record<string, never>>
+  'signer.problem.passkeyFailed': Readonly<Record<string, never>>
+  'signer.problem.passkeyNoPrf': Readonly<Record<string, never>>
+  'signer.problem.passkeyOtherKey': Readonly<Record<string, never>>
+  'signer.problem.passkeyUnavailable': Readonly<Record<string, never>>
   'signer.problem.passwordTooShort': { readonly minimum: string | number }
   'signer.problem.passwordsDiffer': Readonly<Record<string, never>>
   'signer.problem.wrongPassword': Readonly<Record<string, never>>
@@ -554,6 +582,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'signer.unlock.lede': Readonly<Record<string, never>>
   'signer.unlock.submit': Readonly<Record<string, never>>
   'signer.useExtension': Readonly<Record<string, never>>
+  'signer.usePasskey': Readonly<Record<string, never>>
   'slip.binds': Readonly<Record<string, never>>
   'slip.escrow': Readonly<Record<string, never>>
   'slip.expiry': { readonly date: string | number }
@@ -578,4 +607,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'df991482593f0f31d42a0d422b29ddd1fa41c38f1fd884ab83ebcbaa213d5f13'
+export const catalogVersion = 'aaf43206e87fa3d363f175998ddd54108b383f029c957672186bbd1169386f7b'

@@ -22,6 +22,8 @@ const flags = (preload: Preload = Preload.Nothing()): Flags => ({
   preload,
   defaultInboxRelays: [],
   maybeGatewayUrl: Option.none(),
+  maybeSiteUrl: Option.none(),
+  maybePasskeyRpId: Option.none(),
 })
 
 const urlOf = (path: string) =>

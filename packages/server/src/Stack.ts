@@ -1,12 +1,13 @@
 import * as Cloudflare from '@alchemy.run/cloudflare'
 import { Stage } from 'alchemy/Stage'
-import { Effect } from 'effect'
+import { Effect, Option } from 'effect'
 import { SidequestDatabase, SidequestMedia } from './Resources.ts'
 import { arcTestnetRpcUrl } from './Settlement/ArcRpc.ts'
 import type { SettlementVariables } from './Settlement/SettlementStage.ts'
 import type { IndexVariables } from './Index/IndexConfig.ts'
 import type { RelayUrlPolicy } from './Index/RelayUrls.ts'
 import SidequestWorkerLive, { SidequestWorker } from './SidequestWorker.ts'
+import { customDomainOf } from './StageDomains.ts'
 
 export const compatibility = { date: '2026-10-19' }
 
@@ -37,7 +38,8 @@ export const edgeWorker = {
  * `Index/IndexConfig.ts`); without them it connects to no relay at all. The edge's relay pipe dials public relays only;
  * `relayPolicy: 'local'` lets it reach the test relay on 127.0.0.1, and only the native tests pass it. `gatewayUrl` is the
  * stage's agent gateway (`SIDEQUEST_GATEWAY_URL`), which the edge proxies the website's `/gateway` requests to; the
- * website needs it too, which its caller binds. */
+ * website needs it too, which its caller binds. `siteDomain` is the edge's custom domain (`SIDEQUEST_SITE_DOMAIN`, see
+ * `StageDomains.ts`); the edge keeps its workers.dev hostname beside it, and the answered URL is the domain's. */
 export const sidequestWorkers = <R>(
   release: string,
   website: (api: Cloudflare.Worker) => Effect.Effect<Cloudflare.Worker, never, R>,
@@ -46,6 +48,7 @@ export const sidequestWorkers = <R>(
   index: IndexVariables = {},
   relayPolicy: RelayUrlPolicy = 'public',
   gatewayUrl = '',
+  siteDomain: Option.Option<string> = Option.none(),
 ) =>
   Effect.gen(function* () {
     const stage = yield* Stage
@@ -62,6 +65,7 @@ export const sidequestWorkers = <R>(
         ...(gatewayUrl === '' ? {} : { SIDEQUEST_GATEWAY_URL: gatewayUrl }),
       },
       workersDev: true,
+      ...customDomainOf(siteDomain),
       observability,
     })
     yield* api.bind('RuntimeConfiguration', {

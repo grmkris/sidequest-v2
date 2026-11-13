@@ -257,8 +257,9 @@ export const init = (
   language: Language,
   maybeNext: Option.Option<string>,
   defaultInboxRelays: ReadonlyArray<string>,
+  maybePasskeyRpId: Option.Option<string> = Option.none(),
 ): Update.Return<Model, Message, Services> => {
-  const setupInit = SignerSetup.init(language)
+  const setupInit = SignerSetup.init(language, maybePasskeyRpId)
   return {
     model: {
       language,
@@ -311,11 +312,12 @@ const foldSetup = Update.foldChild({
 const whenReady = (model: Model, next: (identity: SignerIdentity) => UpdateReturn): UpdateReturn =>
   busy(model.action) ? { model } : Option.match(identityOf(model), { onNone: () => ({ model }), onSome: next })
 
-/** Whether the page may publish a name for the key: one made in this browser, which the index knows no profile of. A
- * profile replaces the whole of an earlier one, so a key that has one, or comes from an extension (whose profile lives
- * on the person's relays, which the index has not read yet), never gets a name-only profile from here. */
+/** Whether the page may publish a name for the key: one made here (in this browser, or by a passkey), which the index
+ * knows no profile of. A profile replaces the whole of an earlier one, so a key that has one, or comes from an
+ * extension (whose profile lives on the person's relays, which the index has not read yet), never gets a name-only
+ * profile from here. */
 export const offersProfile = (model: Model): boolean =>
-  Option.exists(identityOf(model), (identity) => identity.signerKind === 'local') &&
+  Option.exists(identityOf(model), (identity) => identity.signerKind !== 'nip07') &&
   (PersonRead.guards.Unknown(model.person) || (PersonRead.guards.Read(model.person) && !model.person.person.hasProfile))
 
 const submittedProfile = (model: Model): UpdateReturn =>

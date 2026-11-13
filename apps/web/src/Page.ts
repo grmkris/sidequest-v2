@@ -30,7 +30,7 @@ type Step = Update.Step<Model, Message, Services>
 
 /** The identity page, which reads nothing from the server: the signer lives in the browser. */
 const openIdentity = (flags: Flags, maybeNext: Option.Option<string>): Update.Return<Page, Message, Services> =>
-  Update.foldChildInit(Identity.init(flags.language, maybeNext, flags.defaultInboxRelays), {
+  Update.foldChildInit(Identity.init(flags.language, maybeNext, flags.defaultInboxRelays, flags.maybePasskeyRpId), {
     toParentModel: (identity) => Page.Identity({ identity }),
     toParentMessage: (message) => Message.GotIdentityMessage({ message }),
   })
@@ -81,10 +81,13 @@ export const openPage = (
         toParentMessage: (message) => Message.GotInboxMessage({ message }),
       }),
     Agents: () =>
-      Update.foldChildInit(Agents.init(flags.language, me, flags.maybeGatewayUrl), {
-        toParentModel: (agents) => Page.Agents({ agents }),
-        toParentMessage: (message) => Message.GotAgentsMessage({ message }),
-      }),
+      Update.foldChildInit(
+        Agents.init(flags.language, me, flags.maybeGatewayUrl, Agents.elsewhereOf(flags.origin, flags.maybeSiteUrl)),
+        {
+          toParentModel: (agents) => Page.Agents({ agents }),
+          toParentMessage: (message) => Message.GotAgentsMessage({ message }),
+        },
+      ),
     Identity: ({ next }) => openIdentity(flags, next),
     Evidence: () => ({ model: Page.Evidence({ evidence: Evidence.init(flags.language) }) }),
     NotFound: () => ({ model: Page.NotFound() }),

@@ -91,6 +91,9 @@ export const Model = Schema.Struct({
   me: Me,
   /** The stage's gateway, whose MCP endpoint the page shows; none when the stage has none. */
   maybeGatewayUrl: Schema.Option(Schema.String),
+  /** The site's public URL when this page is on another of its hostnames (its workers.dev one): the gateway accepts
+   * the page's NIP-98 through the edge's proxy only for that URL, so the page sends people there and calls nothing. */
+  maybeElsewhere: Schema.Option(Schema.String),
   maybeReadFor: Schema.Option(Schema.String),
   agents: AgentsData.schema,
   grants: GrantsData.schema,
@@ -259,18 +262,31 @@ const readsFor = (model: Model, pubkey: string): UpdateReturn => ({
   commands: [ListAgents({ pubkey }), ReadGrants({ pubkey })],
 })
 
-/** Reads once the stage has a gateway and the site knows the person's signer. */
+/** Reads once the stage has a gateway, this is the site's public URL and the site knows the person's signer. */
 const readIfReady = (model: Model): UpdateReturn =>
   Option.match(Option.all({ pubkey: pubkeyOf(model.me), gateway: model.maybeGatewayUrl }), {
     onNone: () => ({ model }),
-    onSome: ({ pubkey }) => (Option.contains(model.maybeReadFor, pubkey) ? { model } : readsFor(model, pubkey)),
+    onSome: ({ pubkey }) =>
+      Option.contains(model.maybeReadFor, pubkey) || Option.isSome(model.maybeElsewhere)
+        ? { model }
+        : readsFor(model, pubkey),
   })
 
-export const init = (language: Language, me: Me, maybeGatewayUrl: Option.Option<string>): UpdateReturn =>
+/** The site's public URL, when `origin` (this page's) is not it. */
+export const elsewhereOf = (origin: string, maybeSiteUrl: Option.Option<string>): Option.Option<string> =>
+  Option.filter(maybeSiteUrl, (site) => site !== origin)
+
+export const init = (
+  language: Language,
+  me: Me,
+  maybeGatewayUrl: Option.Option<string>,
+  maybeElsewhere: Option.Option<string> = Option.none(),
+): UpdateReturn =>
   readIfReady({
     language,
     me,
     maybeGatewayUrl,
+    maybeElsewhere,
     maybeReadFor: Option.none(),
     agents: AsyncData.Idle(),
     grants: AsyncData.Idle(),

@@ -6,7 +6,8 @@ import { styled } from '../Styled.ts'
 import { type PlainKey, say, shortHex } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
-import { Message, minimumPassword, type Model, type SetupProblem, Step } from './SignerSetup.ts'
+import * as PasskeyView from './SignerSetupPasskeyView.ts'
+import { Message, minimumPassword, type Model, offeredRpId, type SetupProblem, Step } from './SignerSetup.ts'
 import { format } from '@sidequest/i18n'
 
 const problemKeys: Readonly<Record<Exclude<SetupProblem, 'passwordTooShort'>, PlainKey>> = {
@@ -18,6 +19,11 @@ const problemKeys: Readonly<Record<Exclude<SetupProblem, 'passwordTooShort'>, Pl
   notABackup: 'signer.problem.notABackup',
   nothingStored: 'signer.problem.nothingStored',
   notLoaded: 'signer.problem.notLoaded',
+  passkeyUnavailable: 'signer.problem.passkeyUnavailable',
+  passkeyNoPrf: 'signer.problem.passkeyNoPrf',
+  passkeyCancelled: 'signer.problem.passkeyCancelled',
+  passkeyFailed: 'signer.problem.passkeyFailed',
+  passkeyOtherKey: 'signer.problem.passkeyOtherKey',
   passwordsDiffer: 'signer.problem.passwordsDiffer',
   backupNotSaved: 'signer.problem.backupNotSaved',
   backupMissing: 'signer.problem.backupMissing',
@@ -60,41 +66,74 @@ const passwordField = (
 const backButton = (h: Html.HtmlBuilder<Message>, language: Language) =>
   Ui.linkButton(h, say(language, 'signer.back'), Message.ClickedBack())
 
+type Offer = 'extension' | 'passkey' | 'local'
+
+/** The signers to offer, first the one ADR-0003 prefers: the extension, else a passkey, else a key made here. */
+const offers = (model: Model): ReadonlyArray<Offer> => {
+  const passkey = Option.isSome(offeredRpId(model))
+  return model.extension
+    ? passkey
+      ? ['extension', 'passkey', 'local']
+      : ['extension', 'local']
+    : passkey
+      ? ['passkey', 'local']
+      : ['local']
+}
+
+const offerButton = (h: Html.HtmlBuilder<Message>, language: Language, offer: Offer, first: boolean) => {
+  const kind = first ? 'primary' : 'secondary'
+  return offer === 'extension'
+    ? Ui.button(h, { label: say(language, 'signer.useExtension'), onClick: Message.ClickedUseExtension(), kind })
+    : offer === 'passkey'
+      ? Ui.button(h, { label: say(language, 'signer.createPasskey'), onClick: Message.ClickedCreatePasskey(), kind })
+      : Ui.button(h, { label: say(language, 'signer.createKey'), onClick: Message.ClickedCreateKey(), kind })
+}
+
+const chooseLede = (model: Model): PlainKey =>
+  model.extension
+    ? 'signer.choose.withExtension'
+    : Option.isSome(offeredRpId(model))
+      ? 'signer.choose.withPasskey'
+      : 'signer.choose.withoutExtension'
+
 const choosing = (h: Html.HtmlBuilder<Message>, model: Model) => {
   const language = model.language
   return [
-    h.p([], [say(language, model.extension ? 'signer.choose.withExtension' : 'signer.choose.withoutExtension')]),
+    h.p([], [say(language, chooseLede(model))]),
     h.div(styled(h, s.actions()), [
-      model.extension
-        ? Ui.button(h, {
-            label: say(language, 'signer.useExtension'),
-            onClick: Message.ClickedUseExtension(),
-            kind: 'primary',
-          })
+      ...offers(model).map((offer, index) => offerButton(h, language, offer, index === 0)),
+      Option.isSome(offeredRpId(model))
+        ? Ui.button(h, { label: say(language, 'signer.usePasskey'), onClick: Message.ClickedUsePasskey() })
         : h.empty,
-      Ui.button(h, {
-        label: say(language, 'signer.createKey'),
-        onClick: Message.ClickedCreateKey(),
-        kind: model.extension ? 'secondary' : 'primary',
-      }),
       Ui.button(h, { label: say(language, 'signer.restoreKey'), onClick: Message.ClickedRestoreKey() }),
     ]),
   ]
 }
 
-const creating = (
+/** A new password, typed twice: a new key's, or the backup's of a passkey key. */
+const newPasswordForm = (
   h: Html.HtmlBuilder<Message>,
   language: Language,
-  step: Extract<Step, { readonly _tag: 'Creating' }>,
+  config: {
+    readonly step: {
+      readonly password: Password
+      readonly confirmation: Password
+      readonly form: 'editing' | 'working'
+    }
+    readonly onSubmit: Message
+    readonly lede: PlainKey
+    readonly submit: PlainKey
+    readonly working: PlainKey
+  },
 ) => [
   h.form(
-    [h.OnSubmit(Message.SubmittedCreateKey()), h.Novalidate(true), ...styled(h, s.form())],
+    [h.OnSubmit(config.onSubmit), h.Novalidate(true), ...styled(h, s.form())],
     [
-      h.p([], [say(language, 'signer.create.lede')]),
+      h.p([], [say(language, config.lede)]),
       passwordField(h, {
         id: 'signer-new-password',
         label: say(language, 'signer.create.password'),
-        value: step.password,
+        value: config.step.password,
         onInput: (value) => Message.UpdatedPassword({ value: Redacted.make(value) }),
         autocomplete: 'new-password',
         hint: format(language, 'signer.create.passwordHint', { minimum: minimumPassword }),
@@ -102,20 +141,33 @@ const creating = (
       passwordField(h, {
         id: 'signer-confirm-password',
         label: say(language, 'signer.create.confirmation'),
-        value: step.confirmation,
+        value: config.step.confirmation,
         onInput: (value) => Message.UpdatedConfirmation({ value: Redacted.make(value) }),
         autocomplete: 'new-password',
       }),
       h.div(styled(h, s.actions()), [
         Ui.submit(h, {
-          label: say(language, step.form === 'working' ? 'signer.create.working' : 'signer.create.submit'),
-          busy: step.form === 'working',
+          label: say(language, config.step.form === 'working' ? config.working : config.submit),
+          busy: config.step.form === 'working',
         }),
         backButton(h, language),
       ]),
     ],
   ),
 ]
+
+const creating = (
+  h: Html.HtmlBuilder<Message>,
+  language: Language,
+  step: Extract<Step, { readonly _tag: 'Creating' }>,
+) =>
+  newPasswordForm(h, language, {
+    step,
+    onSubmit: Message.SubmittedCreateKey(),
+    lede: 'signer.create.lede',
+    submit: 'signer.create.submit',
+    working: 'signer.create.working',
+  })
 
 /** The backup as a file to keep: a data URL, which the edge's CSP lets a download link use. */
 const backupHref = (ncryptsec: string) => `data:text/plain;charset=utf-8,${encodeURIComponent(`${ncryptsec}\n`)}`
@@ -232,6 +284,7 @@ const locked = (h: Html.HtmlBuilder<Message>, language: Language, step: Extract<
 const kindKeys: Readonly<Record<SignerIdentity['signerKind'], PlainKey>> = {
   nip07: 'signer.kind.nip07',
   local: 'signer.kind.local',
+  passkey: 'signer.kind.passkey',
 }
 
 const readyView = (h: Html.HtmlBuilder<Message>, language: Language, identity: SignerIdentity) => [
@@ -259,6 +312,19 @@ const stepView = (h: Html.HtmlBuilder<Message>, model: Model): ReadonlyArray<Htm
     BackingUp: (step) => backingUp(h, language, step),
     Restoring: (step) => restoring(h, language, step),
     Locked: (step) => locked(h, language, step),
+    CreatingPasskey: () => [Ui.waiting(h, say(language, 'signer.passkey.creating'))],
+    PasskeyMade: (step) => PasskeyView.made(h, language, step),
+    PasskeyBackup: (step) =>
+      newPasswordForm(h, language, {
+        step,
+        onSubmit: Message.SubmittedPasskeyBackup(),
+        lede: 'signer.passkey.backupLede',
+        submit: 'signer.passkey.backupSubmit',
+        working: 'signer.passkey.backupWorking',
+      }),
+    FindingPasskey: () => [Ui.waiting(h, say(language, 'signer.passkey.finding'))],
+    PasskeyOtherKey: (step) => PasskeyView.otherKey(h, language, step),
+    PasskeyLocked: (step) => PasskeyView.locked(h, language, step, Option.isSome(model.maybePasskeyRpId)),
     Ready: ({ identity }) => readyView(h, language, identity),
   })
 }

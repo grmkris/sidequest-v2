@@ -1,15 +1,4 @@
-import {
-  decryptNip49,
-  type EventTemplate,
-  eventIdOf,
-  freshNip49,
-  freshSecretKey,
-  PublicKey,
-  publicKeyOf,
-  type SecretKey,
-  signEvent,
-  verifyEvent,
-} from '@sidequest/nostr'
+import { decryptNip49, type EventTemplate, eventIdOf, freshSecretKey, PublicKey, verifyEvent } from '@sidequest/nostr'
 import {
   agentGrant,
   type BuildOptions,
@@ -31,21 +20,19 @@ import {
   walletLink,
   walletLinkTypedData,
 } from '@sidequest/nostr/vocabulary'
-import { localRoomSigner, type RoomSigner, RoomSignerRefused } from '@sidequest/nostr/rooms'
+import { type RoomSigner, RoomSignerRefused } from '@sidequest/nostr/rooms'
 import { type NetworkRef, type Terms, termsDigest, webCrypto } from '@sidequest/protocol'
 import { Crypto, Effect, Option, Predicate, Schema } from 'effect'
+import { backupOf, keySigner } from './KeySigner.ts'
 import type { KitSigner, Nip07Nip44, Nip07Provider, SignerFailure } from './Signer.ts'
 
-// The Nostr code of the browser, loaded as one chunk the first time a signer is used (see `Signer.ts`): the two
-// signers, and the templates the pages sign. It imports nothing of the website's own modules but types, so
-// the bundler has nothing of the initial bundle to split out and share with it.
+export { localLogN } from './KeySigner.ts'
+export { createPasskeySigner, findPasskeySigner, type KitPasskey } from './PasskeyKit.ts'
 
-/**
- * scrypt's cost for a key made here: `log_n = 16`, NIP-49's common choice. It takes 64 MiB and, in noble's JavaScript,
- * about a second on a laptop and a few on a phone, once when the key is made and once at each unlock; above that a
- * phone's tab may run out of memory. The person's password is the rest of the protection.
- */
-export const localLogN = 16
+// The Nostr code of the browser, loaded as one chunk the first time a signer is used (see `Signer.ts`): the
+// signers (an extension's, a key made here, a key a passkey derives in `PasskeyKit.ts`), and the templates the pages
+// sign. It and the modules it brings import nothing of the website's own modules but types, so the bundler has nothing
+// of the initial bundle to split out and share with it.
 
 const fail = (reason: SignerFailure) => ({ reason })
 
@@ -116,22 +103,11 @@ export const nip07Signer = Effect.fnUntraced(function* (provider: Nip07Provider)
   return signer
 })
 
-/** The signer of a key held in this closure, and nowhere else. */
-const localSigner = (secret: SecretKey): KitSigner => ({
-  kind: 'local',
-  publicKey: publicKeyOf(secret),
-  signEvent: (template) => signEvent(template, secret).pipe(Effect.provideService(Crypto.Crypto, webCrypto)),
-  maybeRoomSigner: Option.some(localRoomSigner(secret, webCrypto)),
-})
-
-/** A fresh key and its NIP-49 backup under `password`. Nobody has handled the key in the clear, so the backup says
- * so (`secure`). */
+/** A fresh key and its NIP-49 backup under `password`. */
 export const createLocalSigner = Effect.fnUntraced(
   function* (password: string) {
     const secret = yield* freshSecretKey
-    // Encrypting refuses only a cost outside NIP-49's range, and this one is fixed inside it.
-    const ncryptsec = yield* Effect.orDie(freshNip49(secret, password, { logN: localLogN, keySecurity: 'secure' }))
-    return { signer: localSigner(secret), ncryptsec }
+    return { signer: keySigner('local', secret), ncryptsec: yield* backupOf(secret, password) }
   },
   Effect.provideService(Crypto.Crypto, webCrypto),
 )
@@ -139,7 +115,7 @@ export const createLocalSigner = Effect.fnUntraced(
 /** The signer of the key an `ncryptsec` holds, opened with its password. */
 export const openLocalSigner = (ncryptsec: string, password: string) =>
   decryptNip49(ncryptsec, password).pipe(
-    Effect.map((opened) => localSigner(opened.secret)),
+    Effect.map((opened) => keySigner('local', opened.secret)),
     Effect.mapError((refused) => fail(refused.reason === 'wrongPassword' ? 'wrongPassword' : 'notABackup')),
   )
 

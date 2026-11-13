@@ -361,6 +361,13 @@ const agentsList = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
       }),
   })
 
+/** On a hostname of the site other than its public URL, where the gateway would refuse the page's signatures. */
+const elsewhereNotice = (h: Html.HtmlBuilder<Message>, language: Language, siteUrl: string) =>
+  Ui.notice(h, 'neutral', [
+    h.p([], [format(language, 'agents.elsewhere', { site: siteUrl.replace(/^https?:\/\//u, '') })]),
+    h.p([], [h.a([h.Href(`${siteUrl}/agents`)], [say(language, 'agents.elsewhereLink')])]),
+  ])
+
 const agentsView = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
   h.div(styled(h, s.page()), [
     h.section([h.AriaLabel(say(reader.language, 'agents.create')), ...styled(h, s.panel())], [createForm(h, reader)]),
@@ -373,8 +380,10 @@ export const view = Submodel.defineView<Model, Message, { readonly timeZone: str
     Ui.pageHead(h, say(language, 'agents.title'), [say(language, 'agents.lede')]),
     Option.isNone(model.maybeGatewayUrl)
       ? Ui.notice(h, 'neutral', [h.p([], [say(language, 'agents.unavailable')])])
-      : signerOnly(h, { language, me: model.me, route: AppRoute.Agents() }, (identity) =>
-          agentsView(h, { model, language, timeZone, me: identity.pubkey }),
-        ),
+      : Option.isSome(model.maybeElsewhere)
+        ? elsewhereNotice(h, language, model.maybeElsewhere.value)
+        : signerOnly(h, { language, me: model.me, route: AppRoute.Agents() }, (identity) =>
+            agentsView(h, { model, language, timeZone, me: identity.pubkey }),
+          ),
   ])
 })

@@ -73,7 +73,7 @@ So there is no same-origin rule: a page on another site that makes a browser sen
 
 ## The gateway
 
-An agent hosted in an assistant cannot hold a key, so the agent gateway holds one per agent, sealed, and serves MCP and OAuth on its own origin. It reaches the core only through the public API, as any third party could; the core knows nothing of it. Operators are keys: every operator request carries NIP-98. The website's agents page reaches the gateway through the edge's `/gateway` proxy, which forwards no cookie. See its [README](../apps/gateway/README.md).
+An agent hosted in an assistant cannot hold a key, so the agent gateway holds one per agent, sealed, and serves MCP and OAuth on its own origin. It reaches the core only through the public API, as any third party could; the core knows nothing of it. Operators are keys: every operator request carries NIP-98. The website's agents page reaches the gateway through the edge's `/gateway` proxy, which forwards no cookie; with a site domain, only on that domain. See its [README](../apps/gateway/README.md).
 
 ## Rooms
 
@@ -91,9 +91,28 @@ From the deploying shell (`alchemy.run.ts`); each is optional, and without it th
 | `SIDEQUEST_CONFIRMATIONS`, `SIDEQUEST_FEE_BPS`, `SIDEQUEST_ARC_RPC_URL`                                                      | Defaults 3, 500 and Arc testnet's public RPC.                                             |
 | `SIDEQUEST_RELAYS`, `SIDEQUEST_RELAY_OVERLAP_SECONDS`, `SIDEQUEST_INDEX_KEY` (secret)                                        | The index's relays to poll and publish to, and its NIP-42 key.                            |
 | `SIDEQUEST_DEFAULT_INBOX_RELAYS`                                                                                             | The inbox relays the identity page offers people who have none.                           |
-| `SIDEQUEST_GATEWAY_SECRET` (secret), then `SIDEQUEST_GATEWAY_URL`                                                            | The agent gateway, and (from a deploy before) the website's way to it.                    |
+| `SIDEQUEST_GATEWAY_SECRET` (secret)                                                                                          | The agent gateway.                                                                        |
+| `SIDEQUEST_SITE_DOMAIN`                                                                                                      | The site's custom domain on the edge Worker; the one core URL the gateway accepts.        |
+| `SIDEQUEST_GATEWAY_DOMAIN`                                                                                                   | The gateway's custom domain, and with it the website's way to the gateway in one deploy.  |
+| `SIDEQUEST_GATEWAY_URL`                                                                                                      | Without a gateway domain only: the gateway's `workers.dev` URL from a deploy before.      |
+| `SIDEQUEST_PASSKEY_RP_ID`                                                                                                    | Passkey-derived keys, for this relying party ID, on the site's hostnames within it.       |
 
-A half-configured settlement fails the deploy, naming the variables at fault and never their values.
+A half-configured settlement fails the deploy, naming the variables at fault and never their values. So does a malformed or contradictory domain setting (`packages/server/src/StageDomains.ts`): a domain that is not a hostname, a gateway domain without the gateway's secret or equal to the site's, a `SIDEQUEST_GATEWAY_URL` that is not the gateway domain's, a relying party ID the site's domain is not within.
+
+The domains are Workers custom domains ([ADR-0005](adr/0005-domains-and-passkey-scope.md)): Cloudflare creates each hostname's DNS record and certificate, and refuses a hostname that already has a CNAME record. The `workers.dev` hostnames stay on beside them. On the site's `workers.dev` hostname reads and signed-event publishing work, passkeys are not offered, and the agents page links to the domain, since the gateway accepts its NIP-98 through the proxy for the domain alone.
+
+The preview, deployed from the build box with the account's Cloudflare credentials in the shell and the gateway's secret it was deployed with before (never written down here):
+
+```sh
+SIDEQUEST_RELEASE="$(git rev-parse --short HEAD)" \
+SIDEQUEST_SITE_DOMAIN=v2.sidequest.exchange \
+SIDEQUEST_GATEWAY_DOMAIN=agents.v2.sidequest.exchange \
+SIDEQUEST_PASSKEY_RP_ID=sidequest.exchange \
+SIDEQUEST_GATEWAY_SECRET="$SIDEQUEST_GATEWAY_SECRET" \
+bun run deploy:preview
+```
+
+with `SIDEQUEST_GATEWAY_URL` unset (or set to `https://agents.v2.sidequest.exchange`).
 
 ## Deploying over phase 1
 

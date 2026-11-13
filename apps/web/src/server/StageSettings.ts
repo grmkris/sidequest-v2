@@ -15,6 +15,9 @@ const settingOf = (name: string) =>
     Effect.orElseSucceed(() => Option.none<string>()),
   )
 
+/** An origin as these settings name one: `https` (or `http` for a local test stage), a host, no path. */
+const isOrigin = (url: string) => /^https?:\/\/[^\s/?#]+$/u.test(url)
+
 /**
  * The stage's agent gateway: `SIDEQUEST_GATEWAY_URL`, an `https` origin (`http` for a local test stage). Unset or
  * malformed, none: the agents page then says agents are not available on this stage. The edge proxies the page's
@@ -23,9 +26,35 @@ const settingOf = (name: string) =>
 export const gatewayUrl = Effect.map(settingOf('SIDEQUEST_GATEWAY_URL'), (setting) =>
   Option.filter(
     Option.map(setting, (text) => text.trim()),
-    (url) => /^https?:\/\/[^\s/?#]+$/u.test(url),
+    isOrigin,
   ),
 )
+
+/**
+ * The site's one public URL: `SIDEQUEST_SITE_URL`, `https://` and the stage's domain, when it has one. The agents page
+ * works only there (the gateway accepts NIP-98 through the edge's proxy for that URL alone), so on any other hostname
+ * of the site (its workers.dev one) it sends people there. Unset or malformed, none: every hostname is the site.
+ */
+export const siteUrl = Effect.map(settingOf('SIDEQUEST_SITE_URL'), (setting) =>
+  Option.filter(
+    Option.map(setting, (text) => text.trim()),
+    isOrigin,
+  ),
+)
+
+/**
+ * The relying party ID passkey-derived keys are made for on the page at `hostname`: `SIDEQUEST_PASSKEY_RP_ID` when the
+ * hostname is it or one of its subdomains, as WebAuthn requires; none otherwise (unset, or the site's workers.dev
+ * hostname), and the identity page then offers no passkey.
+ */
+export const passkeyRpIdFor = (setting: Option.Option<string>, hostname: string): Option.Option<string> =>
+  Option.filter(
+    Option.map(setting, (text) => text.trim().toLowerCase()),
+    (rpId) => rpId !== '' && (hostname === rpId || hostname.endsWith(`.${rpId}`)),
+  )
+
+/** The stage's relying party ID for passkeys, as set; see {@link passkeyRpIdFor} for the page's. */
+export const passkeyRpIdSetting = settingOf('SIDEQUEST_PASSKEY_RP_ID')
 
 /** At most this many default inbox relays are offered. */
 const maxDefaultInboxRelays = 4

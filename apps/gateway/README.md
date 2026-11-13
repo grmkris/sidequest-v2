@@ -110,7 +110,9 @@ live MCP `connections`, so the page needs one signature to show the list.
 ## Running it
 
 `alchemy.run.ts` deploys it beside the core when the deploying shell sets `SIDEQUEST_GATEWAY_SECRET` (64 hex
-characters, `openssl rand -hex 32`), configured with the core's public URL. The website reaches it once the shell
-also sets `SIDEQUEST_GATEWAY_URL` to the gateway's URL from an earlier deploy: the gateway needs the core's URL, so the
-two cannot name each other in one plan. Its own D1 is migrated from
-`apps/gateway/migrations`.
+characters, `openssl rand -hex 32`), configured with the core's public URL: the site's domain when the stage has one
+(`SIDEQUEST_SITE_DOMAIN`), which is then the one core URL it accepts NIP-98 for through the proxy. With
+`SIDEQUEST_GATEWAY_DOMAIN` it is that custom domain too, and the website reaches it from the same deploy
+([ADR-0005](../../docs/adr/0005-domains-and-passkey-scope.md)). Without one, the website reaches it once the shell also
+sets `SIDEQUEST_GATEWAY_URL` to the gateway's URL from an earlier deploy: the gateway needs the core's URL, so the two
+cannot name each other in one plan. Its own D1 is migrated from `apps/gateway/migrations`.

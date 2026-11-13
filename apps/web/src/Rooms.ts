@@ -195,10 +195,11 @@ export const roomsLayer = (origin: string) =>
         return rooms
       })
       const service = roomsOver(transport, kit)
-      // A key made in this browser holds its conversation keys; an extension keeps them to itself.
+      // A key held in this browser (made here, or derived by a passkey) holds its conversation keys; an extension
+      // keeps them to itself.
       const canDisclose = Effect.match(signers.resume, {
         onFailure: () => false,
-        onSuccess: (signer) => signer.kind === 'local',
+        onSuccess: (signer) => signer.kind !== 'nip07',
       })
       return Rooms.of({
         ...service,

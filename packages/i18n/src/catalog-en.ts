@@ -165,6 +165,9 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'agents.connectUrl': 'Paste this URL into your MCP client (claude.ai, ChatGPT, Cursor):',
   'agents.connectConsent':
     'The client sends you to the gateway’s own consent page, where your Nostr extension proves your key and you choose this agent.',
+  'agents.elsewhere':
+    'Agents are managed at {site}, this site’s own address: the agent gateway accepts your key’s signatures only there.',
+  'agents.elsewhereLink': 'Manage agents there',
   'terms.amount': 'Amount',
   'terms.deliverables': 'Deliverables',
   'terms.deadline': 'Delivery deadline',
@@ -315,6 +318,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
     'On Sidequest you are your Nostr key. This browser has a Nostr extension: use it, or make a key here.',
   'signer.choose.withoutExtension':
     'On Sidequest you are your Nostr key. No Nostr extension was found in this browser, so make a key here, or restore one from its backup.',
+  'signer.choose.withPasskey':
+    'On Sidequest you are your Nostr key. No Nostr extension was found in this browser, so make a key with a passkey: your device derives it again each time you sign in, and Sidequest never sees it. You can also make a key kept in this browser, or restore one from its backup.',
   'signer.useExtension': 'Use the Nostr extension',
   'signer.createKey': 'Create a key in this browser',
   'signer.restoreKey': 'Restore a key from its backup',
@@ -346,6 +351,7 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'signer.signer': 'Signer',
   'signer.kind.nip07': 'Nostr extension',
   'signer.kind.local': 'Key in this browser',
+  'signer.kind.passkey': 'Key from a passkey',
   'signer.problem.noExtension': 'No Nostr extension was found in this browser.',
   'signer.problem.extensionRefused': 'The extension said no, or did not answer. Try again.',
   'signer.problem.extensionUntrusted':
@@ -359,6 +365,38 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'signer.problem.passwordsDiffer': 'The two passwords differ.',
   'signer.problem.backupNotSaved': 'Confirm that you saved your backup first.',
   'signer.problem.backupMissing': 'Paste your backup first.',
+  'signer.problem.passkeyUnavailable': 'This browser offers no passkeys here.',
+  'signer.problem.passkeyNoPrf':
+    'This browser or your passkey provider cannot make a key from a passkey: it lacks the PRF extension. If it saved a passkey for Sidequest, you may delete it. Make a key in this browser instead: it is kept encrypted with a password, behind a backup you save.',
+  'signer.problem.passkeyCancelled': 'The passkey prompt was cancelled or timed out. Try again.',
+  'signer.problem.passkeyFailed': 'The passkey prompt failed. Try again.',
+  'signer.problem.passkeyOtherKey':
+    'That passkey gives a different key from the one this browser remembers. Use the passkey that made it, or forget the key here.',
+  'signer.createPasskey': 'Create a key with a passkey',
+  'signer.usePasskey': 'Use my passkey',
+  'signer.passkey.creating': 'Waiting for your passkey…',
+  'signer.passkey.madeLede':
+    'Your passkey made your key. The key is stored nowhere: your passkey derives it again each time you sign in, on any device the passkey is on.',
+  'signer.passkey.backupWhy':
+    'A passkey can be lost, or stay on a device that does not sync it. An encrypted backup of the key, under a password you choose, is the only other copy. Without one, losing the passkey loses the key, and nobody can give it back, Sidequest included.',
+  'signer.passkey.walletRelink':
+    'A wallet you link to your key can later be linked to a new key, should this one be lost.',
+  'signer.passkey.backUp': 'Make an encrypted backup',
+  'signer.passkey.skipBackup': 'Continue without a backup',
+  'signer.passkey.backupLede': 'Choose a password for the backup. Sidequest never sees it and cannot recover it.',
+  'signer.passkey.backupSubmit': 'Make backup',
+  'signer.passkey.backupWorking': 'Encrypting your backup…',
+  'signer.passkey.finding': 'Choose your passkey…',
+  'signer.passkey.otherLede':
+    'Your passkey gives a different key from the one this browser remembers. Use the passkey’s key here, or go back and keep the remembered one.',
+  'signer.passkey.found': 'Your passkey’s key',
+  'signer.passkey.remembered': 'Remembered key',
+  'signer.passkey.useFound': 'Use the passkey’s key',
+  'signer.passkey.unlockLede': 'Your key comes from a passkey. Use the passkey to unlock it in this tab.',
+  'signer.passkey.notHere':
+    'Your key comes from a passkey, which cannot be used at this address of the site. Open the site at its own address, or forget the key here.',
+  'signer.passkey.unlock': 'Unlock with your passkey',
+  'signer.passkey.unlocking': 'Waiting for your passkey to unlock…',
   'identity.title': 'Identity',
   'identity.lede':
     'Your Nostr key is who you are on Sidequest. Publish a name with it, and link the wallet you pay and get paid with.',
