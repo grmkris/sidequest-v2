@@ -3,6 +3,7 @@ import { AssetId, type Person } from '@sidequest/protocol'
 import { Array, Clock, Context, Effect, Exit, Layer, Option, Ref, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { SidequestClient } from './Api.ts'
+import { Marks } from './Marks.ts'
 import type * as RoomKit from './RoomKit.ts'
 import { Signers } from './Signer.ts'
 
@@ -87,6 +88,10 @@ export type RoomsFailure = typeof RoomsFailure.Type
 
 export class RoomsFailed extends Schema.TaggedError<RoomsFailed>()('RoomsFailed', { reason: RoomsFailure }) {}
 
+/** How many messages in a job's rooms the person has not seen, as this browser's room store and marks count them. */
+export const UnreadOnJob = Schema.Struct({ job: Schema.String, count: Schema.Int })
+export type UnreadOnJob = typeof UnreadOnJob.Type
+
 /** A job's rooms as the person sees them: the buyer's with each bidder, or a bidder's own with the buyer. */
 export interface JobRooms {
   readonly job: string
@@ -116,6 +121,9 @@ export class Rooms extends Context.Service<
     readonly forget: (room: string) => Effect.Effect<void, RoomsFailed>
     /** Signs the person's kind-10050 list and sends it to those relays; the index gets it from the page. */
     readonly signInboxRelays: (relays: ReadonlyArray<string>) => Effect.Effect<NostrEvent, RoomsFailed>
+    /** The person's unseen room messages per job, from this browser's store alone: no relay is read, nothing
+     * decrypted, no signer needed. A message is seen once the job's room panel showed it. */
+    readonly unread: (pubkey: string) => Effect.Effect<ReadonlyArray<UnreadOnJob>, RoomsFailed>
     /** Checks a pasted disclosure, with nothing but its text. */
     readonly verify: (text: string) => Effect.Effect<Option.Option<CheckedDisclosure>, RoomsFailed>
     /** The room code itself, for reading private proposals. */
@@ -135,6 +143,7 @@ export const roomsLayer = (origin: string) =>
     Effect.gen(function* () {
       const signers = yield* Signers
       const client = yield* SidequestClient
+      const marks = yield* Marks
       const kit = yield* Effect.cachedWithTTL(
         Effect.tryPromise({ try: () => import('./RoomKit.ts'), catch: () => failed('notLoaded') }),
         (exit) => (Exit.isSuccess(exit) ? 'Infinity' : 0),
@@ -193,6 +202,7 @@ export const roomsLayer = (origin: string) =>
       })
       return Rooms.of({
         ...service,
+        // The panel shows what a pass read: its rooms' messages are seen, which the inbox counts from.
         sync: (target) =>
           Effect.flatMap(Effect.zip(service.sync(target), canDisclose), ([read, disclosing]) =>
             Effect.map(
@@ -201,18 +211,29 @@ export const roomsLayer = (origin: string) =>
               ),
               (rooms) => ({ ...read, rooms, canDisclose: disclosing }),
             ),
-          ),
+          ).pipe(Effect.tap((read) => marks.markRoomsRead(read.rooms.map(newestShown)))),
+        unread: (pubkey) =>
+          Effect.gen(function* () {
+            const loaded = yield* kit
+            return loaded.unreadByJob(yield* loaded.storedState(pubkey), pubkey, yield* marks.roomsRead)
+          }),
       })
     }),
   )
 
 type RoomsOf = Effect.Success<ReturnType<typeof RoomKit.openRooms>>
 
+/** A room's newest message as a pass showed it. */
+const newestShown = (snapshot: RoomSnapshot) => ({
+  room: snapshot.room,
+  at: snapshot.lines.reduce((newest, line) => Math.max(newest, line.createdAt), 0),
+})
+
 /** The service's operations over the person's transport, which the kit does the work of. */
 const roomsOver = (
   transport: Effect.Effect<RoomsOf, RoomsFailed>,
   kit: Effect.Effect<typeof RoomKit, RoomsFailed>,
-): Rooms['Service'] => {
+): Omit<Rooms['Service'], 'unread'> => {
   const withKit = <A>(
     use: (loaded: typeof RoomKit, rooms: RoomsOf) => Effect.Effect<A, { readonly reason: RoomsFailure }>,
   ) =>

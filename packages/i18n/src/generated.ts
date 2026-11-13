@@ -4,28 +4,35 @@ import type { FormatXMLElementFn } from 'intl-messageformat'
 export type RichTextValue<T = string> = FormatXMLElementFn<T>
 export interface MessageArgumentsByKey<_T = string> {
   'agents.close': Readonly<Record<string, never>>
-  'agents.connections': Readonly<Record<string, never>>
-  'agents.copied': Readonly<Record<string, never>>
-  'agents.copy': Readonly<Record<string, never>>
+  'agents.connectConsent': Readonly<Record<string, never>>
+  'agents.connectTitle': Readonly<Record<string, never>>
+  'agents.connectUrl': Readonly<Record<string, never>>
+  'agents.connections': { readonly count: number }
+  'agents.create': Readonly<Record<string, never>>
+  'agents.createNote': Readonly<Record<string, never>>
+  'agents.delete': Readonly<Record<string, never>>
+  'agents.deleteConfirm': Readonly<Record<string, never>>
+  'agents.done.create': Readonly<Record<string, never>>
+  'agents.done.delete': Readonly<Record<string, never>>
+  'agents.done.grant': Readonly<Record<string, never>>
+  'agents.done.pause': Readonly<Record<string, never>>
+  'agents.done.resume': Readonly<Record<string, never>>
+  'agents.done.revoke': Readonly<Record<string, never>>
   'agents.empty': Readonly<Record<string, never>>
-  'agents.endpoint': { readonly url: string | number }
+  'agents.grant': Readonly<Record<string, never>>
   'agents.grantSummary': { readonly scopes: string | number; readonly date: string | number }
-  'agents.issue': Readonly<Record<string, never>>
+  'agents.label': Readonly<Record<string, never>>
+  'agents.labelError': { readonly max: string | number }
+  'agents.labelHint': Readonly<Record<string, never>>
   'agents.lede': Readonly<Record<string, never>>
   'agents.loading': Readonly<Record<string, never>>
   'agents.manage': Readonly<Record<string, never>>
-  'agents.name': Readonly<Record<string, never>>
-  'agents.nameError': { readonly max: string | number }
-  'agents.nameHint': Readonly<Record<string, never>>
   'agents.noGrant': Readonly<Record<string, never>>
-  'agents.noTokens': Readonly<Record<string, never>>
+  'agents.pause': Readonly<Record<string, never>>
+  'agents.paused': Readonly<Record<string, never>>
   'agents.pickScope': Readonly<Record<string, never>>
-  'agents.register': Readonly<Record<string, never>>
-  'agents.revokeAgent': Readonly<Record<string, never>>
-  'agents.revokeToken': Readonly<Record<string, never>>
-  'agents.revoked': Readonly<Record<string, never>>
-  'agents.revokedNote': Readonly<Record<string, never>>
-  'agents.saveGrant': Readonly<Record<string, never>>
+  'agents.resume': Readonly<Record<string, never>>
+  'agents.revoke': Readonly<Record<string, never>>
   'agents.scope.accept': Readonly<Record<string, never>>
   'agents.scope.acceptHint': Readonly<Record<string, never>>
   'agents.scope.deliver': Readonly<Record<string, never>>
@@ -35,43 +42,37 @@ export interface MessageArgumentsByKey<_T = string> {
   'agents.scope.propose': Readonly<Record<string, never>>
   'agents.scope.proposeHint': Readonly<Record<string, never>>
   'agents.scopes': Readonly<Record<string, never>>
-  'agents.stored': Readonly<Record<string, never>>
+  'agents.status.active': Readonly<Record<string, never>>
+  'agents.status.expired': Readonly<Record<string, never>>
+  'agents.status.none': Readonly<Record<string, never>>
+  'agents.status.notYet': Readonly<Record<string, never>>
+  'agents.status.revoked': Readonly<Record<string, never>>
   'agents.title': Readonly<Record<string, never>>
-  'agents.tokenIssued': { readonly issued: string | number; readonly expires: string | number }
-  'agents.tokenOnce': Readonly<Record<string, never>>
-  'agents.tokenRevoked': Readonly<Record<string, never>>
-  'agents.tokens': Readonly<Record<string, never>>
-  'agents.tokensLoading': Readonly<Record<string, never>>
+  'agents.unavailable': Readonly<Record<string, never>>
   'agents.validFor': Readonly<Record<string, never>>
+  'agents.working': Readonly<Record<string, never>>
   'common.cancel': Readonly<Record<string, never>>
   'common.close': Readonly<Record<string, never>>
   'common.showMore': Readonly<Record<string, never>>
   'common.tryAgain': Readonly<Record<string, never>>
-  'connect.allow': Readonly<Record<string, never>>
-  'connect.asks': { readonly client: string | number }
-  'connect.gone': Readonly<Record<string, never>>
-  'connect.leaving': Readonly<Record<string, never>>
-  'connect.lede': Readonly<Record<string, never>>
-  'connect.manageAgents': Readonly<Record<string, never>>
-  'connect.noAgents': Readonly<Record<string, never>>
-  'connect.pickAgent': Readonly<Record<string, never>>
-  'connect.publishedBy': { readonly publisher: string | number }
-  'connect.reading': Readonly<Record<string, never>>
-  'connect.refuse': Readonly<Record<string, never>>
-  'connect.resource': Readonly<Record<string, never>>
-  'connect.sendsTo': Readonly<Record<string, never>>
-  'connect.thisDevice': Readonly<Record<string, never>>
-  'connect.title': Readonly<Record<string, never>>
-  'connect.unnamed': Readonly<Record<string, never>>
-  'connect.until': Readonly<Record<string, never>>
-  'connect.unverified': Readonly<Record<string, never>>
-  'connections.agent': Readonly<Record<string, never>>
-  'connections.empty': Readonly<Record<string, never>>
-  'connections.lede': Readonly<Record<string, never>>
-  'connections.loading': Readonly<Record<string, never>>
-  'connections.revoke': Readonly<Record<string, never>>
-  'connections.since': Readonly<Record<string, never>>
-  'connections.title': Readonly<Record<string, never>>
+  'delegation.allows': { readonly agent: string | number }
+  'delegation.connecting': Readonly<Record<string, never>>
+  'delegation.job': Readonly<Record<string, never>>
+  'delegation.jobOption': { readonly title: string | number; readonly date: string | number }
+  'delegation.lede': Readonly<Record<string, never>>
+  'delegation.loading': Readonly<Record<string, never>>
+  'delegation.noJobs': Readonly<Record<string, never>>
+  'delegation.open': Readonly<Record<string, never>>
+  'delegation.pickJob': Readonly<Record<string, never>>
+  'delegation.preparing': Readonly<Record<string, never>>
+  'delegation.revoke': Readonly<Record<string, never>>
+  'delegation.sign': Readonly<Record<string, never>>
+  'delegation.signing': Readonly<Record<string, never>>
+  'delegation.stored': { readonly date: string | number }
+  'delegation.storing': Readonly<Record<string, never>>
+  'delegation.title': Readonly<Record<string, never>>
+  'delegation.validFor': Readonly<Record<string, never>>
+  'delegation.wrongWallet': Readonly<Record<string, never>>
   'evidence.author': Readonly<Record<string, never>>
   'evidence.bundleLabel': Readonly<Record<string, never>>
   'evidence.check': Readonly<Record<string, never>>
@@ -88,9 +89,13 @@ export interface MessageArgumentsByKey<_T = string> {
   'form.required': Readonly<Record<string, never>>
   'form.tooLong': { readonly max: string | number }
   'foundation.release': { readonly release: string | number }
-  'gate.checking': Readonly<Record<string, never>>
-  'gate.signIn': Readonly<Record<string, never>>
-  'gate.signInLink': Readonly<Record<string, never>>
+  'gateway.invalid': Readonly<Record<string, never>>
+  'gateway.notConfigured': Readonly<Record<string, never>>
+  'gateway.tooManyAgents': Readonly<Record<string, never>>
+  'gateway.unauthorized': Readonly<Record<string, never>>
+  'gateway.unavailable': Readonly<Record<string, never>>
+  'gateway.unknownAgent': Readonly<Record<string, never>>
+  'gateway.unreachable': Readonly<Record<string, never>>
   'home.lede': Readonly<Record<string, never>>
   'home.listings.empty': Readonly<Record<string, never>>
   'home.listings.loading': Readonly<Record<string, never>>
@@ -137,15 +142,22 @@ export interface MessageArgumentsByKey<_T = string> {
   'identity.wallet.title': Readonly<Record<string, never>>
   'identity.walletDeclined': Readonly<Record<string, never>>
   'inbox.empty': Readonly<Record<string, never>>
-  'inbox.kind.changeRequested': Readonly<Record<string, never>>
-  'inbox.kind.deliveryRecorded': Readonly<Record<string, never>>
-  'inbox.kind.fundingRecorded': Readonly<Record<string, never>>
-  'inbox.kind.jobSettled': Readonly<Record<string, never>>
-  'inbox.kind.messagePosted': Readonly<Record<string, never>>
-  'inbox.kind.proposalAccepted': Readonly<Record<string, never>>
-  'inbox.kind.proposalSubmitted': Readonly<Record<string, never>>
+  'inbox.item.accepted': { readonly person: string | number; readonly title: string | number }
+  'inbox.item.delivered': {
+    readonly person: string | number
+    readonly title: string | number
+    readonly date: string | number
+  }
+  'inbox.item.funded': { readonly title: string | number; readonly date: string | number }
+  'inbox.item.messages': { readonly count: number; readonly title: string | number }
+  'inbox.item.proposal': { readonly person: string | number; readonly title: string | number }
+  'inbox.item.rejected': { readonly title: string | number; readonly date: string | number }
+  'inbox.item.review': { readonly title: string | number; readonly person: string | number }
   'inbox.lede': Readonly<Record<string, never>>
   'inbox.loading': Readonly<Record<string, never>>
+  'inbox.markAllRead': Readonly<Record<string, never>>
+  'inbox.new': Readonly<Record<string, never>>
+  'inbox.private': Readonly<Record<string, never>>
   'inbox.refresh': Readonly<Record<string, never>>
   'inbox.title': Readonly<Record<string, never>>
   'inboxRelays.alreadyHad': Readonly<Record<string, never>>
@@ -162,11 +174,14 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.acceptLabel.conflicting': Readonly<Record<string, never>>
   'job.acceptLabel.noMatch': Readonly<Record<string, never>>
   'job.acceptLabel.notBuyer': Readonly<Record<string, never>>
+  'job.acceptSuggestion': Readonly<Record<string, never>>
   'job.acceptedBy': {
     readonly author: string | number
     readonly worker: string | number
     readonly date: string | number
   }
+  'job.agentSuggests': { readonly agent: string | number }
+  'job.agentSuggestsNote': Readonly<Record<string, never>>
   'job.buyer': Readonly<Record<string, never>>
   'job.chain.amount': Readonly<Record<string, never>>
   'job.chain.call.approval': Readonly<Record<string, never>>
@@ -423,17 +438,6 @@ export interface MessageArgumentsByKey<_T = string> {
   'problem.notFound.unknownJob': Readonly<Record<string, never>>
   'problem.notFound.unknownListing': Readonly<Record<string, never>>
   'problem.notFound.unknownToken': Readonly<Record<string, never>>
-  'problem.notSignedIn': Readonly<Record<string, never>>
-  'problem.signIn.badSignature': Readonly<Record<string, never>>
-  'problem.signIn.expired': Readonly<Record<string, never>>
-  'problem.signIn.issuedInFuture': Readonly<Record<string, never>>
-  'problem.signIn.malformed': Readonly<Record<string, never>>
-  'problem.signIn.notYetValid': Readonly<Record<string, never>>
-  'problem.signIn.stale': Readonly<Record<string, never>>
-  'problem.signIn.unknownNonce': Readonly<Record<string, never>>
-  'problem.signIn.wrongChain': Readonly<Record<string, never>>
-  'problem.signIn.wrongDomain': Readonly<Record<string, never>>
-  'problem.signIn.wrongUri': Readonly<Record<string, never>>
   'problem.unavailable': Readonly<Record<string, never>>
   'problem.unprocessable.expiryNotInFuture': Readonly<Record<string, never>>
   'problem.unprocessable.noWallet': Readonly<Record<string, never>>
@@ -527,39 +531,15 @@ export interface MessageArgumentsByKey<_T = string> {
   'room.viaGateway': Readonly<Record<string, never>>
   'room.with': { readonly name: string | number }
   'room.you': Readonly<Record<string, never>>
-  'shell.account': { readonly address: string | number }
   'shell.agents': Readonly<Record<string, never>>
-  'shell.checking': Readonly<Record<string, never>>
   'shell.home': Readonly<Record<string, never>>
   'shell.identity': Readonly<Record<string, never>>
   'shell.inbox': Readonly<Record<string, never>>
   'shell.nav': Readonly<Record<string, never>>
   'shell.postRequest': Readonly<Record<string, never>>
-  'shell.signIn': Readonly<Record<string, never>>
-  'shell.signOut': Readonly<Record<string, never>>
-  'shell.signingOut': Readonly<Record<string, never>>
   'shell.skip': Readonly<Record<string, never>>
   'shell.testnet': Readonly<Record<string, never>>
   'shell.title': { readonly page: string | number }
-  'signIn.already': Readonly<Record<string, never>>
-  'signIn.arc': Readonly<Record<string, never>>
-  'signIn.connect': Readonly<Record<string, never>>
-  'signIn.connecting': Readonly<Record<string, never>>
-  'signIn.lede': Readonly<Record<string, never>>
-  'signIn.network': Readonly<Record<string, never>>
-  'signIn.otherChain': { readonly chainId: string | number }
-  'signIn.otherWallet': Readonly<Record<string, never>>
-  'signIn.preparing': Readonly<Record<string, never>>
-  'signIn.signIn': Readonly<Record<string, never>>
-  'signIn.signing': Readonly<Record<string, never>>
-  'signIn.stepConnect': Readonly<Record<string, never>>
-  'signIn.stepSign': Readonly<Record<string, never>>
-  'signIn.switch': Readonly<Record<string, never>>
-  'signIn.switching': Readonly<Record<string, never>>
-  'signIn.title': Readonly<Record<string, never>>
-  'signIn.verifying': Readonly<Record<string, never>>
-  'signIn.wallet': Readonly<Record<string, never>>
-  'signIn.wrongNetwork': Readonly<Record<string, never>>
   'signer.back': Readonly<Record<string, never>>
   'signer.backup.continue': Readonly<Record<string, never>>
   'signer.backup.download': Readonly<Record<string, never>>
@@ -629,4 +609,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'e600e78755eb4497fd9d92e7c18c3797467091d261becdcf945a8c336b147656'
+export const catalogVersion = '4714005e290b14edee6d8f17cad5f2831129054203b9f22b97ff047e9c60f129'

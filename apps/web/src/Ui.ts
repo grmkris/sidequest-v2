@@ -153,13 +153,6 @@ export const notice = <Message>(
 export const problemNotice = <Message>(h: Builder<Message>, language: Language, problem: Problem): Html.Html =>
   notice(h, 'danger', [h.p([], [problemText(language, problem)])])
 
-/** A problem when there is one. */
-export const maybeProblem = <Message>(
-  h: Builder<Message>,
-  language: Language,
-  maybe: Option.Option<Problem>,
-): Html.Html => Option.match(maybe, { onNone: () => h.empty, onSome: (problem) => problemNotice(h, language, problem) })
-
 /** A line that waits for data. */
 export const waiting = <Message>(h: Builder<Message>, text: string): Html.Html =>
   h.p([h.Role('status'), ...styled(h, s.waiting())], [text])

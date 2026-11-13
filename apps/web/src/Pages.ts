@@ -1,7 +1,5 @@
 // The website's pages, each a Submodel with its own Model, Message, update and view.
 export * as Agents from './page/Agents.ts'
-export * as Connect from './page/Connect.ts'
-export * as Connections from './page/Connections.ts'
 export * as Evidence from './page/Evidence.ts'
 export * as Home from './page/Home.ts'
 export * as Identity from './page/Identity.ts'
@@ -10,4 +8,3 @@ export * as Job from './page/job/Job.ts'
 export * as ListingPage from './page/ListingPage.ts'
 export * as NewListing from './page/NewListing.ts'
 export * as NewRequest from './page/NewRequest.ts'
-export * as SignIn from './page/SignIn.ts'

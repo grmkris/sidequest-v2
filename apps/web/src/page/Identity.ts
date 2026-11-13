@@ -8,7 +8,7 @@ import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../Api.ts'
 import { Language } from '../Language.ts'
-import { Standing } from '../Me.ts'
+import { MyAgent, Standing } from '../Me.ts'
 import { failedWith, Problem } from '../Problem.ts'
 import { nowSeconds, PublishFailure, publishFailureOf, PublishRefusal } from '../Publishing.ts'
 import { PubkeyHex, type SignerFailed, SignerFailure, SignerIdentity, Signers } from '../Signer.ts'
@@ -61,6 +61,8 @@ export const PersonSummary = Schema.Struct({
   wallets: Schema.Array(LinkedAccount),
   /** Where the key receives private messages (its kind-10050 list); empty when the index knows none. */
   inboxRelays: Schema.Array(Schema.String),
+  /** The agents the key granted that may act now. */
+  agents: Schema.Array(MyAgent),
 })
 export type PersonSummary = typeof PersonSummary.Type
 
@@ -234,6 +236,9 @@ export const ReadPerson = Command.define('ReadPerson', {
             verification,
           })),
           inboxRelays: person.messagingRelays?.relays ?? [],
+          agents: Array.flatMap(person.agents, (grant) =>
+            grant.status === 'active' ? [{ pubkey: grant.agent, label: grant.label }] : [],
+          ),
         },
       })
     }).pipe(
@@ -407,12 +412,13 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             Array.filter(person.wallets, ({ verification }) => verification === 'verified'),
             ({ account }) => account,
           ),
+          agents: person.agents,
         }),
       ),
     CompletedReadUnknownPerson: () =>
       withStanding(
         modifyFields(model, { person: () => PersonRead.Unknown() }),
-        Standing.Known({ maybeName: Option.none(), wallets: [] }),
+        Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
       ),
     FailedReadPerson: ({ problem }) => ({
       model: modifyFields(model, { person: () => PersonRead.Failed({ problem }) }),

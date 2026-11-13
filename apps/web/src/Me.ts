@@ -13,10 +13,19 @@ import { SignerIdentity, Signers } from './Signer.ts'
 
 // MODEL
 
-/** What the index knows of the key: its profile's name and its verified wallets (CAIP-10 accounts). */
+/** An agent key the person granted, whose grant is active now, with the label they gave it. */
+export const MyAgent = Schema.Struct({ pubkey: Schema.String, label: Schema.String })
+export type MyAgent = typeof MyAgent.Type
+
+/** What the index knows of the key: its profile's name, its verified wallets (CAIP-10 accounts) and the agents it
+ * granted that may act now. */
 export const Standing = defineTaggedUnion({
   Reading: {},
-  Known: { maybeName: Schema.Option(Schema.String), wallets: Schema.Array(Schema.String) },
+  Known: {
+    maybeName: Schema.Option(Schema.String),
+    wallets: Schema.Array(Schema.String),
+    agents: Schema.Array(MyAgent),
+  },
   Failed: { problem: Problem },
 })
 export type Standing = typeof Standing.Type
@@ -34,6 +43,10 @@ export type Me = typeof Me.Type
 export const pubkeyOf = (me: Me): Option.Option<string> =>
   Me.guards.Ready(me) ? Option.some(me.identity.pubkey) : Option.none()
 
+/** The agents the person granted that may act now, once the index answered. */
+export const agentsOf = (me: Me): ReadonlyArray<MyAgent> =>
+  Me.guards.Ready(me) && Standing.guards.Known(me.standing) ? me.standing.agents : []
+
 /** The person's verified wallet on `network` (a CAIP-2 chain), which a proposal names to be paid to. */
 export const walletOn = (me: Me, network: string): Option.Option<string> =>
   Me.guards.Ready(me) && Standing.guards.Known(me.standing)
@@ -48,6 +61,7 @@ export const Message = defineMessageUnion({
     pubkey: Schema.String,
     maybeName: Schema.Option(Schema.String),
     wallets: Schema.Array(Schema.String),
+    agents: Schema.Array(MyAgent),
   },
   FailedReadMe: { pubkey: Schema.String, problem: Problem },
 })
@@ -83,10 +97,13 @@ export const ReadMe = Command.define('ReadMe', {
         pubkey,
         maybeName: Option.fromNullishOr(person.profile?.name),
         wallets: Array.map(person.wallets, (wallet) => wallet.account),
+        agents: Array.flatMap(person.agents, (grant) =>
+          grant.status === 'active' ? [{ pubkey: grant.agent, label: grant.label }] : [],
+        ),
       })
     }).pipe(
       Effect.catchTag('NotIndexed', () =>
-        Effect.succeed(Message.SucceededReadMe({ pubkey, maybeName: Option.none(), wallets: [] })),
+        Effect.succeed(Message.SucceededReadMe({ pubkey, maybeName: Option.none(), wallets: [], agents: [] })),
       ),
       Effect.catch(failedWith((payload) => Message.FailedReadMe({ pubkey, ...payload }))),
     ),
@@ -110,8 +127,8 @@ export const update = (me: Me, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     CompletedDetectMe: ({ maybeIdentity }) =>
       Option.match(maybeIdentity, { onNone: () => ({ model: Me.NoSigner() }), onSome: signerReady }),
-    SucceededReadMe: ({ pubkey, maybeName, wallets }) => ({
-      model: standingRead(me, pubkey, Standing.Known({ maybeName, wallets })),
+    SucceededReadMe: ({ pubkey, maybeName, wallets, agents }) => ({
+      model: standingRead(me, pubkey, Standing.Known({ maybeName, wallets, agents })),
     }),
     FailedReadMe: ({ pubkey, problem }) => ({ model: standingRead(me, pubkey, Standing.Failed({ problem })) }),
   })

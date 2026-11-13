@@ -10,7 +10,7 @@ import { buyerKey, requestId } from '../Fixtures.ts'
 // A request needs a signer, not a linked wallet: this buyer has none.
 const buyer = Me.Ready({
   identity: { signerKind: 'local', pubkey: buyerKey },
-  standing: Standing.Known({ maybeName: Option.none(), wallets: [] }),
+  standing: Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
 })
 
 const filledIn = [

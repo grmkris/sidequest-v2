@@ -1,6 +1,6 @@
 import { Effect, Schema } from 'effect'
 import { Command, Dom } from 'foldkit'
-import { load, pushUrl, replaceUrl, UrlRequest } from 'foldkit/navigation'
+import { load, pushUrl, UrlRequest } from 'foldkit/navigation'
 import { toString as urlToString, type Url } from 'foldkit/url'
 import { Message } from './Message.ts'
 
@@ -11,13 +11,6 @@ export const NavigateInternal = Command.define('NavigateInternal', {
   args: { href: Schema.String },
   messages: [Message.CompletedNavigate],
   execute: ({ href }) => pushUrl(href).pipe(Effect.as(Message.CompletedNavigate())),
-})
-
-/** Another page in place of this one, so Back skips it: where sign-in hands over. */
-export const ReplaceInternal = Command.define('ReplaceInternal', {
-  args: { href: Schema.String },
-  messages: [Message.CompletedNavigate],
-  execute: ({ href }) => replaceUrl(href).pipe(Effect.as(Message.CompletedNavigate())),
 })
 
 const LoadExternal = Command.define('LoadExternal', {

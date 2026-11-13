@@ -1,23 +1,14 @@
 import { JobView, type ProposalView } from '@sidequest/fold'
-import { AccountId, JobId, SessionView, Terms, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { Terms, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Schema } from 'effect'
 
 // Records as the API returns them, for the page tests. Times are fixed instants; the views format them in the
 // reader's time zone, so tests assert on amounts and words rather than on dates.
 
-export const ada = AccountId.make('account_01JQ0000000000000000000ADA')
-export const job = JobId.make('job_01JQ00000000000000000000J1')
 export const wallet = '0x1111111111111111111111111111111111111111'
 export const signature = `0x${'ab'.repeat(65)}`
 const day = 86_400
 export const now = 1_800_000_000
-
-/** Ada, signed in with her wallet (phase 1's session, which the agents and inbox pages still use). */
-export const adaSession = Schema.decodeSync(SessionView)({
-  account: ada,
-  wallet: `eip155:5042002:${wallet}`,
-  expiresAt: 1_800_600_000,
-})
 
 // Nostr: people are keys, a job is its request event's id.
 

@@ -14,7 +14,7 @@ import { bidderKey, now, otherKey } from '../Fixtures.ts'
 
 const seller = Me.Ready({
   identity: { signerKind: 'nip07', pubkey: bidderKey },
-  standing: Standing.Known({ maybeName: Option.some('Ben'), wallets: [] }),
+  standing: Standing.Known({ maybeName: Option.some('Ben'), wallets: [], agents: [] }),
 })
 
 const listing = Schema.decodeSync(IndexListingDetail)({

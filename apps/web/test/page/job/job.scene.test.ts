@@ -12,7 +12,7 @@ const page = withViewInputs(view, { timeZone: 'UTC', inboxConfigured: true })
 const ready = (pubkey: string, wallets: ReadonlyArray<string> = []) =>
   Me.Ready({
     identity: { signerKind: 'nip07', pubkey },
-    standing: Standing.Known({ maybeName: Option.none(), wallets }),
+    standing: Standing.Known({ maybeName: Option.none(), wallets, agents: [] }),
   })
 
 const first = proposalFrom(bidderKey, 'e1', '250000000', { superseded: true })

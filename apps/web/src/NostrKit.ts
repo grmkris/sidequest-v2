@@ -11,12 +11,14 @@ import {
   verifyEvent,
 } from '@sidequest/nostr'
 import {
+  agentGrant,
   type BuildOptions,
   buildSidequestEvent,
   type Delivered,
   deliveryHashOf,
   deliveryNote,
   DeliveryNoteContent,
+  grantRevocation,
   jobAccept,
   jobProposal,
   jobRequest,
@@ -217,6 +219,13 @@ export const deliveryNoteTemplate = (input: unknown, network: NetworkRef, create
 
 /** One side's review of the other once the job settled: a rating from 1 to 5 and a text. */
 export const reviewTemplate = (input: unknown, createdAt: number) => templateOf(jobReview, input, { createdAt })
+
+/** An operator lets one agent key act for them with these scopes, from `notBefore` until `expiresAt`, under a label. */
+export const grantTemplate = (input: unknown, createdAt: number) => templateOf(agentGrant, input, { createdAt })
+
+/** An operator ends one of their grants. */
+export const revocationTemplate = (grant: string, createdAt: number) =>
+  templateOf(grantRevocation, { grant }, { createdAt })
 
 /** A seller's NIP-99 listing; publishing it again under the same slug replaces the earlier version. */
 export const listingTemplate = (input: unknown, createdAt: number): Effect.Effect<Option.Option<EventTemplate>> =>

@@ -20,10 +20,6 @@ export type FormStatus = typeof FormStatus.Type
 export const editedStatus = (status: FormStatus): FormStatus =>
   FormStatus.guards.Submitting(status) ? status : FormStatus.Editing()
 
-/** The problem a refused submission met, if it did. */
-export const formProblem = (status: FormStatus): Option.Option<Problem> =>
-  FormStatus.guards.Failed(status) ? Option.some(status.problem) : Option.none()
-
 /** Field errors show only once a submission found the form wanting. */
 const showsErrors = (status: FormStatus): boolean => FormStatus.guards.Invalid(status)
 

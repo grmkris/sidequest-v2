@@ -1,18 +1,33 @@
 import { format } from '@sidequest/i18n'
-import type { Agent, AgentToken, GrantScope } from '@sidequest/protocol'
-import { Array, Option, Redacted } from 'effect'
+import type { AgentGrantStatus, AgentGrantView, GrantScope } from '@sidequest/protocol'
+import { Array, Option } from 'effect'
 import { AsyncData, type Html, Submodel } from 'foldkit'
-import { dayChoices, FormStatus, formProblem, shown } from '../Forms.ts'
-import { signedInOnly } from '../Gate.ts'
+import { dayChoices } from '../Forms.ts'
+import { signerOnly } from '../Gate.ts'
 import type { Language } from '../Language.ts'
-import { AppRoute, connectionsRouter } from '../route.ts'
-import type { Session } from '../Session.ts'
+import { shortNpub } from '../Names.ts'
+import { gatewayRefusalText } from '../Gateway.ts'
+import { refusalText, signerFailureText } from '../Publishing.ts'
+import { AppRoute, identityHref } from '../route.ts'
 import { styled } from '../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
-import { Action, Issue, Message, type Model, type Panel } from './Agents.ts'
+import {
+  type Act,
+  Action,
+  type AgentEntry,
+  AgentsFailure,
+  type GrantChoice,
+  grantOf,
+  Message,
+  type Model,
+  type Panel,
+} from './Agents.ts'
 import * as as from './Agents.styles.ts'
+import * as DelegationView from './DelegationView.ts'
+
+type Reader = { readonly model: Model; readonly language: Language; readonly timeZone: string; readonly me: string }
 
 const scopeKeys: ReadonlyArray<{ readonly scope: GrantScope; readonly label: PlainKey; readonly hint: PlainKey }> = [
   { scope: 'discuss', label: 'agents.scope.discuss', hint: 'agents.scope.discussHint' },
@@ -21,248 +36,345 @@ const scopeKeys: ReadonlyArray<{ readonly scope: GrantScope; readonly label: Pla
   { scope: 'deliver', label: 'agents.scope.deliver', hint: 'agents.scope.deliverHint' },
 ]
 
-export const scopeLabel = (language: Language, scope: GrantScope): string =>
+const scopeLabel = (language: Language, scope: GrantScope): string =>
   Option.match(
     Array.findFirst(scopeKeys, (entry) => entry.scope === scope),
     { onNone: () => scope, onSome: (entry) => say(language, entry.label) },
   )
 
-/** Where the page is read: the origin agents connect to, and the time zone dates are drawn in. */
-type Reader = { readonly origin: string; readonly timeZone: string }
+const statusKeys: Readonly<Record<AgentGrantStatus, PlainKey>> = {
+  active: 'agents.status.active',
+  expired: 'agents.status.expired',
+  notYet: 'agents.status.notYet',
+  revoked: 'agents.status.revoked',
+}
 
-const grantSummary = (h: Html.HtmlBuilder<Message>, language: Language, agent: Agent, timeZone: string) => {
-  if (agent.revoked) {
-    return Ui.chip(h, say(language, 'agents.revoked'), 'danger')
-  }
-  return Option.match(Option.fromNullishOr(agent.grant), {
-    onNone: () => Ui.chip(h, say(language, 'agents.noGrant')),
+const actKeys: Readonly<Record<Act, PlainKey>> = {
+  create: 'agents.done.create',
+  grant: 'agents.done.grant',
+  revoke: 'agents.done.revoke',
+  pause: 'agents.done.pause',
+  resume: 'agents.done.resume',
+  delete: 'agents.done.delete',
+}
+
+/** Why an act failed, in one sentence; a signer that is not ready links to the identity page. */
+export const failureNotice = (h: Html.HtmlBuilder<Message>, language: Language, failure: AgentsFailure) =>
+  AgentsFailure.match(failure, {
+    Gateway: ({ refusal }) => Ui.notice(h, 'danger', [h.p([], [gatewayRefusalText(language, refusal)])]),
+    Index: ({ refusal }) => Ui.notice(h, 'danger', [h.p([], [refusalText(language, refusal)])]),
+    SignerFailed: ({ reason }) =>
+      Ui.notice(h, 'danger', [
+        h.p([], [signerFailureText(language, reason)]),
+        h.p([], [h.a([h.Href(identityHref(AppRoute.Agents()))], [say(language, 'me.setUpLink')])]),
+      ]),
+    Failed: ({ problem }) => Ui.problemNotice(h, language, problem),
+  })
+
+/** What the last act did, shown beside the agent it was about, or above the list for a new one. */
+const actionNotice = (
+  h: Html.HtmlBuilder<Message>,
+  language: Language,
+  action: Action,
+  agent: Option.Option<string>,
+) => {
+  const about = (maybeAgent: Option.Option<string>) =>
+    Option.match(maybeAgent, { onNone: () => Option.isNone(agent), onSome: (one) => Option.contains(agent, one) })
+  return Action.match(action, {
+    Idle: () => h.empty,
+    ConfirmingDelete: () => h.empty,
+    Working: ({ maybeAgent }) => (about(maybeAgent) ? Ui.waiting(h, say(language, 'agents.working')) : h.empty),
+    Done: ({ maybeAgent, act }) =>
+      about(maybeAgent) ? Ui.notice(h, 'done', [h.p([], [say(language, actKeys[act])])]) : h.empty,
+    Failed: ({ maybeAgent, failure }) => (about(maybeAgent) ? failureNotice(h, language, failure) : h.empty),
+  })
+}
+
+const scopeChoice = (
+  h: Html.HtmlBuilder<Message>,
+  idPrefix: string,
+  language: Language,
+  grant: GrantChoice,
+  entry: (typeof scopeKeys)[number],
+  onToggle: (scope: GrantScope, checked: boolean) => Message,
+) => {
+  const id = `${idPrefix}-scope-${entry.scope}`
+  const checked = grant.scopes.includes(entry.scope)
+  return h.keyed('div')(entry.scope, styled(h, as.scope()), [
+    h.input([
+      h.Id(id),
+      h.Type('checkbox'),
+      h.Value(entry.scope),
+      h.Checked(checked),
+      h.AriaDescribedBy(`${id}-hint`),
+      h.OnChange(() => onToggle(entry.scope, !checked)),
+    ]),
+    h.span(
+      [],
+      [
+        h.label([h.For(id), ...styled(h, s.label())], [say(language, entry.label)]),
+        h.span([h.Id(`${id}-hint`), ...styled(h, s.hint())], [say(language, entry.hint)]),
+      ],
+    ),
+  ])
+}
+
+/** The scopes and the days a grant gives. */
+const grantFields = (
+  h: Html.HtmlBuilder<Message>,
+  config: {
+    readonly idPrefix: string
+    readonly language: Language
+    readonly grant: GrantChoice
+    readonly invalid: boolean
+    readonly onToggle: (scope: GrantScope, checked: boolean) => Message
+    readonly onDays: (value: string) => Message
+  },
+) => {
+  const { idPrefix, language, grant } = config
+  return [
+    h.fieldset(styled(h, s.choices()), [
+      h.legend(styled(h, s.legend()), [say(language, 'agents.scopes')]),
+      ...scopeKeys.map((entry) => scopeChoice(h, idPrefix, language, grant, entry, config.onToggle)),
+    ]),
+    config.invalid && Array.isReadonlyArrayEmpty(grant.scopes)
+      ? h.p(styled(h, s.fieldError()), [say(language, 'agents.pickScope')])
+      : h.empty,
+    Ui.selectField(h, {
+      id: `${idPrefix}-days`,
+      label: say(language, 'agents.validFor'),
+      value: grant.days,
+      options: dayChoices.map((days) => ({
+        value: days,
+        label: format(language, 'form.days', { count: Number(days) }),
+      })),
+      onChange: config.onDays,
+    }),
+  ]
+}
+
+const createForm = (h: Html.HtmlBuilder<Message>, { model, language }: Reader) =>
+  h.form(
+    [h.OnSubmit(Message.SubmittedCreate()), h.Novalidate(true), ...styled(h, s.form())],
+    [
+      Ui.textField(h, {
+        id: 'agent-label',
+        label: say(language, 'agents.label'),
+        hint: say(language, 'agents.labelHint'),
+        value: model.draft.label,
+        onInput: (value) => Message.UpdatedLabel({ value }),
+        error:
+          model.draft.invalid && (model.draft.label.trim() === '' || model.draft.label.trim().length > 120)
+            ? Option.some(format(language, 'agents.labelError', { max: 120 }))
+            : Option.none(),
+        required: true,
+      }),
+      ...grantFields(h, {
+        idPrefix: 'new',
+        language,
+        grant: model.draft.grant,
+        invalid: model.draft.invalid,
+        onToggle: (scope, checked) => Message.ToggledScope({ scope, checked }),
+        onDays: (value) => Message.SelectedDays({ value }),
+      }),
+      h.p(styled(h, s.hint()), [say(language, 'agents.createNote')]),
+      actionNotice(h, language, model.action, Option.none()),
+      h.div(styled(h, s.actions()), [
+        Ui.submit(h, {
+          label: say(language, 'agents.create'),
+          busy: Action.guards.Working(model.action) && model.action.act === 'create',
+        }),
+      ]),
+    ],
+  )
+
+const statusChip = (h: Html.HtmlBuilder<Message>, language: Language, maybeGrant: Option.Option<AgentGrantView>) =>
+  Option.match(maybeGrant, {
+    onNone: () => Ui.chip(h, say(language, 'agents.status.none')),
     onSome: (grant) =>
-      h.span(styled(h, s.meta()), [
+      Ui.chip(
+        h,
+        say(language, statusKeys[grant.status]),
+        grant.status === 'active' ? 'done' : grant.status === 'revoked' ? 'danger' : 'neutral',
+      ),
+  })
+
+const grantLine = (
+  h: Html.HtmlBuilder<Message>,
+  { language, timeZone }: Reader,
+  maybeGrant: Option.Option<AgentGrantView>,
+) =>
+  Option.match(maybeGrant, {
+    onNone: () => h.p(styled(h, s.meta()), [say(language, 'agents.noGrant')]),
+    onSome: (grant) =>
+      h.p(styled(h, s.meta()), [
         format(language, 'agents.grantSummary', {
           scopes: grant.scopes.map((scope) => scopeLabel(language, scope)).join(', '),
           date: formatInstant(grant.expiresAt, language, timeZone),
         }),
       ]),
   })
-}
 
-const scopeChoice = (
-  h: Html.HtmlBuilder<Message>,
-  language: Language,
-  panel: Panel,
-  entry: (typeof scopeKeys)[number],
-) =>
-  h.keyed('div')(entry.scope, styled(h, as.scope()), [
-    h.input([
-      h.Id(`scope-${entry.scope}`),
-      h.Type('checkbox'),
-      h.Name('scope'),
-      h.Value(entry.scope),
-      h.Checked(panel.scopes.includes(entry.scope)),
-      h.AriaDescribedBy(`scope-${entry.scope}-hint`),
-      h.OnChange(() => Message.ToggledScope({ scope: entry.scope, checked: !panel.scopes.includes(entry.scope) })),
-    ]),
-    h.span(
-      [],
-      [
-        h.label([h.For(`scope-${entry.scope}`), ...styled(h, s.label())], [say(language, entry.label)]),
-        h.span([h.Id(`scope-${entry.scope}-hint`), ...styled(h, s.hint())], [say(language, entry.hint)]),
-      ],
-    ),
-  ])
+/** How to connect an MCP client to the agent: the gateway's MCP URL, and where consent happens. */
+const connectSection = (h: Html.HtmlBuilder<Message>, { model, language }: Reader) =>
+  h.section(
+    [h.AriaLabelledBy('agent-connect'), ...styled(h, s.section())],
+    [
+      h.h3([h.Id('agent-connect')], [say(language, 'agents.connectTitle')]),
+      Option.match(model.maybeGatewayUrl, {
+        onNone: () => h.empty,
+        onSome: (gateway) =>
+          h.div(styled(h, s.section()), [
+            h.p([], [say(language, 'agents.connectUrl')]),
+            h.p([h.Id('agent-mcp-url')], [Ui.dataText(h, `${gateway}/mcp`)]),
+            h.p(styled(h, s.hint()), [say(language, 'agents.connectConsent')]),
+          ]),
+      }),
+    ],
+  )
 
-const grantForm = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel) =>
+const regrantForm = (h: Html.HtmlBuilder<Message>, { language, model }: Reader, panel: Panel) =>
   h.form(
     [h.OnSubmit(Message.SubmittedGrant()), ...styled(h, s.form())],
     [
-      h.fieldset(styled(h, s.choices()), [
-        h.legend(styled(h, s.legend()), [say(language, 'agents.scopes')]),
-        ...scopeKeys.map((entry) => scopeChoice(h, language, panel, entry)),
-      ]),
-      Option.match(shown(panel.grant, Option.some(say(language, 'agents.pickScope'))), {
-        onNone: () => h.empty,
-        onSome: (error) => h.p(styled(h, s.fieldError()), [error]),
+      ...grantFields(h, {
+        idPrefix: 'panel',
+        language,
+        grant: panel.grant,
+        invalid: false,
+        onToggle: (scope, checked) => Message.ToggledPanelScope({ scope, checked }),
+        onDays: (value) => Message.SelectedPanelDays({ value }),
       }),
-      Ui.selectField(h, {
-        id: 'grant-days',
-        label: say(language, 'agents.validFor'),
-        value: panel.days,
-        options: dayChoices.map((days) => ({
-          value: days,
-          label: format(language, 'form.days', { count: Number(days) }),
-        })),
-        onChange: (value) => Message.SelectedGrantDays({ value }),
-      }),
-      Ui.maybeProblem(h, language, formProblem(panel.grant)),
       h.div(styled(h, s.actions()), [
-        Ui.submit(h, { label: say(language, 'agents.saveGrant'), busy: FormStatus.guards.Submitting(panel.grant) }),
+        Ui.submit(h, {
+          label: say(language, 'agents.grant'),
+          busy: Action.guards.Working(model.action) && model.action.act === 'grant',
+        }),
       ]),
     ],
   )
 
-const issuedView = (h: Html.HtmlBuilder<Message>, language: Language, issue: Issue) =>
-  Issue.match(issue, {
-    Idle: () => h.empty,
-    Issuing: () => h.empty,
-    Failed: ({ problem }) => Ui.problemNotice(h, language, problem),
-    Issued: ({ token, copied }) =>
-      Ui.notice(h, 'done', [
-        h.p([], [say(language, 'agents.tokenOnce')]),
-        h.p([h.Id('issued-token'), ...styled(h, as.token())], [Redacted.value(token)]),
+const deleteControls = (h: Html.HtmlBuilder<Message>, { model, language }: Reader, agent: AgentEntry) =>
+  Action.guards.ConfirmingDelete(model.action) && model.action.agent === agent.agent
+    ? Ui.notice(h, 'neutral', [
+        h.p([], [say(language, 'agents.deleteConfirm')]),
         h.div(styled(h, s.actions()), [
           Ui.button(h, {
-            label: copied ? say(language, 'agents.copied') : say(language, 'agents.copy'),
-            onClick: Message.ClickedCopyToken(),
-            kind: 'primary',
-          }),
-          Ui.button(h, { label: say(language, 'agents.stored'), onClick: Message.ClickedDismissToken() }),
-        ]),
-      ]),
-  })
-
-const tokenRow = (h: Html.HtmlBuilder<Message>, language: Language, token: AgentToken, timeZone: string) =>
-  h.keyed('li')(token.id, styled(h, s.row()), [
-    h.p(
-      [],
-      [
-        format(language, 'agents.tokenIssued', {
-          issued: formatInstant(token.issuedAt, language, timeZone),
-          expires: formatInstant(token.expiresAt, language, timeZone),
-        }),
-      ],
-    ),
-    token.revokedAt === null
-      ? h.div(styled(h, s.actions()), [
-          Ui.button(h, {
-            label: say(language, 'agents.revokeToken'),
-            onClick: Message.ClickedRevokeToken({ token: token.id }),
+            label: say(language, 'agents.delete'),
+            onClick: Message.ClickedConfirmDelete(),
             kind: 'destructive',
           }),
-        ])
-      : Ui.chip(h, say(language, 'agents.tokenRevoked')),
-  ])
+          Ui.button(h, { label: say(language, 'common.cancel'), onClick: Message.ClickedKeep() }),
+        ]),
+      ])
+    : Ui.button(h, {
+        label: say(language, 'agents.delete'),
+        onClick: Message.ClickedDelete({ agent: agent.agent }),
+        kind: 'destructive',
+      })
 
-const tokensView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, reader: Reader) =>
-  h.section(
-    [h.AriaLabelledBy('agent-tokens'), ...styled(h, s.section())],
-    [
-      h.h3([h.Id('agent-tokens')], [say(language, 'agents.tokens')]),
-      h.p(styled(h, s.meta()), [format(language, 'agents.endpoint', { url: `${reader.origin}/mcp` })]),
-      h.div(styled(h, s.actions()), [
-        Ui.button(h, {
-          label: say(language, 'agents.issue'),
-          onClick: Message.ClickedIssueToken(),
-          busy: Issue.guards.Issuing(panel.issue),
-        }),
-      ]),
-      issuedView(h, language, panel.issue),
-      AsyncData.matchData(panel.tokens, {
-        onEmpty: () => Ui.waiting(h, say(language, 'agents.tokensLoading')),
-        onFailure: (problem) => Ui.problemNotice(h, language, problem),
-        onData: (tokens) =>
-          Array.match(tokens, {
-            onEmpty: () => h.p(styled(h, s.meta()), [say(language, 'agents.noTokens')]),
-            onNonEmpty: (items) =>
-              h.ul(
-                [h.AriaLabel(say(language, 'agents.tokens')), ...styled(h, s.rows())],
-                items.map((token) => tokenRow(h, language, token, reader.timeZone)),
-              ),
-          }),
-      }),
-    ],
-  )
-
-const panelView = (h: Html.HtmlBuilder<Message>, language: Language, panel: Panel, agent: Agent, reader: Reader) =>
-  h.div(styled(h, as.panel()), [
-    agent.revoked ? h.p(styled(h, s.meta()), [say(language, 'agents.revokedNote')]) : grantForm(h, language, panel),
-    agent.revoked ? h.empty : tokensView(h, language, panel, reader),
-    agent.revoked
-      ? h.empty
-      : h.div(styled(h, s.actions()), [
+const panelView = (
+  h: Html.HtmlBuilder<Message>,
+  reader: Reader,
+  agent: AgentEntry,
+  panel: Panel,
+  maybeGrant: Option.Option<AgentGrantView>,
+) => {
+  const { model, language } = reader
+  const active = Option.filter(maybeGrant, (grant) => grant.status === 'active')
+  return h.div(styled(h, as.panel()), [
+    Option.match(active, {
+      onNone: () => regrantForm(h, reader, panel),
+      onSome: (grant) =>
+        h.div(styled(h, s.actions()), [
           Ui.button(h, {
-            label: say(language, 'agents.revokeAgent'),
-            onClick: Message.ClickedRevokeAgent(),
+            label: say(language, 'agents.revoke'),
+            onClick: Message.ClickedRevoke({ agent: agent.agent, grant: grant.event }),
             kind: 'destructive',
-            busy: Action.guards.Working(panel.revoke),
           }),
         ]),
-    Action.guards.Failed(panel.revoke) ? Ui.problemNotice(h, language, panel.revoke.problem) : h.empty,
+    }),
     h.div(styled(h, s.actions()), [
-      Ui.button(h, { label: say(language, 'agents.close'), onClick: Message.ClickedClose() }),
+      agent.paused
+        ? Ui.button(h, {
+            label: say(language, 'agents.resume'),
+            onClick: Message.ClickedResume({ agent: agent.agent }),
+          })
+        : Ui.button(h, { label: say(language, 'agents.pause'), onClick: Message.ClickedPause({ agent: agent.agent }) }),
+      deleteControls(h, reader, agent),
+    ]),
+    connectSection(h, reader),
+    h.submodel({
+      slotId: 'delegation',
+      model: model.delegation,
+      view: DelegationView.view,
+      viewInputs: { agent: agent.agent, label: agent.label, me: reader.me, timeZone: reader.timeZone },
+      toParentMessage: (message) => Message.GotDelegationMessage({ message }),
+    }),
+    h.div(styled(h, s.actions()), [
+      Ui.button(h, { label: say(language, 'agents.close'), onClick: Message.ClickedClosePanel() }),
     ]),
   ])
+}
 
-const agentRow = (h: Html.HtmlBuilder<Message>, model: Model, agent: Agent, reader: Reader) => {
-  const maybeOpen = Option.filter(model.maybePanel, (panel) => panel.agent === agent.id)
-  return h.keyed('li')(agent.id, styled(h, s.row()), [
+const agentRow = (h: Html.HtmlBuilder<Message>, reader: Reader, agent: AgentEntry) => {
+  const { model, language } = reader
+  const maybeGrant = Option.flatMap(AsyncData.getData(model.grants), (grants) => grantOf(grants, agent.agent))
+  const maybePanel = Option.filter(model.maybePanel, (panel) => panel.agent === agent.agent)
+  return h.keyed('li')(agent.agent, styled(h, s.row()), [
     h.div(styled(h, s.sectionHead()), [
-      h.h2(styled(h, s.rowTitle()), [agent.name]),
-      Option.isSome(maybeOpen)
+      h.h2(styled(h, s.rowTitle()), [agent.label]),
+      Option.isSome(maybePanel)
         ? h.empty
         : Ui.button(h, {
-            label: say(model.language, 'agents.manage'),
-            onClick: Message.ClickedManage({ agent: agent.id }),
+            label: say(language, 'agents.manage'),
+            onClick: Message.ClickedManage({ agent: agent.agent }),
           }),
     ]),
-    grantSummary(h, model.language, agent, reader.timeZone),
-    Option.match(maybeOpen, {
+    h.p(styled(h, s.meta()), [h.span([h.Title(agent.agent)], [shortNpub(agent.agent)])]),
+    h.div(styled(h, s.actions()), [
+      statusChip(h, language, maybeGrant),
+      agent.paused ? Ui.chip(h, say(language, 'agents.paused'), 'danger') : h.empty,
+      Ui.chip(h, format(language, 'agents.connections', { count: agent.connections })),
+    ]),
+    grantLine(h, reader, maybeGrant),
+    actionNotice(h, language, model.action, Option.some(agent.agent)),
+    Option.match(maybePanel, {
       onNone: () => h.empty,
-      onSome: (panel) => panelView(h, model.language, panel, agent, reader),
+      onSome: (panel) => panelView(h, reader, agent, panel, maybeGrant),
     }),
   ])
 }
 
-const registerForm = (h: Html.HtmlBuilder<Message>, model: Model) =>
-  h.form(
-    [h.OnSubmit(Message.SubmittedAgent()), h.Novalidate(true), ...styled(h, s.form())],
-    [
-      Ui.textField(h, {
-        id: 'agent-name',
-        label: say(model.language, 'agents.name'),
-        hint: say(model.language, 'agents.nameHint'),
-        value: model.name,
-        onInput: (value) => Message.UpdatedName({ value }),
-        error: shown(model.register, Option.some(format(model.language, 'agents.nameError', { max: 80 }))),
-        required: true,
+const agentsList = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
+  AsyncData.matchData(reader.model.agents, {
+    onEmpty: () => Ui.waiting(h, say(reader.language, 'agents.loading')),
+    onFailure: (failure) => failureNotice(h, reader.language, failure),
+    onData: (agents) =>
+      Array.match(agents, {
+        onEmpty: () => h.p(styled(h, s.meta()), [say(reader.language, 'agents.empty')]),
+        onNonEmpty: (items) =>
+          h.ul(
+            [h.AriaLabel(say(reader.language, 'agents.title')), ...styled(h, s.rows())],
+            items.map((agent) => agentRow(h, reader, agent)),
+          ),
       }),
-      Ui.maybeProblem(h, model.language, formProblem(model.register)),
-      h.div(styled(h, s.actions()), [
-        Ui.submit(h, {
-          label: say(model.language, 'agents.register'),
-          busy: FormStatus.guards.Submitting(model.register),
-        }),
-      ]),
-    ],
-  )
+  })
 
-const agentsView = (h: Html.HtmlBuilder<Message>, model: Model, reader: Reader) =>
+const agentsView = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
   h.div(styled(h, s.page()), [
-    h.section([h.AriaLabel(say(model.language, 'agents.register')), ...styled(h, s.panel())], [registerForm(h, model)]),
-    AsyncData.matchData(model.agents, {
-      onEmpty: () => Ui.waiting(h, say(model.language, 'agents.loading')),
-      onFailure: (problem) => Ui.problemNotice(h, model.language, problem),
-      onData: (agents) =>
-        Array.match(agents, {
-          onEmpty: () => h.p(styled(h, s.meta()), [say(model.language, 'agents.empty')]),
-          onNonEmpty: (items) =>
-            h.ul(
-              [h.AriaLabel(say(model.language, 'agents.title')), ...styled(h, s.rows())],
-              items.map((agent) => agentRow(h, model, agent, reader)),
-            ),
-        }),
-    }),
+    h.section([h.AriaLabel(say(reader.language, 'agents.create')), ...styled(h, s.panel())], [createForm(h, reader)]),
+    agentsList(h, reader),
   ])
 
-export const view = Submodel.defineView<Model, Message, Reader & { readonly session: Session }>(
-  (model, { session, ...reader }, h) =>
-    h.div(styled(h, s.page()), [
-      Ui.pageHead(h, say(model.language, 'agents.title'), [
-        say(model.language, 'agents.lede'),
-        ' ',
-        h.a([h.Href(connectionsRouter())], [say(model.language, 'agents.connections')]),
-      ]),
-      signedInOnly(h, { language: model.language, session, route: AppRoute.Agents() }, () =>
-        agentsView(h, model, reader),
-      ),
-    ]),
-)
+export const view = Submodel.defineView<Model, Message, { readonly timeZone: string }>((model, { timeZone }, h) => {
+  const language = model.language
+  return h.div(styled(h, s.page()), [
+    Ui.pageHead(h, say(language, 'agents.title'), [say(language, 'agents.lede')]),
+    Option.isNone(model.maybeGatewayUrl)
+      ? Ui.notice(h, 'neutral', [h.p([], [say(language, 'agents.unavailable')])])
+      : signerOnly(h, { language, me: model.me, route: AppRoute.Agents() }, (identity) =>
+          agentsView(h, { model, language, timeZone, me: identity.pubkey }),
+        ),
+  ])
+})

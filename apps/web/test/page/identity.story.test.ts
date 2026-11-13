@@ -29,6 +29,7 @@ const linked = {
   maybeName: Option.some('Ada'),
   wallets: [{ account, verification: 'verified' }],
   inboxRelays: [],
+  agents: [],
 } as const
 const fresh = init('en', Option.none(), []).model
 
@@ -53,7 +54,10 @@ describe('a person’s Nostr identity', () => {
       Command.expectExact(ReadPerson({ pubkey })),
       Command.resolve(ReadPerson, Message.CompletedReadUnknownPerson()),
       expectOutMessage(
-        OutMessage.StandingRead({ pubkey, standing: Standing.Known({ maybeName: Option.none(), wallets: [] }) }),
+        OutMessage.StandingRead({
+          pubkey,
+          standing: Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
+        }),
       ),
       model((page) => expect(page.person).toEqual(PersonRead.Unknown())),
     )
@@ -103,7 +107,7 @@ describe('a person’s Nostr identity', () => {
       expectOutMessage(
         OutMessage.StandingRead({
           pubkey,
-          standing: Standing.Known({ maybeName: Option.some('Ada'), wallets: [account] }),
+          standing: Standing.Known({ maybeName: Option.some('Ada'), wallets: [account], agents: [] }),
         }),
       ),
       model((page) => expect(page.person).toEqual(PersonRead.Read({ person: linked }))),

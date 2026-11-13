@@ -1,17 +1,14 @@
-import { Effect, Option } from 'effect'
+import { Effect } from 'effect'
 import { Command, type Runtime, type Update } from 'foldkit'
 import { modifyFields } from 'foldkit/struct'
 import type { Url } from 'foldkit/url'
-import { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
 import { Flags, Model } from './Model.ts'
-import { FocusTitle, followLink, NavigateInternal } from './Navigation.ts'
+import { FocusTitle, followLink } from './Navigation.ts'
 import { DetectMe, Me } from './Me.ts'
-import { Preload, SessionRead } from './Preload.ts'
+import { Preload } from './Preload.ts'
 import {
   foldAgents,
-  foldConnect,
-  foldConnections,
   foldHome,
   foldHomeSearch,
   foldEvidence,
@@ -22,27 +19,15 @@ import {
   foldMe,
   foldNewListing,
   foldNewRequest,
-  foldSignIn,
   openPage,
   type Services,
   subscriptions,
 } from './Page.ts'
-import { Problem, problemOf } from './Problem.ts'
-import { AppRoute, homeRouter, routeFromUrl } from './route.ts'
-import { Session } from './Session.ts'
+import { AppRoute, routeFromUrl } from './route.ts'
 
 export { Flags, Message, Model, subscriptions }
 
 // COMMAND
-
-const ReadSession = Command.define('ReadSession', {
-  messages: [Message.SucceededReadSession, Message.FailedReadSession],
-  execute: Effect.gen(function* () {
-    const api = yield* (yield* SidequestClient).api
-    const session = yield* api.session.current()
-    return Message.SucceededReadSession({ session })
-  }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedReadSession({ problem: problemOf(error) })))),
-})
 
 /** The browser's own time zone, which dates are drawn in once the page has hydrated. */
 const ReadTimeZone = Command.define('ReadTimeZone', {
@@ -52,41 +37,22 @@ const ReadTimeZone = Command.define('ReadTimeZone', {
   ),
 })
 
-export const SignOut = Command.define('SignOut', {
-  messages: [Message.SucceededSignOut, Message.FailedSignOut],
-  execute: Effect.gen(function* () {
-    const api = yield* (yield* SidequestClient).api
-    yield* api.session.signOut()
-    return Message.SucceededSignOut()
-  }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedSignOut({ problem: problemOf(error) })))),
-})
-
 // INIT
 
 type UpdateReturn = Update.Return<Model, Message, Services>
 
-/** The session as the server found it; when it did not read it, the browser reads it if it holds a session cookie. */
-const sessionFrom = (flags: Flags): Session =>
-  SessionRead.match(flags.sessionRead, {
-    SignedIn: ({ session }) => Session.SignedIn({ session }),
-    SignedOut: () => Session.SignedOut(),
-    Unread: () => (flags.hasSessionCookie ? Session.Checking() : Session.SignedOut()),
-  })
-
-/** The page the address names with the data the server read for it, and the session. The server renders from the same
- * Flags, so hydration adopts its HTML as it is and reads only what the server did not: the browser's time zone, the
- * session when the server could not read it, and the page's data when the server's read failed. The Nostr signer lives
- * in the browser alone, so the server renders it as being looked for and the browser then looks. */
+/** The page the address names with the data the server read for it. The server renders from the same Flags, so
+ * hydration adopts its HTML as it is and reads only what the server did not: the browser's time zone, and the page's
+ * data when the server's read failed. The person is their Nostr signer, which lives in the browser alone, so the server
+ * renders it as being looked for and the browser then looks: the server never knows who the visitor is. */
 export const init: Runtime.RoutingApplicationInit<Model, Message, Flags, Services> = (flags: Flags, url: Url) => {
   const route = routeFromUrl(url)
-  const session = sessionFrom(flags)
   const me = Me.Detecting()
-  const opened = openPage(flags, route, session, me, flags.preload)
+  const opened = openPage(flags, route, me, flags.preload)
   return {
-    model: { flags, route, session, me, maybeShellProblem: Option.none(), page: opened.model },
+    model: { flags, route, me, page: opened.model },
     commands: [
       ReadTimeZone(),
-      ...(Session.guards.Checking(session) ? [ReadSession()] : []),
       Command.mapMessage(DetectMe(), (message) => Message.GotMeMessage({ message })),
       ...(opened.commands ?? []),
     ],
@@ -95,35 +61,17 @@ export const init: Runtime.RoutingApplicationInit<Model, Message, Flags, Service
 
 // UPDATE
 
-const signOut: Update.Step<Model, Message, Services> = (model) => {
-  const current = model.session
-  return Session.guards.SignedIn(current)
-    ? {
-        model: modifyFields(model, { session: () => Session.SigningOut({ session: current.session }) }),
-        commands: [SignOut()],
-      }
-    : { model }
-}
-
 const changedUrl = (model: Model, url: Url): UpdateReturn => {
   const route = routeFromUrl(url)
   if (AppRoute.guards.Home(model.route) && AppRoute.guards.Home(route)) {
     return foldHomeSearch(modifyFields(model, { route: () => route }), route.q)
   }
-  const opened = openPage(model.flags, route, model.session, model.me, Preload.Nothing())
+  const opened = openPage(model.flags, route, model.me, Preload.Nothing())
   return {
-    model: modifyFields(model, {
-      route: () => route,
-      page: () => opened.model,
-      maybeShellProblem: () => Option.none(),
-    }),
+    model: modifyFields(model, { route: () => route, page: () => opened.model }),
     commands: [...(opened.commands ?? []), FocusTitle()],
   }
 }
-
-const sessionRead = (model: Model, session: Session): UpdateReturn => ({
-  model: modifyFields(model, { session: () => session }),
-})
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
@@ -134,32 +82,14 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     CompletedReadTimeZone: ({ timeZone }) => ({
       model: modifyFields(model, { flags: (flags) => modifyFields(flags, { timeZone: () => timeZone }) }),
     }),
-    SucceededReadSession: ({ session }) => sessionRead(model, Session.SignedIn({ session })),
-    FailedReadSession: ({ problem }) =>
-      sessionRead(model, Problem.guards.NotSignedIn(problem) ? Session.SignedOut() : Session.Unknown({ problem })),
-    ClickedSignOut: () => signOut(model),
-    SucceededSignOut: () => ({
-      model: modifyFields(model, { session: () => Session.SignedOut() }),
-      commands: [NavigateInternal({ href: homeRouter({ q: Option.none() }) })],
-    }),
-    FailedSignOut: ({ problem }) => ({
-      model: modifyFields(model, {
-        session: (session) =>
-          Session.guards.SigningOut(session) ? Session.SignedIn({ session: session.session }) : session,
-        maybeShellProblem: () => Option.some(problem),
-      }),
-    }),
     GotMeMessage: ({ message: meMessage }) => foldMe(model, meMessage),
     GotHomeMessage: ({ message: homeMessage }) => foldHome(model, homeMessage),
-    GotSignInMessage: ({ message: signInMessage }) => foldSignIn(signOut)(model, signInMessage),
     GotNewListingMessage: ({ message: newListingMessage }) => foldNewListing(model, newListingMessage),
     GotListingMessage: ({ message: listingMessage }) => foldListing(model, listingMessage),
     GotNewRequestMessage: ({ message: newRequestMessage }) => foldNewRequest(model, newRequestMessage),
     GotJobMessage: ({ message: jobMessage }) => foldJob(model, jobMessage),
     GotInboxMessage: ({ message: inboxMessage }) => foldInbox(model, inboxMessage),
     GotAgentsMessage: ({ message: agentsMessage }) => foldAgents(model, agentsMessage),
-    GotConnectMessage: ({ message: connectMessage }) => foldConnect(model, connectMessage),
-    GotConnectionsMessage: ({ message: connectionsMessage }) => foldConnections(model, connectionsMessage),
     GotIdentityMessage: ({ message: identityMessage }) => foldIdentity(model, identityMessage),
     GotEvidenceMessage: ({ message: evidenceMessage }) => foldEvidence(model, evidenceMessage),
   })

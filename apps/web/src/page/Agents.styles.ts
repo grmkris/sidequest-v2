@@ -21,13 +21,3 @@ export const scope = style({
   '& > input': { inlineSize: '20px', blockSize: '20px', marginBlockStart: '2px' },
   '& > span': { display: 'grid', gap: '2px' },
 })
-/** A token shown once: selectable as a whole and wrapped anywhere, as people copy it by hand too. */
-export const token = style({
-  fontFamily: 'data',
-  fontSize: 'small',
-  overflowWrap: 'anywhere',
-  userSelect: 'all',
-  padding: '10px',
-  borderRadius: 'field',
-  backgroundColor: 'stock',
-})

@@ -33,8 +33,5 @@ export const formatDuration = (seconds: number, language: Language): string => {
   return format(language, 'time.minutes', { count: Math.ceil(seconds / minute) })
 }
 
-/** An account, agent or token id short enough to recognise: the last six characters of its ULID. */
-export const shortId = (id: string): string => id.slice(-6)
-
 /** A long hex value with its middle elided: `0x1234…cdef`. The whole value stays in the element's title. */
 export const shortHex = (hex: string): string => (hex.length <= 14 ? hex : `${hex.slice(0, 6)}…${hex.slice(-4)}`)

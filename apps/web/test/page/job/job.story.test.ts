@@ -32,7 +32,7 @@ import { buyerAccount, buyerWallet, moneyJob, payment } from './MoneyFixtures.ts
 const ready = (pubkey: string, wallets: ReadonlyArray<string> = []) =>
   Me.Ready({
     identity: { signerKind: 'nip07', pubkey },
-    standing: Standing.Known({ maybeName: Option.none(), wallets }),
+    standing: Standing.Known({ maybeName: Option.none(), wallets, agents: [] }),
   })
 const bidder = ready(bidderKey, [bidderAccount])
 const buyer = ready(buyerKey)

@@ -8,9 +8,6 @@ import {
   ForbiddenReason,
   NotFound,
   NotFoundReason,
-  NotSignedIn,
-  SignInRefusal,
-  SignInRefused,
   Unavailable,
   Unprocessable,
   UnprocessableReason,
@@ -24,8 +21,6 @@ import { NoWallet, WalletFailed, WalletRejected } from './Wallet.ts'
 /** Why something a person asked for did not happen, as a value the Model keeps and the view puts into words: every
  * refusal the API declares, by its reason, and what the wallet or the network did. */
 export const Problem = defineTaggedUnion({
-  SignInRefused: { reason: SignInRefusal },
-  NotSignedIn: {},
   Unavailable: {},
   Forbidden: { reason: ForbiddenReason },
   NotFound: { reason: NotFoundReason },
@@ -49,9 +44,6 @@ export const failedWith =
 /** The problem behind a failed request: a declared refusal by its reason, a wallet's answer, or, for anything else (no
  * network, an answer that does not decode, the client's code not loading), `Unreachable`. */
 export const problemOf = (error: unknown): Problem => {
-  if (error instanceof SignInRefused) {
-    return Problem.SignInRefused({ reason: error.reason })
-  }
   if (error instanceof Forbidden) {
     return Problem.Forbidden({ reason: error.reason })
   }
@@ -68,9 +60,6 @@ export const problemOf = (error: unknown): Problem => {
 }
 
 const plainProblemOf = (error: unknown): Problem => {
-  if (error instanceof NotSignedIn) {
-    return Problem.NotSignedIn()
-  }
   if (error instanceof Unavailable) {
     return Problem.Unavailable()
   }
@@ -94,19 +83,6 @@ const walletProblemOf = (error: unknown): Problem => {
     return Problem.WalletFailed({ code: Option.fromNullishOr(error.code) })
   }
   return Problem.Unreachable()
-}
-
-const signInKeys: Readonly<Record<typeof SignInRefusal.Type, PlainKey>> = {
-  malformed: 'problem.signIn.malformed',
-  wrong_domain: 'problem.signIn.wrongDomain',
-  wrong_uri: 'problem.signIn.wrongUri',
-  wrong_chain: 'problem.signIn.wrongChain',
-  issued_in_future: 'problem.signIn.issuedInFuture',
-  stale: 'problem.signIn.stale',
-  not_yet_valid: 'problem.signIn.notYetValid',
-  expired: 'problem.signIn.expired',
-  unknown_nonce: 'problem.signIn.unknownNonce',
-  bad_signature: 'problem.signIn.badSignature',
 }
 
 const forbiddenKeys: Readonly<Record<typeof ForbiddenReason.Type, PlainKey>> = {
@@ -159,8 +135,6 @@ const unprocessableKeys: Readonly<Record<typeof UnprocessableReason.Type, PlainK
 /** The problem in one sentence for the person, in their language. */
 export const problemText = (language: Language, problem: Problem): string =>
   Problem.match(problem, {
-    SignInRefused: ({ reason }) => format(language, signInKeys[reason], {}),
-    NotSignedIn: () => format(language, 'problem.notSignedIn', {}),
     Unavailable: () => format(language, 'problem.unavailable', {}),
     Forbidden: ({ reason }) => format(language, forbiddenKeys[reason], {}),
     NotFound: ({ reason }) => format(language, notFoundKeys[reason], {}),

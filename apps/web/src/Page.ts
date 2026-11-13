@@ -6,10 +6,8 @@ import { Message } from './Message.ts'
 import * as Me from './Me.ts'
 import { type Flags, type Model, Page } from './Model.ts'
 import { Preload } from './Preload.ts'
-import { NavigateInternal, ReplaceInternal } from './Navigation.ts'
+import { NavigateInternal } from './Navigation.ts'
 import * as Agents from './page/Agents.ts'
-import * as Connect from './page/Connect.ts'
-import * as Connections from './page/Connections.ts'
 import * as Evidence from './page/Evidence.ts'
 import * as Home from './page/Home.ts'
 import * as Identity from './page/Identity.ts'
@@ -18,21 +16,17 @@ import * as Job from './page/job/Job.ts'
 import * as ListingPage from './page/ListingPage.ts'
 import * as NewListing from './page/NewListing.ts'
 import * as NewRequest from './page/NewRequest.ts'
-import * as SignIn from './page/SignIn.ts'
 import { AppRoute, identityHref, jobRouter, listingRouter } from './route.ts'
-import { Session } from './Session.ts'
+import type { Gateway } from './Gateway.ts'
+import type { Marks } from './Marks.ts'
 import type { Rooms } from './Rooms.ts'
 import type { Signers } from './Signer.ts'
 import type { Wallet } from './Wallet.ts'
 
 // Which page a route opens, and how each page's Messages and OutMessages fold into the app.
 
-export type Services = SidequestClient | Wallet | Signers | Rooms
+export type Services = SidequestClient | Wallet | Signers | Rooms | Gateway | Marks
 type Step = Update.Step<Model, Message, Services>
-
-/** Whether a page may read what only a signed-in person can: not when the browser is known to be signed out, which
- * would only earn a 401. */
-const mayRead = (session: Session): boolean => !Session.guards.SignedOut(session)
 
 /** The identity page, which reads nothing from the server: the signer lives in the browser. */
 const openIdentity = (flags: Flags, maybeNext: Option.Option<string>): Update.Return<Page, Message, Services> =>
@@ -49,7 +43,6 @@ const toIdentity: Step = (model) => ({ model, commands: [NavigateInternal({ href
 export const openPage = (
   flags: Flags,
   route: AppRoute,
-  session: Session,
   me: Me.Me,
   preload: Preload,
 ): Update.Return<Page, Message, Services> =>
@@ -59,7 +52,6 @@ export const openPage = (
         toParentModel: (home) => Page.Home({ home }),
         toParentMessage: (message) => Message.GotHomeMessage({ message }),
       }),
-    SignIn: ({ next }) => ({ model: Page.SignIn({ signIn: SignIn.init(next) }) }),
     NewListing: () => ({ model: Page.NewListing({ newListing: NewListing.init(flags.language, me) }) }),
     Listing: ({ pubkey, slug }) =>
       Update.foldChildInit(
@@ -84,38 +76,14 @@ export const openPage = (
         },
       ),
     Inbox: () =>
-      Update.foldChildInit(
-        Inbox.init(
-          flags.language,
-          mayRead(session),
-          Preload.guards.Inbox(preload) ? Option.some(preload.recent) : Option.none(),
-        ),
-        {
-          toParentModel: (inbox) => Page.Inbox({ inbox }),
-          toParentMessage: (message) => Message.GotInboxMessage({ message }),
-        },
-      ),
-    Agents: () =>
-      Update.foldChildInit(
-        Agents.init(
-          flags.language,
-          mayRead(session),
-          Preload.guards.Agents(preload) ? Option.some(preload.agents.items) : Option.none(),
-        ),
-        {
-          toParentModel: (agents) => Page.Agents({ agents }),
-          toParentMessage: (message) => Message.GotAgentsMessage({ message }),
-        },
-      ),
-    Connect: ({ request }) =>
-      Update.foldChildInit(Connect.init(flags.language, request, mayRead(session)), {
-        toParentModel: (connect) => Page.Connect({ connect }),
-        toParentMessage: (message) => Message.GotConnectMessage({ message }),
+      Update.foldChildInit(Inbox.init(flags.language, me), {
+        toParentModel: (inbox) => Page.Inbox({ inbox }),
+        toParentMessage: (message) => Message.GotInboxMessage({ message }),
       }),
-    Connections: () =>
-      Update.foldChildInit(Connections.init(flags.language, mayRead(session)), {
-        toParentModel: (connections) => Page.Connections({ connections }),
-        toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
+    Agents: () =>
+      Update.foldChildInit(Agents.init(flags.language, me, flags.maybeGatewayUrl), {
+        toParentModel: (agents) => Page.Agents({ agents }),
+        toParentMessage: (message) => Message.GotAgentsMessage({ message }),
       }),
     Identity: ({ next }) => openIdentity(flags, next),
     Evidence: () => ({ model: Page.Evidence({ evidence: Evidence.init(flags.language) }) }),
@@ -137,23 +105,6 @@ export const foldHomeSearch = Update.foldChild({
   write: (model: Model, nextHome: Home.Model) => writePage(model, Page.Home({ home: nextHome })),
   toParentMessage: (message) => Message.GotHomeMessage({ message }),
 })
-
-export const foldSignIn = (signOut: Step) =>
-  Update.foldChild({
-    update: SignIn.update,
-    read: (model: Model) => (Page.guards.SignIn(model.page) ? Option.some(model.page.signIn) : Option.none()),
-    write: (model: Model, nextSignIn: SignIn.Model) => writePage(model, Page.SignIn({ signIn: nextSignIn })),
-    toParentMessage: (message) => Message.GotSignInMessage({ message }),
-    foldOutMessage: SignIn.OutMessage.match<Step>({
-      SignedIn:
-        ({ session, next }) =>
-        (model) => ({
-          model: modifyFields(model, { session: () => Session.SignedIn({ session }) }),
-          commands: [ReplaceInternal({ href: next })],
-        }),
-      RequestedSignOut: () => signOut,
-    }),
-  })
 
 export const foldNewListing = Update.foldChild({
   update: NewListing.update,
@@ -212,25 +163,47 @@ export const informMe = (model: Model): Model =>
       NewRequest: ({ newRequest }) => Page.NewRequest({ newRequest: modifyFields(newRequest, { me: () => model.me }) }),
       Job: ({ job }) => Page.Job({ job: modifyFields(job, { me: () => model.me }) }),
       Home: () => model.page,
-      SignIn: () => model.page,
       Inbox: () => model.page,
       Agents: () => model.page,
-      Connect: () => model.page,
-      Connections: () => model.page,
       Identity: () => model.page,
       Evidence: () => model.page,
       NotFound: () => model.page,
     }),
   )
 
-/** Who the person is changed: the site's record of it, the page that acts as it, and any Commands that follow. */
+/** Who the person is changed: the site's record of it, the page that acts as it, and any Commands that follow; the
+ * inbox and the agents page read what the new key has. */
 const withMe = (
   model: Model,
   next: Update.Return<Me.Me, Me.Message, Services>,
-): Update.Return<Model, Message, Services> => ({
-  model: informMe(modifyFields(model, { me: () => next.model })),
-  commands: Command.mapMessages(next.commands, (message) => Message.GotMeMessage({ message })),
-})
+): Update.Return<Model, Message, Services> => {
+  const informed = informMe(modifyFields(model, { me: () => next.model }))
+  const meCommands = Command.mapMessages(next.commands, (message) => Message.GotMeMessage({ message }))
+  const reread: Update.Return<Page, Message, Services> = Page.match(informed.page, {
+    Inbox: ({ inbox }) =>
+      Update.foldChildInit(Inbox.meChanged(inbox, informed.me), {
+        toParentModel: (nextInbox) => Page.Inbox({ inbox: nextInbox }),
+        toParentMessage: (message) => Message.GotInboxMessage({ message }),
+      }),
+    Agents: ({ agents }) =>
+      Update.foldChildInit(Agents.meChanged(agents, informed.me), {
+        toParentModel: (nextAgents) => Page.Agents({ agents: nextAgents }),
+        toParentMessage: (message) => Message.GotAgentsMessage({ message }),
+      }),
+    Home: () => ({ model: informed.page }),
+    NewListing: () => ({ model: informed.page }),
+    Listing: () => ({ model: informed.page }),
+    NewRequest: () => ({ model: informed.page }),
+    Job: () => ({ model: informed.page }),
+    Identity: () => ({ model: informed.page }),
+    Evidence: () => ({ model: informed.page }),
+    NotFound: () => ({ model: informed.page }),
+  })
+  return {
+    model: writePage(informed, reread.model),
+    commands: [...(meCommands ?? []), ...(reread.commands ?? [])],
+  }
+}
 
 export const foldMe = (model: Model, message: Me.Message) => withMe(model, Me.update(model.me, message))
 
@@ -246,20 +219,6 @@ export const foldAgents = Update.foldChild({
   read: (model: Model) => (Page.guards.Agents(model.page) ? Option.some(model.page.agents) : Option.none()),
   write: (model: Model, nextAgents: Agents.Model) => writePage(model, Page.Agents({ agents: nextAgents })),
   toParentMessage: (message) => Message.GotAgentsMessage({ message }),
-})
-
-export const foldConnect = Update.foldChild({
-  update: Connect.update,
-  read: (model: Model) => (Page.guards.Connect(model.page) ? Option.some(model.page.connect) : Option.none()),
-  write: (model: Model, nextConnect: Connect.Model) => writePage(model, Page.Connect({ connect: nextConnect })),
-  toParentMessage: (message) => Message.GotConnectMessage({ message }),
-})
-
-export const foldConnections = Update.foldChild({
-  update: Connections.update,
-  read: (model: Model) => (Page.guards.Connections(model.page) ? Option.some(model.page.connections) : Option.none()),
-  write: (model: Model, next: Connections.Model) => writePage(model, Page.Connections({ connections: next })),
-  toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
 })
 
 export const foldIdentity = Update.foldChild({

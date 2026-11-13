@@ -55,14 +55,6 @@ export const session = style({
   minBlockSize: '44px',
   minInlineSize: '0',
 })
-export const account = style({
-  display: 'flex',
-  alignItems: 'center',
-  gap: '10px',
-  flexWrap: 'wrap',
-  justifyContent: 'end',
-})
-export const sessionNote = style({ color: 'ink2', fontSize: 'label', fontVariantNumeric: 'tabular-nums' })
 export const nav = style({ display: 'flex', flexWrap: 'wrap', gap: '4px 18px' })
 export const navLink = style({
   display: 'inline-flex',

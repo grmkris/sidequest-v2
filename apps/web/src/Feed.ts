@@ -52,13 +52,6 @@ export const withProblem = <A>(feed: AnyFeed<A>, problem: Problem): AnyFeed<A> =
 export const loadingMore = <A>(feed: AnyFeed<A>): AnyFeed<A> =>
   modifyFields(feed, { status: () => FeedStatus.LoadingMore() })
 
-/** The first page is on its way again; what is shown stays until it arrives. */
-export const refreshing = <A>(feed: AnyFeed<A>): AnyFeed<A> =>
-  modifyFields(feed, { status: () => FeedStatus.Refreshing() })
-
-/** Whether the first page is being read again. */
-export const isRefreshing = <A>(feed: AnyFeed<A>): boolean => FeedStatus.guards.Refreshing(feed.status)
-
 export type FeedView<A, Message> = {
   readonly feed: AnyFeed<A>
   readonly language: Language

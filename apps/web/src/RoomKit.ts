@@ -20,7 +20,21 @@ import {
 } from '@sidequest/nostr/rooms'
 import { jobProposal, parseSidequestEvent, RelayUrl } from '@sidequest/nostr/vocabulary'
 import { webCrypto } from '@sidequest/protocol'
-import { Crypto, Duration, Effect, Exit, Match, Option, Ref, Result, Schedule, Schema, Scope, Semaphore } from 'effect'
+import {
+  Crypto,
+  Duration,
+  Effect,
+  Exit,
+  Match,
+  Option,
+  Predicate,
+  Ref,
+  Result,
+  Schedule,
+  Schema,
+  Scope,
+  Semaphore,
+} from 'effect'
 import type {
   CheckedDisclosure,
   Delivered,
@@ -29,6 +43,7 @@ import type {
   RoomsFailure,
   RoomsRead,
   RoomSnapshot,
+  UnreadOnJob,
 } from './Rooms.ts'
 
 // The Nostr-heavy half of rooms in the browser, loaded as its own chunk the first time a room opens (see `Rooms.ts`):
@@ -171,6 +186,36 @@ export const browserStore = (pubkey: string) =>
     }
     return store
   })
+
+/** The room state this browser keeps for `pubkey`, as it was left: nothing is read from a relay or decrypted. */
+export const storedState = (pubkey: string): Effect.Effect<RoomState> =>
+  Effect.flatMap(browserStore(pubkey), (store) => store.load)
+
+/**
+ * How many messages in the rooms of each job `me` has not seen: texts and private proposals by someone else, later than
+ * the time `read` keeps for their room (the newest message the room panel last showed there). Jobs with none are left
+ * out.
+ */
+export const unreadByJob = (
+  state: RoomState,
+  me: string,
+  read: Readonly<Record<string, number>>,
+): ReadonlyArray<UnreadOnJob> => {
+  const jobOf = new Map(state.rooms.map((founding) => [founding.room, founding.job]))
+  const counts = new Map<string, number>()
+  state.messages
+    .filter(
+      (message) =>
+        message.author !== me &&
+        (Predicate.isTagged(message.act, 'Text') || Predicate.isTagged(message.act, 'Proposal')) &&
+        message.createdAt > (read[message.room] ?? 0),
+    )
+    .forEach((message) => {
+      const job = jobOf.get(message.room)
+      if (job !== undefined) counts.set(job, (counts.get(job) ?? 0) + 1)
+    })
+  return [...counts].map(([job, count]) => ({ job, count }))
+}
 
 /** A member's rooms in this browser: over the pipe, the index's inbox relays, and IndexedDB. */
 export const openRooms = (

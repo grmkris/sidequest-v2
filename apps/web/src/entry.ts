@@ -6,6 +6,8 @@ import { sidequestClientLayer } from './Api.ts'
 import { Flags, Message, Model, init, subscriptions, update } from './App.ts'
 import { routing } from './Navigation.ts'
 import { view } from './View.ts'
+import { gatewayLayer } from './Gateway.ts'
+import { marksLayer } from './Marks.ts'
 import { roomsLayer } from './Rooms.ts'
 import { signersLayer } from './Signer.ts'
 import { walletLayer } from './Wallet.ts'
@@ -24,12 +26,16 @@ const application = Runtime.makeApplication({
   subscriptions,
   container: document.getElementById('root'),
   devTools: { Message },
-  resources: roomsLayer(window.location.origin).pipe(
+  resources: Layer.mergeAll(
+    roomsLayer(window.location.origin),
+    gatewayLayer(window.location.origin).pipe(Layer.provide(FetchHttpClient.layer)),
+  ).pipe(
     Layer.provideMerge(
       Layer.mergeAll(
         sidequestClientLayer(window.location.origin).pipe(Layer.provide(FetchHttpClient.layer)),
         walletLayer(window),
         signersLayer(window),
+        marksLayer(window),
       ),
     ),
   ),

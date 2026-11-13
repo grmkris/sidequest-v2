@@ -27,7 +27,7 @@ const page = withViewInputs(view, { timeZone: 'UTC', inboxConfigured: true })
 const signingAs = (pubkey: string, wallets: ReadonlyArray<string> = []): Me =>
   Me.Ready({
     identity: { signerKind: 'nip07', pubkey },
-    standing: Standing.Known({ maybeName: Option.none(), wallets }),
+    standing: Standing.Known({ maybeName: Option.none(), wallets, agents: [] }),
   })
 const buyer = signingAs(buyerKey, [buyerAccount])
 const worker = signingAs(bidderKey, [bidderAccount])

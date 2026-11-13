@@ -108,6 +108,10 @@ const signerKeys: Readonly<Record<SignerFailure, PlainKey>> = {
   notLoaded: 'signer.problem.notLoaded',
 }
 
+/** Why the signer could not sign, in one sentence. */
+export const signerFailureText = (language: Language, reason: SignerFailure): string =>
+  say(language, signerKeys[reason])
+
 /** Why a publication failed; a signer that is not ready links to the identity page, which comes back to `next`. */
 export const publishFailureNotice = <Message>(
   h: Html.HtmlBuilder<Message>,
@@ -119,7 +123,7 @@ export const publishFailureNotice = <Message>(
     Refused: ({ refusal }) => Ui.notice(h, 'danger', [h.p([], [refusalText(language, refusal)])]),
     SignerFailed: ({ reason }) =>
       Ui.notice(h, 'danger', [
-        h.p([], [say(language, signerKeys[reason])]),
+        h.p([], [signerFailureText(language, reason)]),
         h.p([], [h.a([h.Href(identityHref)], [say(language, 'me.setUpLink')])]),
       ]),
     Failed: ({ problem }) => Ui.problemNotice(h, language, problem),
