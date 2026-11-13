@@ -101,15 +101,19 @@ export const withApi = async (test: (api: Api) => Promise<void>, world = signInW
   }
 }
 
+/** How long a wait for the model, a projection or the local chain to catch up may take before the test goes on. */
+export const patience = { attempts: 500, pauseMillis: 20 }
+
 /**
- * Read until `done` holds, at most a hundred times 20 ms apart: projections and views follow commands eventually.
- * Answers the last read either way, so the test's assertion reports what it saw.
+ * Read until `done` holds, for at most ten seconds (five hundred reads 20 ms apart): projections, views and the
+ * local chain follow commands eventually, and a loaded CI machine can take seconds. Answers the last read either
+ * way, so the test's assertion reports what it saw.
  */
 export const eventually = async (read: () => Promise<Reply>, done: (reply: Reply) => boolean): Promise<Reply> => {
   for (let attempt = 1; ; attempt += 1) {
     const reply = await read()
-    if (done(reply) || attempt === 100) return reply
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    if (done(reply) || attempt === patience.attempts) return reply
+    await new Promise((resolve) => setTimeout(resolve, patience.pauseMillis))
   }
 }
 

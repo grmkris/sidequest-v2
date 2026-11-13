@@ -54,13 +54,19 @@ const buyersView = (reply: Reply) =>
     shown.audience === 'buyer' ? Option.some(shown.view) : Option.none(),
   )
 
-/** The buyer's view of `job`, once it shows what `done` waits for. */
+/**
+ * The buyer's view of `job`, once it shows what `done` waits for. A view that never does fails the test here, naming
+ * what it last showed, instead of letting a later step fail for a reason that hides this one.
+ */
 export const buyerViewOf = async (buyer: Person, job: JobId, done: (view: BuyerJobView) => boolean = () => true) => {
   const reply = await eventually(
     () => buyer.get(`/api/jobs/${job}`),
     (answer) => Option.exists(buyersView(answer), done),
   )
-  return Option.getOrThrowWith(buyersView(reply), () => new Error(`The buyer was not shown ${job} as its buyer`))
+  const view = Option.getOrThrowWith(buyersView(reply), () => new Error(`The buyer was not shown ${job} as its buyer`))
+  if (!done(view))
+    throw new Error(`The buyer's view of ${job} never showed what was awaited; it last showed ${view.state}`)
+  return view
 }
 
 /** How the buyer names one exact proposal version. */

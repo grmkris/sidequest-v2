@@ -2,7 +2,7 @@ import { AgentId, type GrantScope, IssuedAgentToken } from '@sidequest/protocol'
 import { Effect, Layer, Schema, type Scope } from 'effect'
 import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
-import { type Api, bodyOf, createdId, inSeconds, origin, type Person } from './HttpWorld.ts'
+import { type Api, bodyOf, createdId, inSeconds, origin, patience, type Person } from './HttpWorld.ts'
 
 // MCP over HTTP, as an agent uses it: a person registers an agent, grants it scopes and issues it a token over the
 // HTTP API; the agent then speaks MCP 2026-07-28 at `/mcp` with that token, through Effect's own MCP client or, where a
@@ -98,7 +98,7 @@ export const callTool = async (api: Api, token: string, name: string, args: Reco
   Schema.decodeUnknownSync(ToolResult)((await rpc(api, token, 'tools/call', { name, arguments: args })).message).result
 
 /**
- * Call until `done` holds, at most a hundred times 20 ms apart: projections and views follow commands eventually.
+ * Call until `done` holds, with the same patience as `eventually`: projections and views follow commands eventually.
  * Answers the last result either way, so the test's assertion reports what it saw.
  */
 export const untilTool = async (
@@ -107,8 +107,8 @@ export const untilTool = async (
 ) => {
   for (let attempt = 1; ; attempt += 1) {
     const result = await call()
-    if (done(result) || attempt === 100) return result
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    if (done(result) || attempt === patience.attempts) return result
+    await new Promise((resolve) => setTimeout(resolve, patience.pauseMillis))
   }
 }
 
