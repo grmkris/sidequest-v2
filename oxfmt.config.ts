@@ -26,5 +26,6 @@ export default defineConfig({
     'packages/i18n/catalogs/**',
     // Official test vectors, byte for byte as published; tools/provenance.json records their hashes.
     'packages/nostr/test/vectors/**',
+    'packages/protocol/test/vectors/**',
   ],
 })

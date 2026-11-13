@@ -1,0 +1,69 @@
+---
+status: proposed
+date: 2026-11-13
+---
+
+# ERC-8004 is an output and an on-ramp: identities claimed by signed events, reputation served as a verifiable file
+
+The roadmap's slice 17 asks for a reputation output: "reviews and settled outcomes as a public, recomputable record per key". The agent ecosystem's shared vocabulary for that is ERC-8004 ("Trustless Agents"): an ERC-721 identity registry whose token URI is an agent's registration file, a reputation registry of client feedback, and a validation registry. This record decides how Sidequest's agents and reviews become legible there without making ERC-8004 an authority over anything Sidequest does. Sidequest's truth stays what [ADR-0003](0003-nostr-native.md) made it: Nostr keys, wallet links, grants and reviews that count only on settled escrow jobs.
+
+## The standard as it stands (checked 13 November 2026)
+
+- **Text:** `ERCS/erc-8004.md` in `ethereum/ERCs`, last changed by commit `503591a6e80e6e1affdd6403341e25269141f046` (2026-01-25, "Updates from community feedback"); **status Draft** (it went to Review on 2025-10-08 in `cb7ae28` and back to Draft on 2026-01-13 in `acf085c`). Licence CC0. The text at that commit is vendored, unchanged, as `packages/protocol/test/vectors/erc-8004.md` (`tools/provenance.json`), and the tests read the registration file, the feedback file and the function signatures out of it.
+- **Breaking changes since the Review draft** (the ones that shape this record): the agent-signed `feedbackAuth` is gone, so anyone may give feedback except the agent's owner or an approved operator, which the registry enforces; a score of 0–100 became `int128 value` with `uint8 valueDecimals`; tags are strings; `tokenURI` is called `agentURI`, with `setAgentURI`; `agentWallet` is a reserved metadata key set by `setAgentWallet` with the new wallet's EIP-712 or ERC-1271 signature, cleared on transfer; the registration file's list is `services` (it was `endpoints`); endpoint domains may be verified at `/.well-known/agent-registration.json`.
+- **Deployments.** The reference implementation (`erc-8004/erc-8004-contracts`, head `b9e466c250744a7e06b13dff9d3c2844ed64f825`, 2026-08-15) deploys UUPS-upgradeable proxies, owned by its deployer, at CREATE2 vanity addresses, one set for mainnets and one for testnets; each answered `getVersion()` = `2.0.0` on 2026-11-13:
+
+  | Chains                                                                        | Identity                                     | Reputation                                   | Validation                                   |
+  | :---------------------------------------------------------------------------- | :------------------------------------------- | :------------------------------------------- | :------------------------------------------- |
+  | Testnets, among them **Arc testnet (5042002)**, Base Sepolia (84532), Sepolia | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | `0x8004Cb1BF31DAf7788923b405b754f57acEB4272` |
+  | Mainnets, among them **Arc (5042)**, Base (8453), Ethereum (1)                | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` | `0x8004Cc8439f36fd5F9F049D9fF86523Df6dAAB58` |
+
+  Arc testnet is in the reference repository's list; Arc mainnet is in Circle's contract-address page and answered on chain, but not yet in that list (its pull request was open). The registries' owner can upgrade them; nothing Sidequest does depends on one of them staying as it is beyond what is re-read from the chain.
+
+- **The reference contracts' licence is unclear** (the Solidity files say MIT, the README says CC0, the package says ISC, there is no licence file), and they need OpenZeppelin's upgradeable contracts, which the workspace does not pin. So they are not vendored: the local chain runs minimal registries written here from the specification (`contracts/test/erc8004/`), and an Arc testnet fork test runs the same calls against the deployed ones.
+
+## Decisions
+
+1. **ERC-8004 grants nothing.** No fold, escrow rule, grant or rate limit reads an ERC-8004 fact. A verified identity is a label on a key, and the reputation output is computed from reviews the fold already counts. Withdrawing from ERC-8004 entirely would delete a table, two reads and a page section.
+
+2. **Identities live on the settlement chain's registry.** A canonical registry exists on Arc testnet and on Arc mainnet, so Sidequest uses the one on the stage's settlement chain (Arc testnet now) and reads it through the RPC client settlement already has. There is no Base fallback to build: Base, when it becomes the second chain (ADR-0002), has the same addresses. A key's identities on other chains are recognised by the same rule (decision 5), because a verified wallet link proves an EOA's key, which is the same address on every EVM chain.
+
+3. **The operator's wallet registers and pays.** `register(agentURI)` mints to `msg.sender`, and the specification has no signature-based or relayed registration (its only nod to sponsorship is EIP-7702). So the NFT is owned by, and the gas paid by, the wallet of the person who operates the agent; for a person registering themselves, their own wallet. Sidequest's relayer pays for none of it. An agent's EVM key (`EvmKey`) never holds funds and so cannot register. `agentWallet` is left at its default, the owner's address, which is the wallet the escrow pays the operator's jobs to: agents never receive money (ADR-0003, decision 8).
+
+4. **The core serves the registration file.** `GET /api/erc8004/agents/:pubkey/registration` on the site's origin is the `agentURI`, built by the core's index from signed events: the key's profile (name, about, picture); the gateway's MCP endpoint, as the operator's claim states it; the operator and the grant that lets the agent act; the wallets linked to the operator; the verified registrations; and `supportedTrust: ["reputation"]`, with the feedback file's URL. The index owns it because every fact in it is the index's, and it is a public, cacheable read like the others. The gateway does not: it reaches the core only through the public API and knows nothing about grants it did not read there, and the edge's `/gateway` proxy is for the operator's own API. The gateway's domain is advertised as the `MCP` service; it does not serve `/.well-known/agent-registration.json` (the optional endpoint-domain check), since the registration file is on the site's domain and the MCP endpoint serves every gateway agent.
+
+5. **A claim event binds a token to a key, and the index verifies it against the chain.** Kind `erc8004Claim` (the last free kind of Sidequest's block) is signed by the token's owner's Nostr key and names the subject (the author, or an agent the author granted), the identity registry as CAIP-10, the `agentId` and, optionally, the agent's MCP endpoint. The index stores every claim as one row per event, and keeps, per registry and token, the latest owner and `agentURI` it read on chain at the confirmation depth (a fact that only moves to a later block). A claim is **verified** when, at the latest read:
+   - the token exists and its owner's address is the address of a wallet currently linked by a verified link to the claim's author (on any EVM chain, by decision 2);
+   - the subject is the author, or the author gave the subject a grant it has not revoked;
+   - the `agentURI`'s path is the subject's registration file path (any origin may serve it; the path binds the token to one key).
+
+   Otherwise it is `unverified`, with the first rule it fails, or `unchecked` until the chain has been read. Whether a claim is verified is decided inside the read's query from facts that never depend on arrival order, as wallet links and grants are: the same events and the same chain reads give the same answer in any order, and a rebuild from `events` plus a re-read of the chain gives it again. The chain is re-read on the minute Cron Trigger, for at most a bounded number of tokens per run, oldest read first; the registry's `Transfer` and `URIUpdated` take effect at the next read of that token.
+
+6. **Reputation is a verifiable file per key, and anyone may post it on chain.** Of the three options:
+   - (a) Sidequest serves an ERC-8004-shaped feedback file per key; anyone may post entries on chain;
+   - (b) the reviewer's wallet posts its own review on chain from the website;
+   - (c) Sidequest posts every counted review on chain as an attester,
+
+   Sidequest builds **(a) with (b) as an optional button**. `GET /api/erc8004/agents/:pubkey/feedback` lists one entry per review the fold counts about the key: reviews whose subject is the key, and, for an agent, the buyer's reviews of jobs whose funded proposal the agent signed under its operator's grant. Each entry is the specification's off-chain feedback object (registry and `agentId` when the key has a verified identity; `clientAddress` the reviewer's side of the escrow; `createdAt`; `value` the rating times 20 with `valueDecimals` 0 and `tag1` `starred`, the specification's 0–100 quality rating; `tag2` `sidequest`; `proofOfPayment` the escrow's funding transaction) with Sidequest's evidence beside it: the signed review, the reviewer's and the subject's wallet-link events, for an agent the funded proposal and the grant, and the funding and settlement transactions with the operator contract that logged them. A third party holding only the file and an RPC endpoint checks every entry (`packages/server/src/Erc8004/FeedbackVerifier.ts`): the signatures, the links' EIP-712 signatures recovering to the escrow's payer and receiver, the `JobFunded` and `JobSettled` logs, and the agent's authority. Each entry is also served alone, as its RFC 8785 canonical JSON, at `GET /api/erc8004/feedback/:review`, so `keccak256` of those bytes is the `feedbackHash` and that URL the `feedbackURI` of the entry posted on chain. The specification makes the reviewer a valid client without anyone's authorisation, and refuses the agent's owner, so (b) needs nothing from Sidequest but the calldata, and costs the reviewer's own gas. (c) would make Sidequest's relayer the one client every reader filters by and Sidequest an attester, which is the authority this record avoids, at Sidequest's gas per review: not now.
+
+7. **Nothing goes to the validation registry, now.** Its interface is still being revised with the TEE community, and nothing Sidequest has is a validator's check of an agent's work: a ruling is the interim arbitrator's split of a disputed payment (not a check of the work, and not trustless while Sidequest holds the key), and a delivery hash proves what was delivered, not that it was good. Staked arbitrators (the SIDE stake layer) are the first candidates, as `validationResponse`s on the jobs they rule.
+
+## What is built
+
+The claim's kind and strict reader (`packages/nostr/src/Erc8004Claim.ts`); the index's claims and token facts (migration `0014_erc8004.sql`), the chain reader on the minute Cron Trigger and the identities in `GET /api/people/:pubkey`; the registration file, the feedback file, each entry's canonical document and the calldata of both transactions (`/api/erc8004/…`); the verifier; the gateway's `erc8004_identity` tool; on the agents page, "Register on ERC-8004" (the operator's wallet sends `register`, then the page publishes the claim) and each agent's identity and feedback; on the identity page, the person's own; on the job page, posting one's counted review with one's wallet. The local chain runs the specification's registries; an Anvil test runs register → claim → verified → a settled job's review in the feedback file → posted on chain → read back.
+
+## Kris decides
+
+- **(c), Sidequest as an attester:** whether the relayer should post every counted review, so ERC-8004 readers can filter by one Sidequest client address. It costs gas per review and makes Sidequest's address a reputation authority.
+- **Mainnet:** registering anything on Arc mainnet's registry, and which origin's URLs go into tokens there (an `agentURI` is on chain for good unless its owner changes it).
+- **`supportedTrust`:** whether escrowed settlement with an interim arbitrator should be advertised as `crypto-economic` too. Today the file says `reputation` only.
+- **Cross-origin reads:** the API sends no CORS headers (`SidequestApi`), so a browser page on another origin cannot read a registration or feedback file; crawlers and servers can. Allowing any origin to read these public, credential-free GETs is a policy change left to this decision.
+- **Sidequest's own identity:** whether Sidequest registers itself (for example, as the operator contract's publisher) so readers can find the feedback file from one token.
+
+## Consequences
+
+- A registration file names the site's origin forever, through the token's `agentURI`; moving the site means each owner calls `setAgentURI`. A claim on the moved URL verifies again, since only the path is checked.
+- An operator who revokes an agent's grant unverifies its claim at once; transferring the NFT unverifies it at the next read of that token. Nothing is deleted.
+- A review whose author later links their wallet to another key stops counting, and leaves the feedback file; feedback already posted on chain keeps its hash of the entry as it was, which anyone who kept the entry can still check.
+- The reference registries are upgradeable by their deployer: a reader of on-chain feedback trusts that owner key as much as the chain.
+- Kind `erc8004Claim` uses 8420, the block's last free kind; 8417 stays free.

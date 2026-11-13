@@ -2,7 +2,8 @@
   "sources": {
     "anti-slop": "https://github.com/dmmulroy/anti-slop/tree/c44ef22ca116d0ba62a3ff663a0bd13a3f3fa40b",
     "nip44-vectors": "https://github.com/paulmillr/nip44/blob/671a1f04bcfacaf125b0db68adc45bc9ce0e763b/nip44.vectors.json",
-    "bip340-vectors": "https://github.com/bitcoin/bips/blob/b34d9f751791d4feb22feff4f2ed00bcac83961b/bip-0340/test-vectors.csv"
+    "bip340-vectors": "https://github.com/bitcoin/bips/blob/b34d9f751791d4feb22feff4f2ed00bcac83961b/bip-0340/test-vectors.csv",
+    "erc-8004": "https://github.com/ethereum/ERCs/blob/503591a6e80e6e1affdd6403341e25269141f046/ERCS/erc-8004.md"
   },
   "files": [
     {
@@ -132,6 +133,10 @@
     {
       "path": "packages/nostr/test/vectors/bip340.csv",
       "sha256": "34c9d1d9c3a88d524bc80778540dc43f8306ec249a7485293063c376db851c2d"
+    },
+    {
+      "path": "packages/protocol/test/vectors/erc-8004.md",
+      "sha256": "249dc3d96ad7bbe4afd25cacd14be942eb87751abcf1608bab19a610f3c3f8a9"
     }
   ]
 }
