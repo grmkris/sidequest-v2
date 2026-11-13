@@ -91,6 +91,13 @@ export const talksInARoom = (url: string, inbox: TestRelay) =>
     // Plain text: no element from the message, and its link is no link.
     expect(yield* Effect.promise(() => buyer.page.locator('ol b').count())).toBe(0)
     expect(yield* Effect.promise(() => buyer.page.getByRole('link', { name: 'https://example.com' }).count())).toBe(0)
+    // An extension can read the room but not prove a message from it, and the panel says so.
+    yield* Effect.promise(() =>
+      buyer.page
+        .getByText('Saving a message as evidence needs a key held in this browser.', { exact: false })
+        .waitFor(),
+    )
+    expect(yield* Effect.promise(() => buyer.page.getByRole('button', { name: 'Save as evidence' }).count())).toBe(0)
     yield* write(buyer.page, 'Hello from the buyer.')
 
     // A reload keeps the transcript, and the inbox relay handed wraps out only after authentication.

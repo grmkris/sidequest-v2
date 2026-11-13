@@ -606,7 +606,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'room.title': 'Conversation',
   'room.privacy':
     'End-to-end encrypted on Nostr: only the people in this conversation can read it, and Sidequest’s servers never see it. The relays that carry it see who receives a message and when.',
-  'room.keptHere': 'This browser keeps the conversation, decrypted, so it can show it after a reload.',
+  'room.keptHere':
+    'This browser keeps the conversation, decrypted, so it can show it after a reload. Conversations have no forward secrecy: anyone who gets your Nostr key can read every message it ever received.',
   'room.open': 'Open the conversation',
   'room.close': 'Close the conversation',
   'room.opening': 'Reading your inbox relays…',
@@ -656,6 +657,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'room.forgetConfirm':
     'Forget this conversation in this browser? The relays keep their copies; opening it again fetches what they still hold.',
   'room.keep': 'Keep it',
+  'room.cannotDisclose':
+    'Saving a message as evidence needs a key held in this browser. Your Nostr extension keeps its keys to itself, so it can read this conversation but cannot prove a single message from it.',
   'evidence.title': 'Check evidence',
   'evidence.lede':
     'Paste a message disclosed from a conversation. The check runs in your browser and sends nothing anywhere.',

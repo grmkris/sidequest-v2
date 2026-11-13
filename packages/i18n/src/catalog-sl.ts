@@ -613,7 +613,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'room.title': 'Pogovor',
   'room.privacy':
     'Šifrirano od konca do konca na Nostru: prebrati ga lahko le udeleženci pogovora, strežniki Sidequesta ga nikoli ne vidijo. Releji, ki ga prenašajo, vidijo, kdo prejme sporočilo in kdaj.',
-  'room.keptHere': 'Ta brskalnik hrani pogovor dešifriran, da ga lahko pokaže tudi po ponovnem nalaganju.',
+  'room.keptHere':
+    'Ta brskalnik hrani pogovor dešifriran, da ga lahko pokaže tudi po ponovnem nalaganju. Pogovori nimajo prihodnje tajnosti (forward secrecy): kdor dobi vaš ključ Nostr, lahko prebere vsako sporočilo, ki ga je ta ključ kdaj prejel.',
   'room.open': 'Odpri pogovor',
   'room.close': 'Zapri pogovor',
   'room.opening': 'Berem vaše releje za prejem …',
@@ -663,6 +664,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'room.forgetConfirm':
     'Naj ta brskalnik pozabi ta pogovor? Releji obdržijo svoje kopije; ko ga znova odprete, se prenese, kar še hranijo.',
   'room.keep': 'Obdrži',
+  'room.cannotDisclose':
+    'Za shranjevanje sporočila kot dokaza je potreben ključ, ki ga hrani ta brskalnik. Vaša razširitev Nostr svojih ključev ne izda, zato lahko ta pogovor bere, ne more pa dokazati posameznega sporočila iz njega.',
   'evidence.title': 'Preverite dokaz',
   'evidence.lede':
     'Prilepite sporočilo, razkrito iz pogovora. Preverjanje teče v vašem brskalniku in ničesar ne pošlje.',

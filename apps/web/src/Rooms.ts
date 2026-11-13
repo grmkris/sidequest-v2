@@ -62,6 +62,8 @@ export const RoomsRead = Schema.Struct({
   rooms: Schema.Array(RoomSnapshot),
   relays: Schema.Array(RelayState),
   noInbox: Schema.Boolean,
+  /** The signer can give one message's keys away as evidence: a key held in this browser can, an extension cannot. */
+  canDisclose: Schema.Boolean,
 })
 export type RoomsRead = typeof RoomsRead.Type
 
@@ -184,15 +186,20 @@ export const roomsLayer = (origin: string) =>
         return rooms
       })
       const service = roomsOver(transport, kit)
+      // A key made in this browser holds its conversation keys; an extension keeps them to itself.
+      const canDisclose = Effect.match(signers.resume, {
+        onFailure: () => false,
+        onSuccess: (signer) => signer.kind === 'local',
+      })
       return Rooms.of({
         ...service,
         sync: (target) =>
-          Effect.flatMap(service.sync(target), (read) =>
+          Effect.flatMap(Effect.zip(service.sync(target), canDisclose), ([read, disclosing]) =>
             Effect.map(
               Effect.forEach(read.rooms, (snapshot) =>
                 Effect.map(agentsIn(snapshot, target.buyer), (agents) => ({ ...snapshot, agents })),
               ),
-              (rooms) => ({ ...read, rooms }),
+              (rooms) => ({ ...read, rooms, canDisclose: disclosing }),
             ),
           ),
       })

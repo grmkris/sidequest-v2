@@ -682,7 +682,7 @@
   "room": {
     "title": "Pogovor",
     "privacy": "Šifrirano od konca do konca na Nostru: prebrati ga lahko le udeleženci pogovora, strežniki Sidequesta ga nikoli ne vidijo. Releji, ki ga prenašajo, vidijo, kdo prejme sporočilo in kdaj.",
-    "keptHere": "Ta brskalnik hrani pogovor dešifriran, da ga lahko pokaže tudi po ponovnem nalaganju.",
+    "keptHere": "Ta brskalnik hrani pogovor dešifriran, da ga lahko pokaže tudi po ponovnem nalaganju. Pogovori nimajo prihodnje tajnosti (forward secrecy): kdor dobi vaš ključ Nostr, lahko prebere vsako sporočilo, ki ga je ta ključ kdaj prejel.",
     "open": "Odpri pogovor",
     "close": "Zapri pogovor",
     "opening": "Berem vaše releje za prejem …",
@@ -729,7 +729,8 @@
     "relayFailed": "{relay} ni dosegljiv",
     "forget": "Pozabi ta pogovor na tej napravi",
     "forgetConfirm": "Naj ta brskalnik pozabi ta pogovor? Releji obdržijo svoje kopije; ko ga znova odprete, se prenese, kar še hranijo.",
-    "keep": "Obdrži"
+    "keep": "Obdrži",
+    "cannotDisclose": "Za shranjevanje sporočila kot dokaza je potreben ključ, ki ga hrani ta brskalnik. Vaša razširitev Nostr svojih ključev ne izda, zato lahko ta pogovor bere, ne more pa dokazati posameznega sporočila iz njega."
   },
   "evidence": {
     "title": "Preverite dokaz",

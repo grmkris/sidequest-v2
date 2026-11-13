@@ -482,6 +482,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'review.text': Readonly<Record<string, never>>
   'room.added': { readonly author: string | number; readonly member: string | number }
   'room.agent': { readonly name: string | number; readonly label: string | number }
+  'room.cannotDisclose': Readonly<Record<string, never>>
   'room.checkEvidence': Readonly<Record<string, never>>
   'room.close': Readonly<Record<string, never>>
   'room.conversations': Readonly<Record<string, never>>
@@ -628,4 +629,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = 'f5122f8daa7c049cfc244c2acfd53388b4df66a9cf715d96df8ea312206e42f6'
+export const catalogVersion = 'e600e78755eb4497fd9d92e7c18c3797467091d261becdcf945a8c336b147656'

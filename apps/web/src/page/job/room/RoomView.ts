@@ -66,7 +66,7 @@ const lineText = (reader: Reader, line: RoomLine): string => {
 
 const discloseControl = (h: Html.HtmlBuilder<Message>, reader: Reader, room: string, line: RoomLine) => {
   const evidence = reader.model.evidence
-  if (line.act !== 'text') return h.empty
+  if (line.act !== 'text' || !Option.exists(reader.model.maybeRead, (read) => read.canDisclose)) return h.empty
   if (Evidence.guards.Preparing(evidence) && evidence.message === line.id) {
     return Ui.waiting(h, say(reader.language, 'room.preparing'))
   }
@@ -177,6 +177,9 @@ const roomView = (h: Html.HtmlBuilder<Message>, reader: Reader, snapshot: RoomSn
           Array.map(lines, (line) => lineView(h, reader, snapshot.room, line)),
         ),
     }),
+    Option.exists(reader.model.maybeRead, (read) => read.canDisclose)
+      ? h.empty
+      : h.p(styled(h, s.meta()), [say(reader.language, 'room.cannotDisclose')]),
     snapshot.dropped > 0
       ? h.p(styled(h, s.meta()), [format(reader.language, 'room.dropped', { count: snapshot.dropped })])
       : h.empty,

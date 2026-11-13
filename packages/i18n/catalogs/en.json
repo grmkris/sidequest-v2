@@ -682,7 +682,7 @@
   "room": {
     "title": "Conversation",
     "privacy": "End-to-end encrypted on Nostr: only the people in this conversation can read it, and Sidequest’s servers never see it. The relays that carry it see who receives a message and when.",
-    "keptHere": "This browser keeps the conversation, decrypted, so it can show it after a reload.",
+    "keptHere": "This browser keeps the conversation, decrypted, so it can show it after a reload. Conversations have no forward secrecy: anyone who gets your Nostr key can read every message it ever received.",
     "open": "Open the conversation",
     "close": "Close the conversation",
     "opening": "Reading your inbox relays…",
@@ -729,7 +729,8 @@
     "relayFailed": "{relay} not reached",
     "forget": "Forget this conversation on this device",
     "forgetConfirm": "Forget this conversation in this browser? The relays keep their copies; opening it again fetches what they still hold.",
-    "keep": "Keep it"
+    "keep": "Keep it",
+    "cannotDisclose": "Saving a message as evidence needs a key held in this browser. Your Nostr extension keeps its keys to itself, so it can read this conversation but cannot prove a single message from it."
   },
   "evidence": {
     "title": "Check evidence",

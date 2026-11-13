@@ -43,6 +43,7 @@ const read: RoomsRead = {
   ],
   relays: [{ relay: 'wss://inbox.example', outcome: 'complete' }],
   noInbox: false,
+  canDisclose: true,
 }
 
 const fresh: Model = init('en')

@@ -287,6 +287,7 @@ export const syncJob = (rooms: Transport, input: JobRooms): Effect.Effect<RoomsR
       rooms: yield* Effect.forEach(transcripts, snapshotOf),
       relays: report.relays.map(({ relay, outcome }) => ({ relay, outcome })),
       noInbox: report.noInboxRelays,
+      canDisclose: false,
     }
   })
 
