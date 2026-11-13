@@ -5,7 +5,7 @@ A Foundry workspace with one production contract, `SidequestOperator`: the `oper
 ## Trust statement
 
 - **No owner, no admin, no upgrade, no `delegatecall`, no assembly** in `SidequestOperator` (the OpenZeppelin libraries it uses contain their own audited assembly). Every parameter is immutable or per job.
-- **No key has discretion over funds outside its role.** The worker can only record a delivery. The buyer can only approve (pay) or reject (dispute) a delivery. The job's arbitrator can only split a disputed job between worker and buyer, before its deadline. Everything else (settling after silence, refunding an undelivered job, refunding an unruled dispute) is a deadline anyone may trigger.
+- **No key has discretion over funds outside its role.** The worker can only record a delivery, or delegate recording one payment's delivery to another key (below), which then can do exactly that and nothing else. The buyer can only approve (pay) or reject (dispute) a delivery. The job's arbitrator can only split a disputed job between worker and buyer, before its deadline. Everything else (settling after silence, refunding an undelivered job, refunding an unruled dispute) is a deadline anyone may trigger.
 - **Funds only move to the receiver, the fee receiver or back to the payer.** The escrow sends captures to `PaymentInfo.receiver` and the fee to `PaymentInfo.feeReceiver` (forced to the immutable `FEE_RECEIVER`), and voids to `PaymentInfo.payer`. The operator never holds tokens and never calls the escrow's `refund` or `charge`.
 - **Anyone may relay.** Every signed action accepts a signature from the named party (EOA or ERC-1271), or a direct call from that party.
 - **The escrow is the backstop.** If nobody settles a job before the escrow's `authorizationExpiry`, the buyer can `reclaim` from the escrow directly. `fund` guarantees that expiry lies after every window of the job, so a reclaim never pre-empts a job still being settled.
@@ -30,14 +30,26 @@ The worker does not sign at funding. The worker's consent is `deliver`: before d
 
 EIP-712, domain `{name: "SidequestOperator", version: "1", chainId, verifyingContract}`, checked with OpenZeppelin's `SignatureChecker` (EOAs, and ERC-1271 for deployed contract wallets):
 
-| Action    | Signer     | Type                                                      |
-| :-------- | :--------- | :-------------------------------------------------------- |
-| `deliver` | receiver   | `Delivery(bytes32 paymentInfoHash,bytes32 deliveryHash)`  |
-| `approve` | payer      | `Approval(bytes32 paymentInfoHash,bytes32 deliveryHash)`  |
-| `reject`  | payer      | `Rejection(bytes32 paymentInfoHash,bytes32 deliveryHash)` |
-| `rule`    | arbitrator | `Ruling(bytes32 paymentInfoHash,uint16 workerShareBps)`   |
+| Action             | Signer           | Type                                                                       |
+| :----------------- | :--------------- | :------------------------------------------------------------------------- |
+| `deliver`          | receiver         | `Delivery(bytes32 paymentInfoHash,bytes32 deliveryHash)`                   |
+| `deliverDelegated` | receiver, once   | `DeliveryDelegate(bytes32 paymentInfoHash,address delegate,uint48 expiry)` |
+|                    | and the delegate | `Delivery(bytes32 paymentInfoHash,bytes32 deliveryHash)` (EOA only)        |
+| `approve`          | payer            | `Approval(bytes32 paymentInfoHash,bytes32 deliveryHash)`                   |
+| `reject`           | payer            | `Rejection(bytes32 paymentInfoHash,bytes32 deliveryHash)`                  |
+| `rule`             | arbitrator       | `Ruling(bytes32 paymentInfoHash,uint16 workerShareBps)`                    |
 
 The named party may also call the function itself with an empty signature. `approve` and `reject` name the recorded delivery hash, so a buyer approves or rejects that delivery and no other.
+
+### Delivery delegation
+
+An agent should be able to record its operator's delivery unattended, without a wallet prompt per delivery. The receiver signs, once per payment, `DeliveryDelegate(paymentInfoHash, delegate, expiry)`; `deliverDelegated` then accepts a delivery signed by `delegate` (the same `Delivery` struct the receiver would sign) together with that delegation, strictly before `expiry` and the delivery deadline, while the job is `Funded`. It records exactly what `deliver` records and emits the unchanged `JobDelivered`, followed by `JobDeliveryDelegated(paymentInfoHash, delegate, delegationExpiry)`, so the logs show who signed.
+
+- **Scope.** One payment (the hash is in the delegation) and one action: nothing but `deliverDelegated` reads a delegation, so a delegate can never approve, reject, rule, refund or move money, and a delegation is worthless on any other job. A junk delivery by a delegate (or by a thief of its key) is handled like a junk delivery by the receiver: the payer rejects within the review window and the arbitrator rules.
+- **Signers.** The receiver's delegation is checked like every receiver signature (EOA or ERC-1271). The delegate is an EOA key, checked with `ecrecover` (OpenZeppelin `ECDSA`, low-s); no ERC-1271 call is made for a delegate. Either may instead call the function itself.
+- **Revocation.** `revokeDeliveryDelegate(paymentInfoHash, delegate)` sets a flag under the caller's own address; `deliverDelegated` reads only the flag of the payment's receiver, so anyone may call it but only the receiver's call counts, and no `PaymentInfo` is needed (it works before funding, and from a contract wallet calling itself). We chose a per-payment, per-delegate flag over a receiver nonce: a nonce would have to be inside the signed struct and would revoke every delegation of the receiver at once, while the flag revokes exactly the delegation's scope and changes nothing a wallet signs. Revocation is permanent for that key and payment; delegate another key to resume. It takes effect once mined: a delegated delivery mined first stands.
+- **Replay.** As for every action: the delegation and the delegate's signature are bound to the payment hash, this contract and chain, and become useless once the job leaves `Funded`.
+- **Gas.** A relayed delegated delivery costs about 82 600 gas against 72 400 for a relayed direct one (a second `ecrecover`, one revocation read, one more event); a revocation about 46 000.
 
 **Why no nonces are needed.** `paymentInfoHash` is unique forever: it includes the chain id and the escrow's address, and the escrow refuses to authorize the same hash twice. The domain binds this contract and chain. Each signed action is valid in exactly one status (`deliver` in `Funded`; `approve` and `reject` in `Delivered`; `rule` in `Disputed`) and every action moves the job out of that status; statuses only move forward. So each signature can take effect at most once, on one job, on one deployment. The tests replay every signature type, across jobs, across deployments, across chain ids and across types. Signatures carry no expiry: an unsubmitted signature stays usable until the job leaves the status it is valid in.
 
@@ -45,17 +57,18 @@ The named party may also call the function itself with an empty signature. `appr
 
 Times are block timestamps; "before" means strictly before.
 
-| Function            | Caller                        | Requires                  | Time                                                    | Effect                                                                        |
-| :------------------ | :---------------------------- | :------------------------ | :------------------------------------------------------ | :---------------------------------------------------------------------------- |
-| `fund`              | anyone, with payer's ERC-3009 | `None`                    | before `deliveryDeadline` and `preApprovalExpiry`       | → `Funded`; escrow `authorize(maxAmount)`                                     |
-| `deliver`           | receiver or their signature   | `Funded`                  | before `deliveryDeadline`                               | → `Delivered`; records `deliveredAt`, `deliveryHash`                          |
-| `approve`           | payer or their signature      | `Delivered`               | any (capture needs `< authorizationExpiry`)             | → `Settled/Approved`; capture all                                             |
-| `settleAfterReview` | anyone                        | `Delivered`               | from `deliveredAt + reviewWindow`                       | → `Settled/AcceptedBySilence`; capture all                                    |
-| `reject`            | payer or their signature      | `Delivered`               | before `deliveredAt + reviewWindow`                     | → `Disputed`; records `rejectedAt`                                            |
-| `rule`              | arbitrator or their signature | `Disputed`                | before `rejectedAt + disputeWindow + arbitrationWindow` | → `Settled/Ruled`; capture `workerShareBps`, void the rest                    |
-| `settleUnruled`     | anyone                        | `Disputed`                | from `rejectedAt + disputeWindow + arbitrationWindow`   | → `Settled/Unruled`; void all                                                 |
-| `refundUndelivered` | anyone                        | `Funded`                  | from `deliveryDeadline`                                 | → `Settled/Undelivered`; void all                                             |
-| escrow `reclaim`    | payer (on the escrow)         | anything still authorised | from `authorizationExpiry`                              | escrow returns all; the job stays non-terminal here, every later call reverts |
+| Function            | Caller                                         | Requires                  | Time                                                    | Effect                                                                        |
+| :------------------ | :--------------------------------------------- | :------------------------ | :------------------------------------------------------ | :---------------------------------------------------------------------------- |
+| `fund`              | anyone, with payer's ERC-3009                  | `None`                    | before `deliveryDeadline` and `preApprovalExpiry`       | → `Funded`; escrow `authorize(maxAmount)`                                     |
+| `deliver`           | receiver or their signature                    | `Funded`                  | before `deliveryDeadline`                               | → `Delivered`; records `deliveredAt`, `deliveryHash`                          |
+| `deliverDelegated`  | anyone, with delegation + delegate's signature | `Funded`                  | before `deliveryDeadline` and the delegation's `expiry` | as `deliver`; also emits `JobDeliveryDelegated`                               |
+| `approve`           | payer or their signature                       | `Delivered`               | any (capture needs `< authorizationExpiry`)             | → `Settled/Approved`; capture all                                             |
+| `settleAfterReview` | anyone                                         | `Delivered`               | from `deliveredAt + reviewWindow`                       | → `Settled/AcceptedBySilence`; capture all                                    |
+| `reject`            | payer or their signature                       | `Delivered`               | before `deliveredAt + reviewWindow`                     | → `Disputed`; records `rejectedAt`                                            |
+| `rule`              | arbitrator or their signature                  | `Disputed`                | before `rejectedAt + disputeWindow + arbitrationWindow` | → `Settled/Ruled`; capture `workerShareBps`, void the rest                    |
+| `settleUnruled`     | anyone                                         | `Disputed`                | from `rejectedAt + disputeWindow + arbitrationWindow`   | → `Settled/Unruled`; void all                                                 |
+| `refundUndelivered` | anyone                                         | `Funded`                  | from `deliveryDeadline`                                 | → `Settled/Undelivered`; void all                                             |
+| escrow `reclaim`    | payer (on the escrow)                          | anything still authorised | from `authorizationExpiry`                              | escrow returns all; the job stays non-terminal here, every later call reverts |
 
 `Settled` is the only terminal status, and `outcome` records which of the five ways it was reached. The dispute window and the arbitration window run back to back after a rejection; the arbitrator may rule at any point in either.
 
@@ -72,18 +85,20 @@ Times are block timestamps; "before" means strictly before.
 - **Any ERC-3009 token** is accepted; the chain reader must check that the token is the expected USDC.
 - **No early exits.** There is no mutual cancel and no worker-initiated refund before the deadline; a buyer who rejected cannot then approve.
 - **ERC-6492** (undeployed smart wallets) works for the buyer's ERC-3009 signature, through the collector, but not for the EIP-712 actions here.
+- **Delivery delegation is new and unaudited surface** (`deliverDelegated`, `revokeDeliveryDelegate`). What it risks: a stolen delegate key can record a junk delivery hash on the one payment it was delegated for, before the delegation's expiry, unless the receiver revoked it or delivered first; a receiver who delegated cannot then record a different delivery once the delegate's is mined. Nothing else: it moves no funds and no other action reads it. A revocation can be front-run by a delegated delivery already in the mempool. Delegates must be EOA keys.
 
 ## Layout
 
-| Path                                     | What                                                                                      |
-| :--------------------------------------- | :---------------------------------------------------------------------------------------- |
-| `src/SidequestOperator.sol`              | The contract.                                                                             |
-| `test/SidequestOperator.t.sol`           | Unit tests: every function, every revert, every signature variant, fee maths, ±1 s edges. |
-| `test/SidequestOperator.fuzz.t.sol`      | Fuzz tests on amounts, shares, windows and timings.                                       |
-| `test/SidequestOperator.invariant.t.sol` | Stateful fuzzing with a handler: conservation, one outcome per job, no stranger succeeds. |
-| `test/fork/ArcTestnet.fork.t.sol`        | Arc testnet fork tests against the deployed escrow, collector and USDC.                   |
-| `test/DeploySidequestOperator.t.sol`     | The deploy script refuses mainnets and reads its parameters from the environment.         |
-| `script/DeploySidequestOperator.s.sol`   | Deployment, testnets only.                                                                |
+| Path                                      | What                                                                                      |
+| :---------------------------------------- | :---------------------------------------------------------------------------------------- |
+| `src/SidequestOperator.sol`               | The contract.                                                                             |
+| `test/SidequestOperator.t.sol`            | Unit tests: every function, every revert, every signature variant, fee maths, ±1 s edges. |
+| `test/SidequestOperator.delegation.t.sol` | Delivery delegation: every accept and refuse case, revocation, ERC-1271 receivers.        |
+| `test/SidequestOperator.fuzz.t.sol`       | Fuzz tests on amounts, shares, windows and timings.                                       |
+| `test/SidequestOperator.invariant.t.sol`  | Stateful fuzzing with a handler: conservation, one outcome per job, no stranger succeeds. |
+| `test/fork/ArcTestnet.fork.t.sol`         | Arc testnet fork tests against the deployed escrow, collector and USDC.                   |
+| `test/DeploySidequestOperator.t.sol`      | The deploy script refuses mainnets and reads its parameters from the environment.         |
+| `script/DeploySidequestOperator.s.sol`    | Deployment, testnets only.                                                                |
 
 ## Running
 
@@ -106,7 +121,7 @@ FOUNDRY_PROFILE=ci forge test  # more fuzz and invariant runs, as CI does
 ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network forge test --match-path 'test/fork/*'
 ```
 
-Without `ARC_TESTNET_RPC_URL` the suite skips. With it, it checks that the deployed `AuthCaptureEscrow` (`0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`), `ERC3009PaymentCollector` (`0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88`) and their `TokenStore` implementation are byte-for-byte the vendored v1.1.0 build, ignoring only the CBOR metadata (its IPFS hash covers source paths, which differ) and the immutables; then runs fund → deliver → approve and fund → deliver → reject → rule with a fresh, locally signing payer and Arc's real USDC.
+Without `ARC_TESTNET_RPC_URL` the suite skips. With it, it checks that the deployed `AuthCaptureEscrow` (`0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`), `ERC3009PaymentCollector` (`0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88`) and their `TokenStore` implementation are byte-for-byte the vendored v1.1.0 build, ignoring only the CBOR metadata (its IPFS hash covers source paths, which differ) and the immutables; then runs fund → deliver → approve, fund → delegated delivery → approve and fund → deliver → reject → rule with a fresh, locally signing payer and Arc's real USDC.
 
 Arc's USDC is the native coin, with 18 decimals; the ERC-20 at `0x3600…0000` is a 6-decimal view over the same balance. The test funds the payer the Arc way, with `vm.deal(payer, amount × 10¹²)`, and asserts that the ERC-20 reports `amount`. Transfers in the ERC-20 call Arc's native-coin precompile at `0x1800…0000` (`transfer(from, to, amount18)`), which forge's local EVM does not implement, so the fork test installs a small shim there that moves native balance the same way. Everything else (escrow, collector, the USDC implementation and its ERC-3009 signature check) is the code deployed on Arc. The precompile itself is exercised only by a real testnet transaction, in the phase 1 testnet journey.
 

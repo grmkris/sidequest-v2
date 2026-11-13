@@ -97,6 +97,41 @@ describe('reading every job’s logs', () => {
     }),
   )
 
+  it.effect('reads a delegated delivery as its `JobDelivered`, and a revoked delegation as nothing', () =>
+    Effect.gen(function* () {
+      const rpc = fakeRpc()
+      const agent = '0x000000000000000000000000000000000000a6e7'
+      rpc.emit(
+        11n,
+        chain.operator,
+        operatorLog('JobDelivered', {
+          paymentInfoHash: payment,
+          termsDigest: digest,
+          deliveryHash,
+          deliveredAt: 1_798_000_000,
+          reviewDeadline: 1_798_086_400,
+        }),
+      )
+      rpc.emit(
+        11n,
+        chain.operator,
+        operatorLog('JobDeliveryDelegated', {
+          paymentInfoHash: payment,
+          delegate: agent,
+          delegationExpiry: 1_798_100_000,
+        }),
+      )
+      rpc.emit(
+        12n,
+        chain.operator,
+        operatorLog('DeliveryDelegateRevoked', { paymentInfoHash: payment, receiver, delegate: agent }),
+      )
+      rpc.head = 20n
+      const facts = yield* factsBetween(rpc, 0n, 20n)
+      expect(facts).toEqual([expect.objectContaining({ _tag: 'Delivered', deliveryHash, paymentHash: payment })])
+    }),
+  )
+
   it.effect('asks for ranges an RPC accepts', () =>
     Effect.gen(function* () {
       const rpc = fakeRpc()

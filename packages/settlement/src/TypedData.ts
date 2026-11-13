@@ -20,6 +20,13 @@ const deliveryTypes = {
     { name: 'deliveryHash', type: 'bytes32' },
   ],
 } as const
+const deliveryDelegateTypes = {
+  DeliveryDelegate: [
+    { name: 'paymentInfoHash', type: 'bytes32' },
+    { name: 'delegate', type: 'address' },
+    { name: 'expiry', type: 'uint48' },
+  ],
+} as const
 const approvalTypes = {
   Approval: [
     { name: 'paymentInfoHash', type: 'bytes32' },
@@ -78,6 +85,22 @@ export const deliveryTypedData = (paymentHash: Hex, deliveryHash: Hex, chain: Se
   types: deliveryTypes,
   primaryType: 'Delivery' as const,
   message: { paymentInfoHash: paymentHash, deliveryHash },
+})
+
+/**
+ * The worker's `DeliveryDelegate`: lets `delegate` (an agent's EVM key) record the payment's delivery with its own
+ * `Delivery` signature, strictly before `expiry` (Unix seconds). That one payment and that one action only.
+ */
+export const deliveryDelegateTypedData = (
+  paymentHash: Hex,
+  delegate: Address,
+  expiry: number,
+  chain: SettlementChain,
+) => ({
+  domain: operatorDomain(chain),
+  types: deliveryDelegateTypes,
+  primaryType: 'DeliveryDelegate' as const,
+  message: { paymentInfoHash: paymentHash, delegate, expiry },
 })
 
 /** The buyer's `Approval` of the recorded delivery: pays the worker. */

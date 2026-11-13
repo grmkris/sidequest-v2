@@ -181,6 +181,68 @@ contract SidequestOperatorFuzzTest is OperatorTestBase {
         op.rule(pi, 5000, ruling);
     }
 
+    /// @dev For any expiry (already past, or up to a month ahead) and any delivery moment before the job's deadline, a
+    ///      delegated delivery lands exactly when the moment is strictly before the expiry.
+    function testFuzz_delegationExpiryBoundary(uint256 expiry, uint256 elapsed) public {
+        (AuthCaptureEscrow.PaymentInfo memory pi, SidequestOperator.JobParams memory params, bytes32 hash) =
+            _fundDefault();
+        uint256 start = vm.getBlockTimestamp();
+        uint48 until = uint48(bound(expiry, 0, start + 30 days));
+        uint256 at = start + bound(elapsed, 0, params.deliveryDeadline - start - 1);
+        bytes32 artefact = keccak256(abi.encode(expiry, elapsed));
+        bytes memory delegationSig = _signDelegation(receiverPk, hash, delegate, until);
+        bytes memory delegateSig = _signDelivery(delegatePk, hash, artefact);
+        vm.warp(at);
+        if (at < until) {
+            op.deliverDelegated(pi, artefact, delegate, until, delegateSig, delegationSig);
+            SidequestOperator.Job memory job = op.getJob(hash);
+            assertEq(uint8(job.status), uint8(SidequestOperator.Status.Delivered));
+            assertEq(job.deliveredAt, at);
+            assertEq(job.deliveryHash, artefact);
+        } else {
+            vm.expectRevert(abi.encodeWithSelector(SidequestOperator.DelegationExpired.selector, at, until));
+            op.deliverDelegated(pi, artefact, delegate, until, delegateSig, delegationSig);
+            assertEq(uint8(_status(hash)), uint8(SidequestOperator.Status.Funded));
+        }
+    }
+
+    /// @dev Delegation and delivery deadlines are independent: whichever comes first ends the delegated delivery.
+    function testFuzz_delegationNeverOutlivesTheDeliveryDeadline(uint256 expiryAfterDeadline, uint256 late) public {
+        (AuthCaptureEscrow.PaymentInfo memory pi, SidequestOperator.JobParams memory params, bytes32 hash) =
+            _fundDefault();
+        uint48 until = uint48(params.deliveryDeadline + bound(expiryAfterDeadline, 0, 365 days));
+        uint256 at = params.deliveryDeadline + bound(late, 0, 30 days);
+        bytes memory delegationSig = _signDelegation(receiverPk, hash, delegate, until);
+        bytes memory delegateSig = _signDelivery(delegatePk, hash, keccak256("late"));
+        vm.warp(at);
+        vm.expectRevert(
+            abi.encodeWithSelector(SidequestOperator.DeadlinePassed.selector, at, uint256(params.deliveryDeadline))
+        );
+        op.deliverDelegated(pi, keccak256("late"), delegate, until, delegateSig, delegationSig);
+    }
+
+    /// @dev Any key but the receiver's cannot delegate, and any key but the named delegate's cannot use a delegation.
+    function testFuzz_foreignDelegationKeysAreRefused(uint256 pk) public {
+        pk = bound(pk, 1, 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140);
+        vm.assume(pk != receiverPk && pk != delegatePk);
+        (AuthCaptureEscrow.PaymentInfo memory pi,, bytes32 hash) = _fundDefault();
+        bytes32 artefact = keccak256("artefact");
+        uint48 until = uint48(vm.getBlockTimestamp() + 1 days);
+
+        bytes memory forgedDelegation = _signDelegation(pk, hash, delegate, until);
+        bytes memory delegateSig = _signDelivery(delegatePk, hash, artefact);
+        vm.expectRevert(abi.encodeWithSelector(SidequestOperator.Unauthorized.selector, receiver));
+        op.deliverDelegated(pi, artefact, delegate, until, delegateSig, forgedDelegation);
+
+        bytes memory delegationSig = _signDelegation(receiverPk, hash, delegate, until);
+        bytes memory forgedDelivery = _signDelivery(pk, hash, artefact);
+        vm.expectRevert(abi.encodeWithSelector(SidequestOperator.Unauthorized.selector, delegate));
+        op.deliverDelegated(pi, artefact, delegate, until, forgedDelivery, delegationSig);
+
+        op.deliverDelegated(pi, artefact, delegate, until, delegateSig, delegationSig);
+        assertEq(uint8(_status(hash)), uint8(SidequestOperator.Status.Delivered));
+    }
+
     function _fundAmount(uint256 amount) internal returns (AuthCaptureEscrow.PaymentInfo memory pi, bytes32 hash) {
         SidequestOperator.JobParams memory params = _params();
         pi = _paymentInfo(params, amount);

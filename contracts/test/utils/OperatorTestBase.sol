@@ -28,10 +28,13 @@ abstract contract OperatorTestBase is Test, SigningKit {
     uint256 internal receiverPk = 0xCAFE;
     uint256 internal arbitratorPk = 0xA4B;
     uint256 internal strangerPk = 0xBAD;
+    /// @dev An agent's key the receiver delegates deliveries to.
+    uint256 internal delegatePk = 0xA6E7;
     address internal payer;
     address internal receiver;
     address internal arbitrator;
     address internal stranger;
+    address internal delegate;
     address internal treasury = makeAddr("treasury");
     address internal relayer = makeAddr("relayer");
 
@@ -43,6 +46,7 @@ abstract contract OperatorTestBase is Test, SigningKit {
         receiver = vm.addr(receiverPk);
         arbitrator = vm.addr(arbitratorPk);
         stranger = vm.addr(strangerPk);
+        delegate = vm.addr(delegatePk);
 
         escrow = new AuthCaptureEscrow();
         collector = new ERC3009PaymentCollector(address(escrow), makeAddr("multicall3"));
@@ -149,6 +153,10 @@ abstract contract OperatorTestBase is Test, SigningKit {
 
     function _signDelivery(uint256 pk, bytes32 hash, bytes32 deliveryHash) internal view returns (bytes memory) {
         return _sign(pk, op.deliveryDigest(hash, deliveryHash));
+    }
+
+    function _signDelegation(uint256 pk, bytes32 hash, address to, uint48 expiry) internal view returns (bytes memory) {
+        return _sign(pk, op.deliveryDelegateDigest(hash, to, expiry));
     }
 
     function _signApproval(uint256 pk, bytes32 hash) internal view returns (bytes memory) {

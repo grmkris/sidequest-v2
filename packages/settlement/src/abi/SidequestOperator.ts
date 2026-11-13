@@ -3,7 +3,7 @@
 /** The contract source this ABI was built from. */
 export const sidequestOperatorSource = {
   path: 'contracts/src/SidequestOperator.sol',
-  sha256: 'f54971a6c2db321ea9a7e9a64641567e7dffb19529864a37800ccf92e00bd082',
+  sha256: 'c37ee0be18dbc21bd1da192e853afefbb406d58427449aee628df47bbb5fbbc4',
 } as const
 
 export const sidequestOperatorAbi = [
@@ -36,6 +36,13 @@ export const sidequestOperatorAbi = [
     name: 'COLLECTOR',
     inputs: [],
     outputs: [{ name: '', type: 'address', internalType: 'address' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'DELIVERY_DELEGATE_TYPEHASH',
+    inputs: [],
+    outputs: [{ name: '', type: 'bytes32', internalType: 'bytes32' }],
     stateMutability: 'view',
   },
   {
@@ -212,6 +219,49 @@ export const sidequestOperatorAbi = [
   },
   {
     type: 'function',
+    name: 'deliverDelegated',
+    inputs: [
+      {
+        name: 'paymentInfo',
+        type: 'tuple',
+        internalType: 'struct AuthCaptureEscrow.PaymentInfo',
+        components: [
+          { name: 'operator', type: 'address', internalType: 'address' },
+          { name: 'payer', type: 'address', internalType: 'address' },
+          { name: 'receiver', type: 'address', internalType: 'address' },
+          { name: 'token', type: 'address', internalType: 'address' },
+          { name: 'maxAmount', type: 'uint120', internalType: 'uint120' },
+          { name: 'preApprovalExpiry', type: 'uint48', internalType: 'uint48' },
+          { name: 'authorizationExpiry', type: 'uint48', internalType: 'uint48' },
+          { name: 'refundExpiry', type: 'uint48', internalType: 'uint48' },
+          { name: 'minFeeBps', type: 'uint16', internalType: 'uint16' },
+          { name: 'maxFeeBps', type: 'uint16', internalType: 'uint16' },
+          { name: 'feeReceiver', type: 'address', internalType: 'address' },
+          { name: 'salt', type: 'uint256', internalType: 'uint256' },
+        ],
+      },
+      { name: 'deliveryHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', internalType: 'address' },
+      { name: 'expiry', type: 'uint48', internalType: 'uint48' },
+      { name: 'delegateSignature', type: 'bytes', internalType: 'bytes' },
+      { name: 'delegationSignature', type: 'bytes', internalType: 'bytes' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'deliveryDelegateDigest',
+    inputs: [
+      { name: 'paymentInfoHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', internalType: 'address' },
+      { name: 'expiry', type: 'uint48', internalType: 'uint48' },
+    ],
+    outputs: [{ name: '', type: 'bytes32', internalType: 'bytes32' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'deliveryDigest',
     inputs: [
       { name: 'paymentInfoHash', type: 'bytes32', internalType: 'bytes32' },
@@ -305,6 +355,17 @@ export const sidequestOperatorAbi = [
   },
   {
     type: 'function',
+    name: 'isDeliveryDelegateRevoked',
+    inputs: [
+      { name: 'receiver', type: 'address', internalType: 'address' },
+      { name: 'paymentInfoHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', internalType: 'address' },
+    ],
+    outputs: [{ name: '', type: 'bool', internalType: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'jobSalt',
     inputs: [
       {
@@ -389,6 +450,16 @@ export const sidequestOperatorAbi = [
     ],
     outputs: [{ name: '', type: 'bytes32', internalType: 'bytes32' }],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'revokeDeliveryDelegate',
+    inputs: [
+      { name: 'paymentInfoHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', internalType: 'address' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
   },
   {
     type: 'function',
@@ -483,6 +554,16 @@ export const sidequestOperatorAbi = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
+  {
+    type: 'event',
+    name: 'DeliveryDelegateRevoked',
+    inputs: [
+      { name: 'paymentInfoHash', type: 'bytes32', indexed: true, internalType: 'bytes32' },
+      { name: 'receiver', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'delegate', type: 'address', indexed: true, internalType: 'address' },
+    ],
+    anonymous: false,
+  },
   { type: 'event', name: 'EIP712DomainChanged', inputs: [], anonymous: false },
   {
     type: 'event',
@@ -493,6 +574,16 @@ export const sidequestOperatorAbi = [
       { name: 'deliveryHash', type: 'bytes32', indexed: false, internalType: 'bytes32' },
       { name: 'deliveredAt', type: 'uint48', indexed: false, internalType: 'uint48' },
       { name: 'reviewDeadline', type: 'uint48', indexed: false, internalType: 'uint48' },
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'JobDeliveryDelegated',
+    inputs: [
+      { name: 'paymentInfoHash', type: 'bytes32', indexed: true, internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'delegationExpiry', type: 'uint48', indexed: false, internalType: 'uint48' },
     ],
     anonymous: false,
   },
@@ -556,6 +647,22 @@ export const sidequestOperatorAbi = [
     inputs: [
       { name: 'timestamp', type: 'uint256', internalType: 'uint256' },
       { name: 'deadline', type: 'uint256', internalType: 'uint256' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'DelegationExpired',
+    inputs: [
+      { name: 'timestamp', type: 'uint256', internalType: 'uint256' },
+      { name: 'expiry', type: 'uint48', internalType: 'uint48' },
+    ],
+  },
+  {
+    type: 'error',
+    name: 'DelegationRevoked',
+    inputs: [
+      { name: 'paymentInfoHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'delegate', type: 'address', internalType: 'address' },
     ],
   },
   {

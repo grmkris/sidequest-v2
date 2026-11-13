@@ -248,6 +248,9 @@ const readOperator = (expected: Expected, data: Hex, topics: readonly [Hex, ...A
       return { kind: 'rejection', reading: rejected(expected, event.args, position) } as const
     case 'JobSettled':
       return { kind: 'settlement', reading: settled(expected, event.args, position) } as const
+    // A delegated delivery is read from its `JobDelivered`, like any other; a revocation moves nothing.
+    case 'JobDeliveryDelegated':
+    case 'DeliveryDelegateRevoked':
     case 'EIP712DomainChanged':
       return { kind: 'ignored' } as const
   }

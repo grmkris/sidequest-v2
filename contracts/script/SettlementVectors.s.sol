@@ -10,7 +10,7 @@ import {MockERC3009Token} from "commerce-payments/test/mocks/MockERC3009Token.so
 import {SidequestOperator} from "../src/SidequestOperator.sol";
 
 /// @notice Prints test vectors for `packages/settlement`: for fixed inputs, the hashes and EIP-712 digests the deployed
-///         contracts compute (`jobSalt`, the escrow's `getHash` with and without the payer, the four action digests,
+///         contracts compute (`jobSalt`, the escrow's `getHash` with and without the payer, the five action digests,
 ///         and the token's `ReceiveWithAuthorization` digest). The TypeScript builders must reproduce every one.
 ///
 /// Sends nothing: it deploys into the script's own simulation, on Arc testnet's chain id. Regenerate and compare with
@@ -31,6 +31,8 @@ contract SettlementVectors is Script {
         uint120 amount;
         bytes32 deliveryHash;
         uint16 workerShareBps;
+        address delegate;
+        uint48 delegationExpiry;
     }
 
     function run() external {
@@ -71,7 +73,9 @@ contract SettlementVectors is Script {
             receiver: address(0xB0B),
             amount: 250_000_000,
             deliveryHash: 0x2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae,
-            workerShareBps: 6000
+            workerShareBps: 6000,
+            delegate: address(0xA6E7),
+            delegationExpiry: 1_798_675_200
         });
     }
 
@@ -90,7 +94,9 @@ contract SettlementVectors is Script {
             receiver: address(0x8000000000000000000000000000000000000001),
             amount: type(uint120).max,
             deliveryHash: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
-            workerShareBps: 10_000
+            workerShareBps: 10_000,
+            delegate: address(type(uint160).max - 1),
+            delegationExpiry: type(uint48).max
         });
     }
 
@@ -109,7 +115,9 @@ contract SettlementVectors is Script {
             receiver: address(5),
             amount: 1,
             deliveryHash: bytes32(uint256(6)),
-            workerShareBps: 0
+            workerShareBps: 0,
+            delegate: address(7),
+            delegationExpiry: 0
         });
     }
 
@@ -163,6 +171,11 @@ contract SettlementVectors is Script {
         vm.serializeBytes32(key, "approvalDigest", op.approvalDigest(hash, c.deliveryHash));
         vm.serializeBytes32(key, "rejectionDigest", op.rejectionDigest(hash, c.deliveryHash));
         vm.serializeBytes32(key, "rulingDigest", op.rulingDigest(hash, c.workerShareBps));
+        vm.serializeAddress(key, "delegate", c.delegate);
+        vm.serializeUint(key, "delegationExpiry", c.delegationExpiry);
+        vm.serializeBytes32(
+            key, "deliveryDelegateDigest", op.deliveryDelegateDigest(hash, c.delegate, c.delegationExpiry)
+        );
         return vm.serializeBytes32(key, "receiveWithAuthorizationDigest", _receiveDigest(info, nonce));
     }
 

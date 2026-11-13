@@ -1,7 +1,7 @@
 {
   "source": {
     "path": "contracts/src/SidequestOperator.sol",
-    "sha256": "f54971a6c2db321ea9a7e9a64641567e7dffb19529864a37800ccf92e00bd082"
+    "sha256": "c37ee0be18dbc21bd1da192e853afefbb406d58427449aee628df47bbb5fbbc4"
   },
   "deployment": {
     "chainId": 5042002,
@@ -21,7 +21,10 @@
       "arbitrationWindow": 604800,
       "arbitrator": "0x00000000000000000000000000000000000a4B17",
       "authorizationExpiry": 1799884800,
+      "delegate": "0x000000000000000000000000000000000000A6e7",
+      "delegationExpiry": 1798675200,
       "deliveryDeadline": 1798761600,
+      "deliveryDelegateDigest": "0x989df33fbd4570f923c2042cbfc5bdefe61b1ad5d708cccc03806624e462a95b",
       "deliveryDigest": "0x7b47d76fc556270aaf5eef7628325cf67ffd72edd32c0ea63aac4b61abe3e350",
       "deliveryHash": "0x2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
       "disputeWindow": 172800,
@@ -45,7 +48,10 @@
       "arbitrationWindow": 1209600,
       "arbitrator": "0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF",
       "authorizationExpiry": 281474976710655,
+      "delegate": "0xffffFFFfFFffffffffffffffFfFFFfffFFFfFFfE",
+      "delegationExpiry": 281474976710655,
       "deliveryDeadline": 281474972995455,
+      "deliveryDelegateDigest": "0x2f3684ef8b527badaab15556a257859398d9cd653d016879c688b2e68f39f448",
       "deliveryDigest": "0x38c0084c931a1f5730807db49ced1b8f909d2a893c3bbfc113ee72458ca17027",
       "deliveryHash": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       "disputeWindow": 1209600,
@@ -69,7 +75,10 @@
       "arbitrationWindow": 43200,
       "arbitrator": "0x0000000000000000000000000000000000000003",
       "authorizationExpiry": 136801,
+      "delegate": "0x0000000000000000000000000000000000000007",
+      "delegationExpiry": 0,
       "deliveryDeadline": 1,
+      "deliveryDelegateDigest": "0xc2379ee72ee833ec347f8cc1f7455ebdcc032b43e3a82100c455b4ea5ed968b3",
       "deliveryDigest": "0xea5d507a6370faa6adcd8a1f6ce5918a31f19228601b288d6cda41c4a71eee52",
       "deliveryHash": "0x0000000000000000000000000000000000000000000000000000000000000006",
       "disputeWindow": 3600,

@@ -3,6 +3,7 @@ pragma solidity 0.8.28;
 
 import {AuthCaptureEscrow} from "commerce-payments/src/AuthCaptureEscrow.sol";
 import {TokenCollector} from "commerce-payments/src/collectors/TokenCollector.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
@@ -27,6 +28,8 @@ import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/Reentrancy
 ///      - dispute and arbitration: `rule` while `now < rejectedAt + disputeWindow + arbitrationWindow`;
 ///        `settleUnruled` from then on;
 ///      - no delivery: `refundUndelivered` once `now >= deliveryDeadline`.
+///      The receiver may delegate the recording of one payment's delivery to another key (`deliverDelegated`); see
+///      there for its bounds.
 ///      `fund` requires `authorizationExpiry >= deliveryDeadline + reviewWindow + disputeWindow + arbitrationWindow +
 ///      MARGIN`, so the escrow's own deadlines (capture before `authorizationExpiry`, payer `reclaim` from then on)
 ///      never cut a window short.
@@ -121,6 +124,10 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
     /// @notice EIP-712 type the receiver signs to record a delivery.
     bytes32 public constant DELIVERY_TYPEHASH = keccak256("Delivery(bytes32 paymentInfoHash,bytes32 deliveryHash)");
 
+    /// @notice EIP-712 type the receiver signs to let `delegate` record the delivery of one payment until `expiry`.
+    bytes32 public constant DELIVERY_DELEGATE_TYPEHASH =
+        keccak256("DeliveryDelegate(bytes32 paymentInfoHash,address delegate,uint48 expiry)");
+
     /// @notice EIP-712 type the payer signs to approve a delivery.
     bytes32 public constant APPROVAL_TYPEHASH = keccak256("Approval(bytes32 paymentInfoHash,bytes32 deliveryHash)");
 
@@ -143,6 +150,11 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
     address public immutable FEE_RECEIVER;
 
     mapping(bytes32 paymentInfoHash => Job job) internal _jobs;
+
+    /// @dev Delivery delegations a receiver revoked, keyed by the revoking account itself: an account can only write
+    ///      under its own address, and `deliverDelegated` reads only the slot of the payment's receiver.
+    mapping(address receiver => mapping(bytes32 paymentInfoHash => mapping(address delegate => bool revoked))) internal
+        _revokedDelegates;
 
     /// @notice A job was registered and its funds authorised into the escrow.
     event JobFunded(
@@ -169,6 +181,13 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
         uint48 deliveredAt,
         uint48 reviewDeadline
     );
+
+    /// @notice The delivery `JobDelivered` just recorded was signed by `delegate`, under the receiver's delegation
+    ///         valid until `delegationExpiry`, not by the receiver. Emitted right after that `JobDelivered`.
+    event JobDeliveryDelegated(bytes32 indexed paymentInfoHash, address indexed delegate, uint48 delegationExpiry);
+
+    /// @notice `receiver` revoked every delivery delegation it gave `delegate` for the payment.
+    event DeliveryDelegateRevoked(bytes32 indexed paymentInfoHash, address indexed receiver, address indexed delegate);
 
     /// @notice The payer rejected the delivery; the arbitrator may rule until `arbitrationDeadline`.
     event JobRejected(
@@ -235,6 +254,12 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
 
     /// @notice The caller is not `signer` and the signature is not a valid EIP-712 signature by `signer`.
     error Unauthorized(address signer);
+
+    /// @notice The delivery delegation expired: it is used at or after its `expiry`.
+    error DelegationExpired(uint256 timestamp, uint48 expiry);
+
+    /// @notice The payment's receiver revoked its delivery delegation to `delegate`.
+    error DelegationRevoked(bytes32 paymentInfoHash, address delegate);
 
     /// @param escrow The `AuthCaptureEscrow` singleton.
     /// @param collector An `ERC3009PaymentCollector` bound to `escrow`.
@@ -330,15 +355,78 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
             keccak256(abi.encode(DELIVERY_TYPEHASH, paymentInfoHash, deliveryHash)),
             receiverSignature
         );
+        _recordDelivery(paymentInfoHash, job, deliveryHash);
+    }
 
-        uint48 deliveredAt = _now();
-        job.status = Status.Delivered;
-        job.deliveredAt = deliveredAt;
-        job.deliveryHash = deliveryHash;
+    /// @notice Records the delivery hash on chain with the signature of a key the receiver delegated this payment's
+    ///         delivery to. Starts the review window exactly as `deliver` does.
+    ///
+    /// @dev Lets the receiver hand the recording of one delivery to another key (an agent's) once, ahead of time,
+    ///      instead of signing at delivery. Accepted only while funded, strictly before the delivery deadline and
+    ///      strictly before the delegation's `expiry`, and only if the receiver has not revoked the delegation; once,
+    ///      like `deliver`, because the job leaves `Funded`.
+    ///
+    ///      The receiver signs `DeliveryDelegate(paymentInfoHash, delegate, expiry)` (EOA, or ERC-1271 for a deployed
+    ///      contract wallet, as for every receiver signature; or the receiver calls itself with an empty
+    ///      `delegationSignature`). The delegate signs the same `Delivery(paymentInfoHash, deliveryHash)` a receiver
+    ///      would, as an EOA (a 65-byte ECDSA signature; ERC-1271 is not checked for delegates), or calls itself with
+    ///      an empty `delegateSignature`.
+    ///
+    ///      Scope: exactly one payment and exactly this action. The delegation names the payment hash, and nothing
+    ///      else in this contract reads it: a delegate can never approve, reject, rule, refund or move money, and its
+    ///      key is worth nothing on any other job. The worst a delegate (or a thief of its key) can do is record a
+    ///      junk delivery hash before the receiver does; the payer's review window, `reject` and the arbitrator's
+    ///      ruling handle that exactly as they handle a junk delivery by the receiver. The receiver bounds the
+    ///      exposure with `expiry` and can end it earlier with `revokeDeliveryDelegate`.
+    ///
+    /// @param paymentInfo The job's escrow payment.
+    /// @param deliveryHash Non-zero hash of the delivered artefact.
+    /// @param delegate The key the receiver delegated to.
+    /// @param expiry The delegation's expiry, as the receiver signed it.
+    /// @param delegateSignature The delegate's `Delivery` signature; ignored when the delegate calls.
+    /// @param delegationSignature The receiver's `DeliveryDelegate` signature; ignored when the receiver calls.
+    function deliverDelegated(
+        AuthCaptureEscrow.PaymentInfo calldata paymentInfo,
+        bytes32 deliveryHash,
+        address delegate,
+        uint48 expiry,
+        bytes calldata delegateSignature,
+        bytes calldata delegationSignature
+    ) external nonReentrant {
+        (bytes32 paymentInfoHash, Job storage job) = _load(paymentInfo, Status.Funded);
+        if (block.timestamp >= job.deliveryDeadline) revert DeadlinePassed(block.timestamp, job.deliveryDeadline);
+        if (deliveryHash == bytes32(0)) revert ZeroDeliveryHash();
+        if (block.timestamp >= expiry) revert DelegationExpired(block.timestamp, expiry);
+        if (_revokedDelegates[paymentInfo.receiver][paymentInfoHash][delegate]) {
+            revert DelegationRevoked(paymentInfoHash, delegate);
+        }
+        _requireAuthorized(
+            paymentInfo.receiver,
+            keccak256(abi.encode(DELIVERY_DELEGATE_TYPEHASH, paymentInfoHash, delegate, expiry)),
+            delegationSignature
+        );
+        _requireDelegateSigned(
+            delegate, keccak256(abi.encode(DELIVERY_TYPEHASH, paymentInfoHash, deliveryHash)), delegateSignature
+        );
+        _recordDelivery(paymentInfoHash, job, deliveryHash);
 
         // The only external calls so far are static (the escrow's `getHash`, an ERC-1271 check): nothing can re-enter.
         // forge-lint: disable-next-line(reentrancy-events)
-        emit JobDelivered(paymentInfoHash, job.termsDigest, deliveryHash, deliveredAt, deliveredAt + job.reviewWindow);
+        emit JobDeliveryDelegated(paymentInfoHash, delegate, expiry);
+    }
+
+    /// @notice Revokes every delivery delegation the caller gave `delegate` for a payment. Permanent.
+    ///
+    /// @dev For the payment's receiver (an EOA, or a contract wallet calling itself). Anyone may call, but a call only
+    ///      writes under the caller's own address, which `deliverDelegated` reads only for the payment's receiver, so
+    ///      a call by anyone else changes nothing that matters. Takes effect once mined: a delegated delivery mined
+    ///      first stands. Revoking works before the payment is even funded; to delegate again, name another key.
+    ///
+    /// @param paymentInfoHash The payment the delegation was for.
+    /// @param delegate The key to revoke.
+    function revokeDeliveryDelegate(bytes32 paymentInfoHash, address delegate) external {
+        _revokedDelegates[msg.sender][paymentInfoHash][delegate] = true;
+        emit DeliveryDelegateRevoked(paymentInfoHash, msg.sender, delegate);
     }
 
     /// @notice The payer approves the delivery: captures the full amount to the receiver, less the fee.
@@ -469,6 +557,21 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
         return _jobs[paymentInfoHash];
     }
 
+    /// @notice Whether `receiver` revoked its delivery delegation to `delegate` for a payment.
+    ///
+    /// @param receiver The payment's receiver.
+    /// @param paymentInfoHash The payment's hash.
+    /// @param delegate The delegated key.
+    ///
+    /// @return True once revoked.
+    function isDeliveryDelegateRevoked(address receiver, bytes32 paymentInfoHash, address delegate)
+        external
+        view
+        returns (bool)
+    {
+        return _revokedDelegates[receiver][paymentInfoHash][delegate];
+    }
+
     /// @notice The `PaymentInfo.salt` that binds `params` into the payer's ERC-3009 signature.
     ///
     /// @param params The job parameters.
@@ -486,6 +589,21 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
     /// @return The digest to sign.
     function deliveryDigest(bytes32 paymentInfoHash, bytes32 deliveryHash) external view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(DELIVERY_TYPEHASH, paymentInfoHash, deliveryHash)));
+    }
+
+    /// @notice The EIP-712 digest a receiver signs to delegate the recording of a job's delivery to `delegate`.
+    ///
+    /// @param paymentInfoHash The job's payment hash.
+    /// @param delegate The key that may then sign the job's `Delivery`.
+    /// @param expiry The first timestamp at which the delegation no longer works.
+    ///
+    /// @return The digest to sign.
+    function deliveryDelegateDigest(bytes32 paymentInfoHash, address delegate, uint48 expiry)
+        external
+        view
+        returns (bytes32)
+    {
+        return _hashTypedDataV4(keccak256(abi.encode(DELIVERY_DELEGATE_TYPEHASH, paymentInfoHash, delegate, expiry)));
     }
 
     /// @notice The EIP-712 digest a payer signs to approve a job's delivery.
@@ -588,6 +706,27 @@ contract SidequestOperator is EIP712, ReentrancyGuardTransient {
         if (!SignatureChecker.isValidSignatureNowCalldata(signer, _hashTypedDataV4(structHash), signature)) {
             revert Unauthorized(signer);
         }
+    }
+
+    /// @dev Accepts a call from `delegate` itself, or a valid EIP-712 ECDSA signature by `delegate` over `structHash` in
+    ///      this contract's domain. Delegates are EOA keys: no ERC-1271 call is made for them.
+    function _requireDelegateSigned(address delegate, bytes32 structHash, bytes calldata signature) internal view {
+        if (msg.sender == delegate) return;
+        (address recovered, ECDSA.RecoverError error,) =
+            ECDSA.tryRecoverCalldata(_hashTypedDataV4(structHash), signature);
+        if (error != ECDSA.RecoverError.NoError || recovered != delegate) revert Unauthorized(delegate);
+    }
+
+    /// @dev Records a delivery on a funded job whose delivery the caller authorised: `Delivered`, its time and hash.
+    function _recordDelivery(bytes32 paymentInfoHash, Job storage job, bytes32 deliveryHash) internal {
+        uint48 deliveredAt = _now();
+        job.status = Status.Delivered;
+        job.deliveredAt = deliveredAt;
+        job.deliveryHash = deliveryHash;
+
+        // The only external calls so far are static (the escrow's `getHash`, an ERC-1271 check): nothing can re-enter.
+        // forge-lint: disable-next-line(reentrancy-events)
+        emit JobDelivered(paymentInfoHash, job.termsDigest, deliveryHash, deliveredAt, deliveredAt + job.reviewWindow);
     }
 
     /// @dev Moves the job to its terminal state, then captures `workerShareBps` of the amount (fee proportional, both

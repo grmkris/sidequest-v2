@@ -195,6 +195,9 @@ const operatorFact = (
         settledAt: args.settledAt,
       })
     }
+    // A delegated delivery's `JobDelivered` is the fact; who signed it, and revocations, change nothing in a job.
+    case 'JobDeliveryDelegated':
+    case 'DeliveryDelegateRevoked':
     case 'EIP712DomainChanged':
       return Option.none()
   }

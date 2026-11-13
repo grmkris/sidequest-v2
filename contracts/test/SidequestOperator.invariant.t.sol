@@ -25,6 +25,8 @@ contract OperatorHandler is Test, SigningKit {
     uint256[3] internal receiverPks = [uint256(0x2001), 0x2002, 0x2003];
     uint256 internal arbitratorPk = 0x3001;
     uint256 internal strangerPk = 0x4001;
+    /// @dev The agent key each receiver delegates its deliveries to, by receiver index.
+    uint256[3] internal delegatePks = [uint256(0x5001), 0x5002, 0x5003];
 
     struct Tracked {
         AuthCaptureEscrow.PaymentInfo pi;
@@ -32,6 +34,7 @@ contract OperatorHandler is Test, SigningKit {
         uint256 settleCount;
         bool reclaimed;
         uint8 lastStatus;
+        bool delegateRevoked;
     }
 
     Tracked[] internal _jobs;
@@ -40,6 +43,8 @@ contract OperatorHandler is Test, SigningKit {
 
     bool public leakedOrMiscounted;
     bool public strangerSucceeded;
+    /// @dev A delegated delivery landed although revoked or expired, or a delegate's key did anything but deliver.
+    bool public delegationBreached;
     bool public statusWentBackwards;
     bool public wrongSplit;
 
@@ -95,7 +100,9 @@ contract OperatorHandler is Test, SigningKit {
         token.mint(payer, amount);
         totalMinted += amount;
         bytes32 hash = op.fund(pi, params, _signReceive(payerPk, address(token), pi));
-        _jobs.push(Tracked({pi: pi, hash: hash, settleCount: 0, reclaimed: false, lastStatus: 1}));
+        _jobs.push(
+            Tracked({pi: pi, hash: hash, settleCount: 0, reclaimed: false, lastStatus: 1, delegateRevoked: false})
+        );
     }
 
     function deliver(uint256 jobSeed, bool relayed) external {
@@ -113,6 +120,48 @@ contract OperatorHandler is Test, SigningKit {
                 successes["deliver"]++;
             } catch {}
         }
+        _observe(t);
+    }
+
+    /// @dev The receiver's agent key delivers under a delegation that may already have expired or been revoked; it
+    ///      must land exactly when it is neither, and only while the job is funded and before its deadline.
+    function deliverDelegated(uint256 jobSeed, uint256 expirySeed, bool delegateCalls) external {
+        if (_jobs.length == 0) return;
+        calls["deliverDelegated"]++;
+        Tracked storage t = _pick(jobSeed, SidequestOperator.Status.Funded);
+        uint256 receiverIndex = _receiverIndex(t.pi.receiver);
+        uint256 delegatePk = delegatePks[receiverIndex];
+        address delegate = vm.addr(delegatePk);
+        // From an hour ago to a week ahead: about one in eight delegations has already expired.
+        uint48 expiry = uint48(vm.getBlockTimestamp() + bound(expirySeed, 0, 8 days) - 1 hours);
+        bytes32 artefact = keccak256(abi.encode("delegated", t.hash));
+        bytes memory delegation = _sign(receiverPks[receiverIndex], op.deliveryDelegateDigest(t.hash, delegate, expiry));
+        bytes memory delivery = delegateCalls ? bytes("") : _sign(delegatePk, op.deliveryDigest(t.hash, artefact));
+        SidequestOperator.Job memory before = op.getJob(t.hash);
+        bool allowed = before.status == SidequestOperator.Status.Funded
+            && vm.getBlockTimestamp() < before.deliveryDeadline && vm.getBlockTimestamp() < expiry && !t.delegateRevoked;
+        if (delegateCalls) vm.prank(delegate);
+        try op.deliverDelegated(t.pi, artefact, delegate, expiry, delivery, delegation) {
+            successes["deliverDelegated"]++;
+            if (!allowed) delegationBreached = true;
+            if (op.getJob(t.hash).deliveryHash != artefact) delegationBreached = true;
+        } catch {
+            // Delivery calls no escrow function, so even a reclaimed (still `Funded`) job accepts an allowed one.
+            if (allowed) delegationBreached = true;
+        }
+        _observe(t);
+    }
+
+    /// @dev The receiver revokes its agent key's delegation for a job; on one call in four, so that most delegations
+    ///      stay usable and runs reach delegated deliveries.
+    function revokeDelegate(uint256 jobSeed, uint8 chance) external {
+        if (_jobs.length == 0 || chance % 4 != 0) return;
+        calls["revokeDelegate"]++;
+        Tracked storage t = _pick(jobSeed, SidequestOperator.Status.Funded);
+        vm.prank(t.pi.receiver);
+        op.revokeDeliveryDelegate(t.hash, vm.addr(delegatePks[_receiverIndex(t.pi.receiver)]));
+        t.delegateRevoked = true;
+        successes["revokeDelegate"]++;
         _observe(t);
     }
 
@@ -202,6 +251,52 @@ contract OperatorHandler is Test, SigningKit {
         try op.rule(t.pi, bps, _sign(strangerPk, op.rulingDigest(t.hash, bps))) {
             strangerSucceeded = true;
         } catch {}
+        // A delegation the stranger signed for itself is no delegation.
+        uint48 expiry = uint48(vm.getBlockTimestamp() + 1 days);
+        bytes memory selfDelegation = _sign(strangerPk, op.deliveryDelegateDigest(t.hash, stranger, expiry));
+        try op.deliverDelegated(t.pi, artefact, stranger, expiry, "", selfDelegation) {
+            strangerSucceeded = true;
+        } catch {}
+        vm.stopPrank();
+        _observe(t);
+    }
+
+    /// @dev The job's delegate key, which the receiver trusts to deliver, tries every other action, with a signature
+    ///      and as the caller. None may succeed.
+    function delegateAttack(uint256 jobSeed, uint16 bps) external {
+        if (_jobs.length == 0) return;
+        calls["delegateAttack"]++;
+        Tracked storage t = _pick(jobSeed);
+        bps = uint16(bound(bps, 0, 10_000));
+        uint256 delegatePk = delegatePks[_receiverIndex(t.pi.receiver)];
+        bytes32 delivered = op.getJob(t.hash).deliveryHash;
+        bytes memory approval = _sign(delegatePk, op.approvalDigest(t.hash, delivered));
+        bytes memory rejection = _sign(delegatePk, op.rejectionDigest(t.hash, delivered));
+        bytes memory ruling = _sign(delegatePk, op.rulingDigest(t.hash, bps));
+        bytes memory delivery = _sign(delegatePk, op.deliveryDigest(t.hash, keccak256("undelegated")));
+        vm.startPrank(vm.addr(delegatePk));
+        try op.approve(t.pi, approval) {
+            delegationBreached = true;
+        } catch {}
+        try op.approve(t.pi, "") {
+            delegationBreached = true;
+        } catch {}
+        try op.reject(t.pi, rejection) {
+            delegationBreached = true;
+        } catch {}
+        try op.reject(t.pi, "") {
+            delegationBreached = true;
+        } catch {}
+        try op.rule(t.pi, bps, ruling) {
+            delegationBreached = true;
+        } catch {}
+        try op.rule(t.pi, bps, "") {
+            delegationBreached = true;
+        } catch {}
+        // Without the receiver's delegation its `Delivery` signature is a stranger's.
+        try op.deliver(t.pi, keccak256("undelegated"), delivery) {
+            delegationBreached = true;
+        } catch {}
         vm.stopPrank();
         _observe(t);
     }
@@ -231,8 +326,16 @@ contract OperatorHandler is Test, SigningKit {
         sum += token.balanceOf(treasury);
     }
 
-    function outsiders() external view returns (address[4] memory) {
-        return [address(op), address(this), vm.addr(strangerPk), vm.addr(arbitratorPk)];
+    function outsiders() external view returns (address[7] memory) {
+        return [
+            address(op),
+            address(this),
+            vm.addr(strangerPk),
+            vm.addr(arbitratorPk),
+            vm.addr(delegatePks[0]),
+            vm.addr(delegatePks[1]),
+            vm.addr(delegatePks[2])
+        ];
     }
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -296,6 +399,13 @@ contract OperatorHandler is Test, SigningKit {
         }
         revert();
     }
+
+    function _receiverIndex(address a) internal view returns (uint256) {
+        for (uint256 i; i < 3; ++i) {
+            if (vm.addr(receiverPks[i]) == a) return i;
+        }
+        revert();
+    }
 }
 
 contract SidequestOperatorInvariantTest is Test {
@@ -319,7 +429,7 @@ contract SidequestOperatorInvariantTest is Test {
         uint256 store = token.balanceOf(escrow.getTokenStore(address(op)));
         assertEq(handler.partyBalances() + store, handler.totalMinted(), "conservation");
         assertEq(token.totalSupply(), handler.totalMinted(), "no other minting");
-        address[4] memory outsiders = handler.outsiders();
+        address[7] memory outsiders = handler.outsiders();
         for (uint256 i; i < outsiders.length; ++i) {
             assertEq(token.balanceOf(outsiders[i]), 0, "outsider holds tokens");
         }
@@ -362,12 +472,15 @@ contract SidequestOperatorInvariantTest is Test {
         }
         assertFalse(handler.statusWentBackwards(), "status went backwards");
         assertFalse(handler.strangerSucceeded(), "a stranger's signature was accepted");
+        assertFalse(handler.delegationBreached(), "a delegation reached past its payment, action, expiry or revocation");
     }
 
     /// @dev Shows (with -vv) that the runs really reach every transition rather than reverting their way through.
     function afterInvariant() external view {
         console2.log("jobs funded", handler.jobCount());
         console2.log("deliveries", handler.successes("deliver"));
+        console2.log("delegated deliveries", handler.successes("deliverDelegated"));
+        console2.log("delegate revocations", handler.successes("revokeDelegate"));
         console2.log("rejections", handler.successes("reject"));
         console2.log("reclaims", handler.successes("reclaim"));
         console2.log("approvals", handler.successes(bytes32(op.approve.selector)));

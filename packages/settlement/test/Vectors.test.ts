@@ -9,6 +9,7 @@ import { jobSalt, type JobParams, type Payment, type PaymentInfo, paymentInfoHas
 import { arcTestnet } from '../src/SettlementChain.ts'
 import {
   approvalTypedData,
+  deliveryDelegateTypedData,
   deliveryTypedData,
   fundingTypedData,
   rejectionTypedData,
@@ -96,6 +97,9 @@ describe.each(vectors.cases)('the $name vector', (vector) => {
     expect(hashTypedData(approvalTypedData(hash, delivery, chain))).toBe(vector.approvalDigest)
     expect(hashTypedData(rejectionTypedData(hash, delivery, chain))).toBe(vector.rejectionDigest)
     expect(hashTypedData(rulingTypedData(hash, vector.workerShareBps, chain))).toBe(vector.rulingDigest)
+    expect(
+      hashTypedData(deliveryDelegateTypedData(hash, getAddress(vector.delegate), vector.delegationExpiry, chain)),
+    ).toBe(vector.deliveryDelegateDigest)
   })
 
   it("builds the ERC-3009 authorization whose digest the token checks for the collector's call", () => {
@@ -122,12 +126,14 @@ describe('the bindings', () => {
 
   it("hold the operator's transitions and events, and the escrow parts settlement reads", () => {
     expect(names(sidequestOperatorAbi, 'event')).toEqual(
-      expect.arrayContaining(['JobDelivered', 'JobFunded', 'JobRejected', 'JobSettled']),
+      expect.arrayContaining(['JobDelivered', 'JobDeliveryDelegated', 'JobFunded', 'JobRejected', 'JobSettled']),
     )
     expect(names(sidequestOperatorAbi, 'function')).toEqual(
       expect.arrayContaining([
         'fund',
         'deliver',
+        'deliverDelegated',
+        'revokeDeliveryDelegate',
         'approve',
         'settleAfterReview',
         'reject',

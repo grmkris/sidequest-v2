@@ -1,4 +1,4 @@
-import { encodeFunctionData, type Hex } from 'viem'
+import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { sidequestOperatorAbi } from './abi/SidequestOperator.ts'
 import type { JobParams, PaymentInfo } from './Payment.ts'
 
@@ -17,6 +17,18 @@ export type OperatorCall =
       readonly authorization: Hex
     }
   | { readonly function: 'deliver'; readonly info: PaymentInfo; readonly deliveryHash: Hex; readonly signature: Hex }
+  | {
+      readonly function: 'deliverDelegated'
+      readonly info: PaymentInfo
+      readonly deliveryHash: Hex
+      /** The key the worker delegated the delivery to, and the delegation's expiry, as the worker signed them. */
+      readonly delegate: Address
+      readonly expiry: number
+      /** The delegate's `Delivery` signature. */
+      readonly signature: Hex
+      /** The worker's `DeliveryDelegate` signature. */
+      readonly delegation: Hex
+    }
   | { readonly function: 'approve' | 'reject'; readonly info: PaymentInfo; readonly signature: Hex }
   | {
       readonly function: 'rule'
@@ -40,6 +52,12 @@ export const operatorCalldata = (call: OperatorCall): Hex => {
         abi: sidequestOperatorAbi,
         functionName: 'deliver',
         args: [call.info, call.deliveryHash, call.signature],
+      })
+    case 'deliverDelegated':
+      return encodeFunctionData({
+        abi: sidequestOperatorAbi,
+        functionName: 'deliverDelegated',
+        args: [call.info, call.deliveryHash, call.delegate, call.expiry, call.signature, call.delegation],
       })
     case 'approve':
     case 'reject':

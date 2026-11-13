@@ -124,6 +124,31 @@ contract ArcTestnetForkTest is Test, SigningKit {
         assertEq(uint8(op.getJob(hash).outcome), uint8(SidequestOperator.Outcome.Approved));
     }
 
+    /// @dev The receiver delegates the delivery to an agent's key once; the agent's signature alone records it, and the
+    ///      payer's approval pays the receiver through the deployed escrow.
+    function test_fork_fundDelegatedDeliveryApprove() public {
+        (AuthCaptureEscrow.PaymentInfo memory pi, bytes32 hash) = _fund();
+        uint256 agentPk = uint256(keccak256("sidequest fork agent"));
+        address agent = vm.addr(agentPk);
+        uint48 expiry = uint48(vm.getBlockTimestamp() + 1 days);
+        bytes memory delegationSig = _sign(receiverPk, op.deliveryDelegateDigest(hash, agent, expiry));
+
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
+        bytes32 artefact = keccak256("fork delegated artefact");
+        bytes memory agentSig = _sign(agentPk, op.deliveryDigest(hash, artefact));
+        vm.prank(relayer);
+        op.deliverDelegated(pi, artefact, agent, expiry, agentSig, delegationSig);
+        assertEq(op.getJob(hash).deliveryHash, artefact);
+
+        bytes memory approvalSig = _sign(payerPk, op.approvalDigest(hash, artefact));
+        vm.prank(relayer);
+        op.approve(pi, approvalSig);
+        uint256 fee = AMOUNT * FEE_BPS / 10_000;
+        assertEq(USDC.balanceOf(receiver), AMOUNT - fee);
+        assertEq(USDC.balanceOf(agent), 0);
+        assertEq(uint8(op.getJob(hash).outcome), uint8(SidequestOperator.Outcome.Approved));
+    }
+
     function test_fork_fundDeliverRejectRule() public {
         (AuthCaptureEscrow.PaymentInfo memory pi, bytes32 hash) = _fund();
         vm.prank(receiver);
