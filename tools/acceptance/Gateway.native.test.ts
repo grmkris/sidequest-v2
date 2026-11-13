@@ -26,6 +26,7 @@ import {
   mcpClient,
   signedBy,
 } from '../../packages/server/rehearsal/GatewayClient.ts'
+import { inboxShowsAProposal, managesAnAgent, proxiesOnlyTheOperatorApi } from './WebsiteJourneys.ts'
 
 // The core and the agent gateway deployed together in workerd, each its own Worker and D1, the gateway configured with
 // the core's URL alone. An operator (a Nostr key the test holds, as their browser's signer would) makes an agent at the
@@ -45,18 +46,42 @@ const gatewaySecret = Redacted.make(
 // The members' inbox relay, as NIP-17 inbox relays should be: gift wraps only for their recipients, after NIP-42.
 const inboxRelay = await startTestRelay({ wrapsForRecipients: true })
 
+// The stage's gateway URL as the edge and the website are configured with it. The gateway's own URL is known only once
+// it is deployed after the core (it needs the core's), so they name this forwarder, which passes every request on to
+// the gateway unchanged once it is up. The page signs for its own origin's `/gateway` URL, which the gateway accepts
+// from the core's URL it is configured with, so the forwarder changes nothing the gateway verifies.
+let gatewayTarget = ''
+const forwarder = Bun.serve({
+  hostname: '127.0.0.1',
+  port: 0,
+  fetch: (request) => {
+    const { pathname, search } = new URL(request.url)
+    return gatewayTarget === ''
+      ? new Response('not yet', { status: 503 })
+      : fetch(new Request(`${gatewayTarget}${pathname}${search}`, request))
+  },
+})
+const stageGatewayUrl = `http://127.0.0.1:${forwarder.port}`
+
 const Stack = Alchemy.Stack(
   'SidequestGatewayAcceptance',
   { providers: Cloudflare.providers(), state: Alchemy.localState() },
   Effect.gen(function* () {
+    // The built website itself (`test:native` builds it first), for the website's journeys on the gateway.
     const core = yield* sidequestWorkers(
       release,
-      () =>
+      (api) =>
         Cloudflare.Worker('GatewayAcceptanceWebsite', {
-          script: 'export default { fetch: () => new Response("no website here", { status: 404 }) }',
+          main: 'apps/web/dist/server/fetch.js',
+          assets: { directory: 'apps/web/dist/client' },
           compatibility,
+          env: { API: api, SIDEQUEST_GATEWAY_URL: stageGatewayUrl },
         }),
       unreachableRpc,
+      {},
+      {},
+      'public',
+      stageGatewayUrl,
     )
     // `local` lets the gateway's room tools reach the test relay on 127.0.0.1; a deployed stage never passes it.
     const gateway = yield* gatewayWorker({
@@ -84,12 +109,25 @@ const { test } = harness
 const ready = ({ url, gatewayUrl }: { readonly url: string; readonly gatewayUrl: string }) =>
   Effect.all([Test.getWhenReady(`${url}/api/status`), Test.getWhenReady(`${gatewayUrl}/status`)], { discard: true })
 
-const stack = harness.beforeAll(harness.deploy(Stack).pipe(Effect.tap(ready), Effect.provide(FetchHttpClient.layer)), {
-  timeout: 180000,
-})
-harness.afterAll(harness.destroy(Stack).pipe(Effect.ensuring(Effect.promise(() => inboxRelay.close()))), {
-  timeout: 60000,
-})
+const stack = harness.beforeAll(
+  harness.deploy(Stack).pipe(
+    Effect.tap(({ gatewayUrl }) =>
+      Effect.sync(() => {
+        gatewayTarget = gatewayUrl
+      }),
+    ),
+    Effect.tap(ready),
+    Effect.tap(({ url }) => Test.getWhenReady(url)),
+    Effect.provide(FetchHttpClient.layer),
+  ),
+  { timeout: 180000 },
+)
+harness.afterAll(
+  harness
+    .destroy(Stack)
+    .pipe(Effect.ensuring(Effect.promise(() => Promise.all([inboxRelay.close(), forwarder.stop(true)])))),
+  { timeout: 60000 },
+)
 
 const now = () => Math.floor(Date.now() / 1000)
 const entropy = () => crypto.getRandomValues(new Uint8Array(32))
@@ -304,5 +342,25 @@ test(
     expect((yield* Effect.promise(() => authorized(operator.key, pause, 'DELETE'))).status).toBe(200)
     expect(yield* call('read_room_messages')).toMatchObject({ error: false })
   }).pipe(Effect.scoped, Effect.provide(FetchHttpClient.layer)),
+  { timeout: 180000 },
+)
+
+test(
+  'the edge proxies the website’s /gateway to the gateway’s operator API alone, keeping its refusals',
+  Effect.flatMap(stack, ({ url }) => proxiesOnlyTheOperatorApi(url)),
+  { timeout: 30000 },
+)
+
+test(
+  'a person creates an agent on the agents page, the index shows its grant; they pause it and revoke it',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => managesAnAgent(url, stageGatewayUrl))).pipe(
+    Effect.provide(FetchHttpClient.layer),
+  ),
+  { timeout: 180000 },
+)
+
+test(
+  'a buyer’s inbox, worked out in their browser, shows a proposal on their request, new until marked read',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => inboxShowsAProposal(url))),
   { timeout: 180000 },
 )

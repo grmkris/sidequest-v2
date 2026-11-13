@@ -167,14 +167,14 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'agents.noGrant': 'No grant yet',
   'agents.title': 'Agents',
   'agents.lede':
-    "Agents act for your Nostr key at Sidequest's agent gateway, which holds each agent's own key. You grant each one what it may do and until when with an event your key signs; revoke it or pause it at any time. Agents never pay: funding and approving stay with your wallet.",
+    'Agents act for your Nostr key at Sidequest’s agent gateway, which holds each agent’s own key. You grant each one what it may do and until when with an event your key signs; revoke it or pause it at any time. Agents never pay: funding and approving stay with your wallet.',
   'agents.unavailable': 'Agents are not available on this stage: it runs no agent gateway.',
   'agents.label': 'Agent name',
   'agents.labelHint': 'How you and the people you work with will recognise it.',
   'agents.labelError': 'Give it a name of at most {max} characters.',
   'agents.create': 'Create agent',
   'agents.createNote':
-    "The gateway makes the agent's key; your signer then signs its grant, which the index publishes.",
+    'The gateway makes the agent’s key; your signer then signs its grant, which the index publishes.',
   'agents.loading': 'Loading your agents…',
   'agents.empty': 'No agents yet. Create one to let it work for you over MCP.',
   'agents.working': 'Working…',
@@ -195,13 +195,13 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'agents.done.create': 'The agent is made and granted.',
   'agents.done.grant': 'The grant is published.',
   'agents.done.revoke': 'The grant is revoked.',
-  'agents.done.pause': "The agent's rooms are paused.",
-  'agents.done.resume': "The agent's rooms go on.",
+  'agents.done.pause': 'The agent’s rooms are paused.',
+  'agents.done.resume': 'The agent’s rooms go on.',
   'agents.done.delete': 'The agent is deleted.',
   'agents.connectTitle': 'Connect an MCP client',
   'agents.connectUrl': 'Paste this URL into your MCP client (claude.ai, ChatGPT, Cursor):',
   'agents.connectConsent':
-    "The client sends you to the gateway's own consent page, where your Nostr extension proves your key and you choose this agent.",
+    'The client sends you to the gateway’s own consent page, where your Nostr extension proves your key and you choose this agent.',
   'terms.amount': 'Amount',
   'terms.deliverables': 'Deliverables',
   'terms.deadline': 'Delivery deadline',
@@ -630,11 +630,11 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'inboxRelays.alreadyHad': 'You already have inbox relays, so nothing was replaced.',
   'inboxRelays.failed': 'Your inbox relays could not be published. Try again.',
   'gateway.notConfigured': 'This stage runs no agent gateway.',
-  'gateway.unauthorized': "The gateway did not accept your key's signature. Check your computer's clock and try again.",
+  'gateway.unauthorized': 'The gateway did not accept your key’s signature. Check your computer’s clock and try again.',
   'gateway.unknownAgent': 'The gateway knows no such agent of yours.',
   'gateway.tooManyAgents': 'You have as many agents at the gateway as it keeps. Delete one first.',
   'gateway.invalid': 'The gateway did not take what was sent.',
-  'gateway.unavailable': "The gateway's database did not answer. Try again in a moment.",
+  'gateway.unavailable': 'The gateway’s database did not answer. Try again in a moment.',
   'gateway.unreachable': 'The agent gateway did not answer. Try again in a moment.',
   'delegation.title': 'Delivery delegation',
   'delegation.lede':
@@ -647,7 +647,7 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'delegation.jobOption': '{title} (deliver by {date})',
   'delegation.validFor': 'Valid for',
   'delegation.allows':
-    "Your wallet's signature lets {agent} record a delivery on this one job, until it expires. It cannot fund, approve, reject or move any money.",
+    'Your wallet’s signature lets {agent} record a delivery on this one job, until it expires. It cannot fund, approve, reject or move any money.',
   'delegation.revoke':
     'You can revoke it on chain at any time by calling revokeDeliveryDelegate on the operator contract; forgetting it at the gateway does not undo the signature.',
   'delegation.sign': 'Sign with my wallet',
@@ -657,5 +657,5 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'delegation.preparing': 'Preparing what your wallet signs…',
   'delegation.signing': 'Sign the delegation in your wallet…',
   'delegation.storing': 'Handing the signature to the gateway…',
-  'delegation.stored': "Delegated until {date}. The agent may now record this job's delivery itself.",
+  'delegation.stored': 'Delegated until {date}. The agent may now record this job’s delivery itself.',
 }

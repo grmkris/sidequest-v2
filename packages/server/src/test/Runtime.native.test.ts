@@ -436,7 +436,7 @@ test(
     )
     const consentPage = authorized.headers['location'] ?? ''
     expect(consentPage).toMatch(/^\/connect\/connect_[0-9A-HJKMNP-TV-Z]{26}$/u)
-    expect((yield* HttpClient.get(`${url}${consentPage}`, { headers: { accept: 'text/html' } })).status).toBe(200)
+    // The website no longer has a consent page: phase 1's OAuth is the core's alone until the next slice deletes it.
     // The person allows it from the browser that opened the request: their session and the request's binding cookie.
     const binding = (authorized.headers['set-cookie'] ?? '').split('; ')[0] ?? ''
     const allowed = yield* browserOf(url, `${person.cookie}; ${binding}`).post(`/api${consentPage}/allow`, { agent })

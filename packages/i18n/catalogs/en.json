@@ -203,13 +203,13 @@
     "grantSummary": "May {scopes} until {date}",
     "noGrant": "No grant yet",
     "title": "Agents",
-    "lede": "Agents act for your Nostr key at Sidequest's agent gateway, which holds each agent's own key. You grant each one what it may do and until when with an event your key signs; revoke it or pause it at any time. Agents never pay: funding and approving stay with your wallet.",
+    "lede": "Agents act for your Nostr key at Sidequest’s agent gateway, which holds each agent’s own key. You grant each one what it may do and until when with an event your key signs; revoke it or pause it at any time. Agents never pay: funding and approving stay with your wallet.",
     "unavailable": "Agents are not available on this stage: it runs no agent gateway.",
     "label": "Agent name",
     "labelHint": "How you and the people you work with will recognise it.",
     "labelError": "Give it a name of at most {max} characters.",
     "create": "Create agent",
-    "createNote": "The gateway makes the agent's key; your signer then signs its grant, which the index publishes.",
+    "createNote": "The gateway makes the agent’s key; your signer then signs its grant, which the index publishes.",
     "loading": "Loading your agents…",
     "empty": "No agents yet. Create one to let it work for you over MCP.",
     "working": "Working…",
@@ -232,13 +232,13 @@
       "create": "The agent is made and granted.",
       "grant": "The grant is published.",
       "revoke": "The grant is revoked.",
-      "pause": "The agent's rooms are paused.",
-      "resume": "The agent's rooms go on.",
+      "pause": "The agent’s rooms are paused.",
+      "resume": "The agent’s rooms go on.",
       "delete": "The agent is deleted."
     },
     "connectTitle": "Connect an MCP client",
     "connectUrl": "Paste this URL into your MCP client (claude.ai, ChatGPT, Cursor):",
-    "connectConsent": "The client sends you to the gateway's own consent page, where your Nostr extension proves your key and you choose this agent."
+    "connectConsent": "The client sends you to the gateway’s own consent page, where your Nostr extension proves your key and you choose this agent."
   },
   "terms": {
     "amount": "Amount",
@@ -702,11 +702,11 @@
   },
   "gateway": {
     "notConfigured": "This stage runs no agent gateway.",
-    "unauthorized": "The gateway did not accept your key's signature. Check your computer's clock and try again.",
+    "unauthorized": "The gateway did not accept your key’s signature. Check your computer’s clock and try again.",
     "unknownAgent": "The gateway knows no such agent of yours.",
     "tooManyAgents": "You have as many agents at the gateway as it keeps. Delete one first.",
     "invalid": "The gateway did not take what was sent.",
-    "unavailable": "The gateway's database did not answer. Try again in a moment.",
+    "unavailable": "The gateway’s database did not answer. Try again in a moment.",
     "unreachable": "The agent gateway did not answer. Try again in a moment."
   },
   "delegation": {
@@ -719,7 +719,7 @@
     "pickJob": "Choose a job",
     "jobOption": "{title} (deliver by {date})",
     "validFor": "Valid for",
-    "allows": "Your wallet's signature lets {agent} record a delivery on this one job, until it expires. It cannot fund, approve, reject or move any money.",
+    "allows": "Your wallet’s signature lets {agent} record a delivery on this one job, until it expires. It cannot fund, approve, reject or move any money.",
     "revoke": "You can revoke it on chain at any time by calling revokeDeliveryDelegate on the operator contract; forgetting it at the gateway does not undo the signature.",
     "sign": "Sign with my wallet",
     "connecting": "Waiting for your wallet…",
@@ -727,6 +727,6 @@
     "preparing": "Preparing what your wallet signs…",
     "signing": "Sign the delegation in your wallet…",
     "storing": "Handing the signature to the gateway…",
-    "stored": "Delegated until {date}. The agent may now record this job's delivery itself."
+    "stored": "Delegated until {date}. The agent may now record this job’s delivery itself."
   }
 }
