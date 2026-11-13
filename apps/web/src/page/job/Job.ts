@@ -8,7 +8,7 @@ import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../../Api.ts'
 import { Language } from '../../Language.ts'
-import { Me, pubkeyOf, walletOn } from '../../Me.ts'
+import { agentsOf, Me, type MyAgent, pubkeyOf, walletOn } from '../../Me.ts'
 import { defineReadNames, Names, unnamed, withNames } from '../../Names.ts'
 import type { Preload } from '../../Preload.ts'
 import { failedWith, Problem } from '../../Problem.ts'
@@ -82,6 +82,7 @@ export const Message = defineMessageUnion({
   ClickedWithdraw: { proposal: Schema.String },
   ClickedAccept: { proposal: Schema.String },
   ClickedConfirmAccept: {},
+  ClickedAcceptSuggestion: { proposal: Schema.String },
   ClickedClose: {},
   ClickedConfirmClose: {},
   ClickedKeep: {},
@@ -437,13 +438,10 @@ const foldReview = Update.foldChild({
   }),
 })
 
-const confirmedAccept = (model: Model): UpdateReturn => {
-  const action = model.action
-  if (!Action.guards.ConfirmingAccept(action)) {
-    return { model }
-  }
-  return asSigner(model, () =>
-    Option.match(proposalOf(model, action.proposal), {
+/** The buyer's own accept of one proposal: its exact terms by digest, on its network. */
+const acceptProposal = (model: Model, id: string): UpdateReturn =>
+  asSigner(model, () =>
+    Option.match(proposalOf(model, id), {
       onNone: () => ({ model: withAction(model, Action.Idle()) }),
       onSome: (proposal) =>
         publishing(
@@ -459,7 +457,32 @@ const confirmedAccept = (model: Model): UpdateReturn => {
         ),
     }),
   )
-}
+
+const confirmedAccept = (model: Model): UpdateReturn =>
+  Action.guards.ConfirmingAccept(model.action) ? acceptProposal(model, model.action.proposal) : { model }
+
+/** An agent the buyer granted accepted a proposal on the buyer's request: a suggestion the fold does not count. */
+export const suggestedBy = (model: Model, view: JobView, proposal: ProposalView): Option.Option<MyAgent> =>
+  isBuyer(model, view) && negotiable(view) && standing(proposal) && !proposal.accepted
+    ? Array.findFirst(agentsOf(model.me), (agent) =>
+        view.accepts.some(
+          (accept) =>
+            !accept.fromBuyer &&
+            accept.matchesProposal &&
+            accept.author === agent.pubkey &&
+            accept.proposal === proposal.id,
+        ),
+      )
+    : Option.none()
+
+/** The buyer accepts what their agent suggested, in one click: only a suggestion that still stands. */
+const acceptSuggestion = (model: Model, proposal: string): UpdateReturn =>
+  Option.match(
+    Option.flatMap(AsyncData.getData(model.view), (view) =>
+      Option.flatMap(proposalOf(model, proposal), (shown) => suggestedBy(model, view, shown)),
+    ),
+    { onNone: () => ({ model }), onSome: () => acceptProposal(model, proposal) },
+  )
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
@@ -504,6 +527,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     ClickedAccept: ({ proposal }) =>
       asSigner(model, () => ({ model: withAction(model, Action.ConfirmingAccept({ proposal })) })),
     ClickedConfirmAccept: () => confirmedAccept(model),
+    ClickedAcceptSuggestion: ({ proposal }) => acceptSuggestion(model, proposal),
     ClickedClose: () => asSigner(model, () => ({ model: withAction(model, Action.ConfirmingClose()) })),
     ClickedConfirmClose: () =>
       Action.guards.ConfirmingClose(model.action)

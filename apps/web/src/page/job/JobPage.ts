@@ -25,6 +25,7 @@ import {
   payToOf,
   reviewSubject,
   standing,
+  suggestedBy,
 } from './Job.ts'
 import * as js from './Job.styles.ts'
 import { addressOf, settledFlow } from './money/message.ts'
@@ -36,6 +37,7 @@ import * as Review from './Review.ts'
 import * as RoomView from './room/RoomView.ts'
 import { reviewsSection } from './ReviewsView.ts'
 import { termsView } from './TermsView.ts'
+import { agentSuggestion } from './AgentSuggestion.ts'
 
 // The job as its signed events and the chain's facts fold it: the request, every proposal with its labels, the
 // accepts and statements, and the escrow's progress. Who looks decides what they may do: the buyer accepts or closes,
@@ -184,14 +186,20 @@ const proposalActions = (h: Html.HtmlBuilder<Message>, reader: Reader, proposal:
     }
     return proposal.accepted
       ? h.empty
-      : h.div(styled(h, s.actions()), [
-          Ui.button(h, {
-            label: say(language, 'job.accept'),
-            onClick: Message.ClickedAccept({ proposal: proposal.id }),
-            kind: 'primary',
-            busy,
+      : h.div(styled(h, s.section()), [
+          Option.match(suggestedBy(model, view, proposal), {
+            onNone: () => h.empty,
+            onSome: (agent) => agentSuggestion(h, language, agent.label, proposal.id),
           }),
-          fundButton(h, reader, proposal),
+          h.div(styled(h, s.actions()), [
+            Ui.button(h, {
+              label: say(language, 'job.accept'),
+              onClick: Message.ClickedAccept({ proposal: proposal.id }),
+              kind: 'primary',
+              busy,
+            }),
+            fundButton(h, reader, proposal),
+          ]),
         ])
   }
   return isMine(model, proposal.author)
