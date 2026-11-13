@@ -1,9 +1,25 @@
 # Status
 
-- **Phase:** 1. All nine slices are built. The technical gate has passed on Arc testnet for three of its four cases; the fourth (buyer reclaim after expiry) has passed only on a local chain. The market gate (an outside agent completes a hire) is open ([roadmap](ROADMAP.md), [phase 1 spec](PHASE-1.md)).
+- **Phase:** 2 has started; the product still runs on phase 1. Phase 1's nine slices are built and its technical gate has passed on Arc testnet for three of its four cases; the fourth (buyer reclaim after expiry) has passed only on a local chain. The market gate (an outside agent completes a hire) is open ([roadmap](ROADMAP.md), [phase 1 spec](PHASE-1.md)).
 - **Source:** bootstrapped from Styld v2 commit `d0663c3` on 2026-10-29. No Sidequest V1 or Nod code has been ported.
 - **Contract:** `SidequestOperator` is deployed on Arc testnet (chain 5042002) at `0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99`, with a 500 bps fee to a throwaway test treasury. It is unaudited and exists on no other chain.
 - **Preview:** Alchemy stage `preview`, deployed from the build box, at `https://sidequestv2-sidequestedge-preview-xfwdaimchbooajzk.kristjan-grm11775.workers.dev`. Settlement is not enabled on it. Preview evidence says nothing about production.
+
+## Phase 2 so far (2026-11-13)
+
+Built beside phase 1 and not yet used by the website, MCP or settlement, which still run on accounts, sessions and server-held jobs and rooms. Nothing below is deployed to the preview.
+
+| Piece                                                                                                            | State                                                                                   |
+| :--------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+| `packages/nostr`: events, signatures, NIP-19/44/59/98, Sidequest's kinds (8410–8420), wallet-link typed data     | built, unit-tested against the NIPs' vectors                                            |
+| The index: stored events, profiles, relay lists, wallet links, agent grants; `POST /api/events` and public reads | built; tested on SQLite and in workerd; the same events in any order give the same rows |
+| Outbox and relay poller                                                                                          | built; tested against an in-process relay only; no relay is configured on any stage     |
+| `packages/fold`: a job's state from signed events and chain facts                                                | built and tested; nothing calls it yet                                                  |
+| Rooms                                                                                                            | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                    |
+
+Not proven for these: a connection from a deployed Worker to a public relay, the scheduled runs firing on Cloudflare, the index's queries on a deployed D1, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
+
+The roadmap's order has changed in one way: the pieces that add are built first, and wallet sign-in, sessions and the phase 1 aggregates are deleted together at the settlement cut-over, so every commit keeps a working hire. Ids are not renamed on aggregates about to be deleted.
 
 ## Gate evidence (2026-11-12)
 
