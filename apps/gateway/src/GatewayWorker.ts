@@ -6,10 +6,11 @@ import { RuntimeContext } from 'alchemy/RuntimeContext'
 import { Effect, Layer, Logger, Result } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
+import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { CoreLive } from './Core/Core.ts'
 import { GatewayDatabase } from './Resources.ts'
 import { gatewayRoutes } from './Routes.ts'
-import { GatewaySettings, settingsFrom } from './Settings.ts'
+import { type GatewayConfig, GatewaySettings, settingsFrom } from './Settings.ts'
 
 /** The Cloudflare services the Worker runs on. The Worker is the runtime context its init runs in. */
 const Platform = Layer.mergeAll(
@@ -26,22 +27,23 @@ const GatewaySql = Layer.unwrap(
   }),
 )
 
-/** The settings from the Worker's variables; a Worker deployed without them is a deployment defect. */
-const SettingsLive = Layer.effect(
-  GatewaySettings,
-  Effect.flatMap(Cloudflare.Workers.WorkerEnvironment, (environment) =>
-    Result.match(settingsFrom(environment), {
-      onFailure: ({ name }) => Effect.die(new Error(`Sidequest.Gateway misconfigured: ${name}`)),
-      onSuccess: Effect.succeed,
-    }),
-  ),
-)
+/** The Worker's own services: its D1 and the platform. Declaring them is what binds them, so they never wait on settings. */
+const Runtime = GatewaySql.pipe(Layer.provideMerge(Platform))
 
-const Runtime = Layer.mergeAll(CoreLive, ClientDocuments.layer).pipe(
-  Layer.provideMerge(SettingsLive),
-  Layer.provideMerge(GatewaySql),
-  Layer.provideMerge(Platform),
-)
+/** The routes over the core at the configured URL, with the settings the Worker's variables give. */
+const servedWith = (settings: GatewayConfig) =>
+  gatewayRoutes(settings.release).pipe(
+    Layer.provide(AlchemyHttp.Platform),
+    Layer.provide(Layer.mergeAll(CoreLive, ClientDocuments.layer)),
+    Layer.provide(Layer.succeed(GatewaySettings, settings)),
+  )
+
+/** Every request's answer while the Worker's variables are missing or malformed, as when Alchemy plans the Worker. */
+const misconfigured = (name: string) =>
+  Effect.logError('Sidequest.Gateway misconfigured').pipe(
+    Effect.annotateLogs({ 'sidequest.gateway.variable': name }),
+    Effect.as(HttpServerResponse.jsonUnsafe({ error: 'misconfigured' }, { status: 503 })),
+  )
 
 export class GatewayWorker extends Cloudflare.Worker<GatewayWorker, Cloudflare.WorkerShape>()('SidequestGateway') {}
 
@@ -57,9 +59,9 @@ export default GatewayWorker.make(
     observability: { enabled: true, redactQueryString: true, logs: { enabled: true, invocationLogs: true } },
   },
   Effect.gen(function* () {
-    const { release } = yield* GatewaySettings
-    const routes = gatewayRoutes(release).pipe(Layer.provide(AlchemyHttp.Platform))
-    const handle = yield* HttpRouter.toHttpEffect(routes).pipe(Effect.orDie)
+    const settings = settingsFrom(yield* Cloudflare.Workers.WorkerEnvironment)
+    if (Result.isFailure(settings)) return { fetch: misconfigured(settings.failure.name) }
+    const handle = yield* HttpRouter.toHttpEffect(servedWith(settings.success)).pipe(Effect.orDie)
     const fetch = Effect.gen(function* () {
       yield* HttpServerRequest
       return yield* handle

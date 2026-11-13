@@ -47,6 +47,13 @@ describe('the key envelope', () => {
     expect(Result.isFailure(openKey(secret, publicKeyOf(freshKey()), sealed))).toBe(true)
   })
 
+  test('binds each seal to its agent: another agent’s key under the same data key does not open', () => {
+    const otherKey = freshKey()
+    const other = publicKeyOf(otherKey)
+    const theirs = sealKey(secret, other, otherKey, entropy)
+    expect(Result.isFailure(openKey(secret, other, { ...theirs, keySealed: sealed.keySealed }))).toBe(true)
+  })
+
   test('refuses an unknown version and a truncated seal', () => {
     expect(Result.isFailure(openKey(secret, agent, { ...sealed, version: 2 }))).toBe(true)
     expect(Result.isFailure(openKey(secret, agent, { ...sealed, keySealed: sealed.keySealed.slice(0, 40) }))).toBe(true)

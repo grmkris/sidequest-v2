@@ -70,7 +70,12 @@
         ],
         "overrides": [
           {
-            "include": ["packages/*/test/**/*", "packages/*/src/test/**/*", "packages/*/rehearsal/**/*"],
+            "include": [
+              "packages/*/test/**/*",
+              "packages/*/src/test/**/*",
+              "packages/*/rehearsal/**/*",
+              "tools/acceptance/**/*"
+            ],
             "options": { "allowedExperimentalApis": ["effect/ai"] }
           },
           {
