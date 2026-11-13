@@ -40,6 +40,11 @@ const WalletLinkRecord = Schema.Struct({
   issuedAt: Schema.Int,
   verification: Schema.Literals(['verified', 'unverified']),
 })
+const NameRecord = Schema.Struct({
+  pubkey: Schema.String,
+  name: Schema.NullOr(Schema.String),
+  walletVerified: Schema.Literals([0, 1]),
+})
 const GrantRecord = Schema.Struct({
   eventId: Schema.String,
   operator: Schema.String,
@@ -51,6 +56,13 @@ const GrantRecord = Schema.Struct({
   createdAt: Schema.Int,
   revoked: Schema.Literals([0, 1]),
 })
+
+/** How a key is named: its profile's name, and whether a verified link currently holds a wallet for it. */
+export interface KeyName {
+  readonly pubkey: string
+  readonly name: string | null
+  readonly walletVerified: boolean
+}
 
 /** A grant and whether its operator revoked it, by any revocation the index has seen. */
 export interface KnownGrant extends GrantRow {
@@ -90,6 +102,8 @@ export class EventStore extends Context.Service<
     readonly put: (validated: Validated, source: Source, seenAt: number) => Effect.Effect<boolean, Unavailable>
     readonly find: (id: string) => Effect.Effect<Option.Option<NostrEvent>, Unavailable>
     readonly known: (pubkey: string) => Effect.Effect<Known, Unavailable>
+    /** Each of `pubkeys`, once: its profile's name, if it has one, and whether a verified link holds a wallet for it. */
+    readonly names: (pubkeys: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<KeyName>, Unavailable>
     /** The key a CAIP-10 account is currently linked to: its winning verified link, if it has one. */
     readonly wallet: (account: string) => Effect.Effect<Option.Option<WalletLinkRow>, Unavailable>
     /** Keys that signed Sidequest events or listings, whose profiles and relay lists the poller asks relays for. */
@@ -239,6 +253,25 @@ const identityReads = (sql: SqlClient.SqlClient) => {
       WHERE account = ${account} AND verification = 'verified'
       ORDER BY issued_at DESC, event_id LIMIT 1`,
   })
+  // Each key asked for, once, with its profile's name and whether one of its verified links currently holds a wallet,
+  // by the same rule: the listings' author label, for any keys.
+  const names = SqlSchema.findAll({
+    Request: Schema.Array(Schema.String),
+    Result: NameRecord,
+    execute: (pubkeys) => sql`
+      SELECT asked.value AS pubkey, p.name AS name,
+        EXISTS (
+          SELECT 1 FROM wallet_links AS link
+          WHERE link.pubkey = asked.value AND link.verification = 'verified' AND NOT EXISTS (
+            SELECT 1 FROM wallet_links AS rival
+            WHERE rival.account = link.account AND rival.verification = 'verified'
+              AND (rival.issued_at > link.issued_at
+                OR (rival.issued_at = link.issued_at AND rival.event_id < link.event_id)))
+        ) AS walletVerified
+      FROM (SELECT DISTINCT value FROM json_each(${JSON.stringify(pubkeys)})) AS asked
+      LEFT JOIN profiles AS p ON p.pubkey = asked.value
+      ORDER BY asked.value`,
+  })
   // A grant is revoked by a revocation naming it that its own operator signed, whichever arrived first.
   const grantsBy = SqlSchema.findAll({
     Request: Schema.String,
@@ -260,7 +293,7 @@ const identityReads = (sql: SqlClient.SqlClient) => {
         AND NOT EXISTS (SELECT 1 FROM grant_revocations AS r WHERE r.grant_id = g.event_id AND r.pubkey = g.operator)
       ORDER BY created_at DESC, event_id LIMIT ${knownLimits.grants}`,
   })
-  return { wallets, unverifiedWallets, wallet, grantsBy, grantsTo }
+  return { wallets, unverifiedWallets, wallet, names, grantsBy, grantsTo }
 }
 
 const rebuildPage = 200
@@ -321,6 +354,13 @@ export const D1EventStore = Layer.effect(
           operators: operators.map(knownGrant),
         }
       }),
+      names: (pubkeys) =>
+        stored(read.names(pubkeys)).pipe(
+          Effect.map((rows) =>
+            rows.map(({ pubkey, name, walletVerified }) => ({ pubkey, name, walletVerified: walletVerified === 1 })),
+          ),
+          Effect.withSpan('Sidequest.Index.names'),
+        ),
       wallet: Effect.fn('Sidequest.Index.wallet')(function* (account) {
         return yield* stored(read.wallet(account))
       }),

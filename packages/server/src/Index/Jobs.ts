@@ -1,7 +1,8 @@
 import { type ChainFact, type ChainFunded, foldJob, type JobView, type WalletLinkFact } from '@sidequest/fold'
-import { EventId, PublicKey } from '@sidequest/nostr'
+import { OpenJob } from '@sidequest/fold/api'
+import { PublicKey } from '@sidequest/nostr'
 import { EvmAccount, JobRequestContent, sidequestKinds } from '@sidequest/nostr/vocabulary'
-import { type BadCursor, type Cursor, defaultPageSize, type Unavailable, UnixSeconds } from '@sidequest/protocol'
+import { type BadCursor, type Cursor, defaultPageSize, type Unavailable } from '@sidequest/protocol'
 import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
@@ -12,21 +13,7 @@ import { EventStore } from './EventStore.ts'
 import { nowSeconds } from './Ingest.ts'
 import { jobEventsOf, jobQueries, jobReadLimits } from './JobEvents.ts'
 
-/**
- * An open request as the list shows it: not funded (no `JobFunded` names it) and not closed by its buyer (no
- * `withdraw_request` of theirs), the fold's rule for its pre-funding stages `open`, `proposed` and `accepted`.
- * `expired` is a label, `now` at or past its `expiresAt`; `proposals` counts the proposals for it, up to
- * `openJobLimits.proposalCount`.
- */
-export const OpenJob = Schema.Struct({
-  job: EventId,
-  buyer: PublicKey,
-  createdAt: UnixSeconds,
-  request: JobRequestContent,
-  expired: Schema.Boolean,
-  proposals: Schema.Int,
-})
-export type OpenJob = typeof OpenJob.Type
+// An open request is `OpenJob` (`@sidequest/fold/api`); its `proposals` count stops at `openJobLimits.proposalCount`.
 
 /**
  * What bounds a page of open requests: it examines at most `scan` requests, newest first, and counts at most

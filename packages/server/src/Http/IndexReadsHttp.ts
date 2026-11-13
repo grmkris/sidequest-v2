@@ -3,7 +3,7 @@ import { Effect, Option } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { Jobs } from '../Index/Jobs.ts'
 import { publicFor } from './EventsHttp.ts'
-import { ServedApi } from './IndexJobsApi.ts'
+import { ServedApi } from '@sidequest/fold/api'
 
 /**
  * The index's job reads: a job folded from what the index holds, and the open requests. Public and sessionless; a

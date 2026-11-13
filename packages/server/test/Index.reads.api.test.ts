@@ -1,10 +1,10 @@
 import { JobView } from '@sidequest/fold'
 import { publicKeyOf } from '@sidequest/nostr'
-import { IndexListing, IndexListingDetail, Page } from '@sidequest/protocol'
-import { Effect } from 'effect'
+import { IndexListing, IndexListingDetail, maxPeoplePerLookup, Page, PersonName } from '@sidequest/protocol'
+import { Effect, Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
 import { ChainFacts, type ChainLog } from '../src/Index/ChainFacts.ts'
-import { OpenJob } from '../src/Index/Jobs.ts'
+import { OpenJob } from '@sidequest/fold/api'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
 import { accountOf, alice, bob, carol, linked, profile, walletOne, walletTwo } from './IndexWorld.ts'
 import {
@@ -78,6 +78,42 @@ describe('reading listings from the index', () => {
         status: 400,
         body: { _tag: 'BadCursor' },
       })
+    }))
+})
+
+describe('naming keys in bulk', () => {
+  test('answers each key asked for once: its profile name, and whether a wallet is currently linked to it', () =>
+    withApi(async ({ fetch }) => {
+      const at = now()
+      for (const event of [
+        profile(bob, at, { name: 'Bob' }),
+        await linked(bob, walletOne, at),
+        profile(carol, at, { about: 'No name.' }),
+        // Alice linked the same wallet first, so Bob's later link holds it and she has none.
+        await linked(alice, walletOne, at - 10),
+      ])
+        await publish(fetch, event)
+      const a = publicKeyOf(alice)
+      const b = publicKeyOf(bob)
+      const c = publicKeyOf(carol)
+      const unknown = 'ab'.repeat(32)
+      const named = await read(fetch, `/api/people?pubkeys=${b},${unknown},${a},${c}`)
+      expect(named.cache).toBe('public, max-age=60')
+      expect(
+        bodyOf(Schema.Struct({ people: Schema.Array(PersonName) }), named).people.toSorted((x, y) =>
+          x.pubkey.localeCompare(y.pubkey),
+        ),
+      ).toEqual(
+        [
+          { pubkey: a, name: null, walletVerified: false },
+          { pubkey: b, name: 'Bob', walletVerified: true },
+          { pubkey: c, name: null, walletVerified: false },
+          { pubkey: unknown, name: null, walletVerified: false },
+        ].toSorted((x, y) => x.pubkey.localeCompare(y.pubkey)),
+      )
+      const tooMany = Array.from({ length: maxPeoplePerLookup + 1 }, (_, index) => index.toString(16).padStart(64, '0'))
+      for (const query of [tooMany.join(','), `${b},${b}`, 'not-a-key', ''])
+        expect((await read(fetch, `/api/people?pubkeys=${query}`)).status).toBe(400)
     }))
 })
 

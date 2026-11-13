@@ -1,4 +1,4 @@
-import { Schema } from 'effect'
+import { Schema, SchemaTransformation } from 'effect'
 import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { AccountRef } from './AccountRef.ts'
 import { GrantScope } from './Grant.ts'
@@ -140,10 +140,36 @@ export type Person = typeof Person.Type
 export const LinkedWallet = Schema.Struct({ ...WalletLink.fields, pubkey: Hex32 })
 export type LinkedWallet = typeof LinkedWallet.Type
 
+/** The most keys one names lookup takes: a page of a job's people, or of a list. */
+export const maxPeoplePerLookup = 50
+
+/** Public keys in the query string, comma separated: one to {@link maxPeoplePerLookup}, each once. */
+const Pubkeys = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.Array(Hex32).check(Schema.isMinLength(1), Schema.isMaxLength(maxPeoplePerLookup), Schema.isUnique()),
+    SchemaTransformation.transform<ReadonlyArray<string>, string>({
+      decode: (pubkeys) => pubkeys.split(','),
+      encode: (pubkeys) => pubkeys.join(','),
+    }),
+  ),
+)
+
+/**
+ * How a page names a key: its latest profile's name (`null` without a profile or a name in it), and whether a wallet
+ * is currently linked to it by a verified link (`Person.wallets` is not empty).
+ */
+export const PersonName = Schema.Struct({
+  pubkey: Hex32,
+  name: Schema.NullOr(Schema.String),
+  walletVerified: Schema.Boolean,
+})
+export type PersonName = typeof PersonName.Type
+
 /**
  * The index over signed Nostr events. Anyone publishes one signed event through it (the event authenticates itself,
  * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
- * of a key, which key a wallet is linked to, and sellers' NIP-99 listings (searched newest first, or one by its seller
+ * of a key, the names of up to {@link maxPeoplePerLookup} keys at once (one answer for each key asked for), which
+ * key a wallet is linked to, and sellers' NIP-99 listings (searched newest first, or one by its seller
  * and slug). Publishing is limited per client and per key.
  */
 export class EventsApi extends HttpApiGroup.make('events').add(
@@ -161,6 +187,11 @@ export class EventsApi extends HttpApiGroup.make('events').add(
     params: { pubkey: Hex32 },
     success: Person,
     error: [NotIndexed, Unavailable],
+  }),
+  HttpApiEndpoint.get('people', '/api/people', {
+    query: { pubkeys: Pubkeys },
+    success: Schema.Struct({ people: Schema.Array(PersonName) }),
+    error: Unavailable,
   }),
   HttpApiEndpoint.get('wallet', '/api/wallets/:account', {
     params: { account: AccountRef },

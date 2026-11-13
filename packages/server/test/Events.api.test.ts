@@ -3,7 +3,7 @@ import { LinkedWallet, Person, SameOrigin, SignedEvent } from '@sidequest/protoc
 import { Schema } from 'effect'
 import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
-import { ServedApi } from '../src/Http/IndexJobsApi.ts'
+import { ServedApi } from '@sidequest/fold/api'
 import { publishLimits } from '../src/Index/RateLimiter.ts'
 import { eventLimits } from '../src/Index/Validation.ts'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
@@ -266,6 +266,7 @@ describe('the same-origin rule', () => {
         'GET /api/index/jobs/:id/terms',
         'GET /api/index/listings',
         'GET /api/index/listings/:pubkey/:slug',
+        'GET /api/people',
         'GET /api/people/:pubkey',
         'GET /api/wallets/:account',
         'POST /api/events',

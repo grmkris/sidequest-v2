@@ -149,6 +149,13 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           return personOf(params.pubkey, known, yield* nowSeconds)
         }),
       )
+      .handle('people', ({ query }) =>
+        Effect.gen(function* () {
+          const people = yield* events.names(query.pubkeys)
+          yield* publicFor(60)
+          return { people }
+        }),
+      )
       .handle('wallet', ({ params }) =>
         Effect.gen(function* () {
           const linked = yield* events.wallet(linkSpelling(params.account))
