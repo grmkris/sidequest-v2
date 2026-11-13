@@ -79,6 +79,9 @@
         "@sidequest/protocol": "workspace:*",
         "effect": "catalog:",
       },
+      "devDependencies": {
+        "viem": "2.57.12",
+      },
     },
     "packages/observability": {
       "name": "@sidequest/observability",

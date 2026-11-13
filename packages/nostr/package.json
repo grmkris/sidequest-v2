@@ -5,7 +5,8 @@
   "sideEffects": false,
   "exports": {
     ".": "./src/index.ts",
-    "./private": "./src/private.ts"
+    "./private": "./src/private.ts",
+    "./vocabulary": "./src/vocabulary.ts"
   },
   "dependencies": {
     "@noble/ciphers": "catalog:",
@@ -13,5 +14,8 @@
     "@noble/hashes": "catalog:",
     "@sidequest/protocol": "workspace:*",
     "effect": "catalog:"
+  },
+  "devDependencies": {
+    "viem": "2.57.12"
   }
 }
