@@ -390,8 +390,15 @@
       "fromWorker": "Od izvajalca"
     },
     "agentSuggests": "Vaš agent {agent} predlaga, da sprejmete ta predlog.",
-    "agentSuggestsNote": "Njegov sprejem je le predlog: nič ne šteje, dokler ne sprejmete sami.",
-    "acceptSuggestion": "Sprejmi, kot predlaga"
+    "acceptSuggestion": "Sprejmi, kot predlaga",
+    "acceptedByYourAgent": "Sprejel ga je vaš agent {agent}, z vašim pooblastilom.",
+    "suggestion": {
+      "scopeMissing": "Njegovo pooblastilo mu ne dovoli sprejemati namesto vas, zato je njegov sprejem le predlog, dokler ne sprejmete sami.",
+      "outsideWindow": "Sprejel je zunaj obdobja svojega pooblastila, zato je njegov sprejem le predlog, dokler ne sprejmete sami.",
+      "revoked": "Pooblastilo, ki ga je navedel, ste preklicali, zato je njegov sprejem le predlog, dokler ne sprejmete sami.",
+      "notYourGrant": "Pooblastilo, ki ga je navedel, ni vaše za ta ključ, zato je njegov sprejem le predlog, dokler ne sprejmete sami.",
+      "noGrant": "Ni navedel pooblastila, zato je njegov sprejem le predlog, dokler ne sprejmete sami."
+    }
   },
   "signer": {
     "title": "Vaš ključ Nostr",

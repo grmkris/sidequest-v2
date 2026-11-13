@@ -180,8 +180,8 @@ export interface MessageArgumentsByKey<_T = string> {
     readonly worker: string | number
     readonly date: string | number
   }
+  'job.acceptedByYourAgent': { readonly agent: string | number }
   'job.agentSuggests': { readonly agent: string | number }
-  'job.agentSuggestsNote': Readonly<Record<string, never>>
   'job.buyer': Readonly<Record<string, never>>
   'job.chain.amount': Readonly<Record<string, never>>
   'job.chain.call.approval': Readonly<Record<string, never>>
@@ -278,6 +278,11 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.statement.withdrawProposal': Readonly<Record<string, never>>
   'job.statement.withdrawRequest': Readonly<Record<string, never>>
   'job.statementBy': { readonly author: string | number }
+  'job.suggestion.noGrant': Readonly<Record<string, never>>
+  'job.suggestion.notYourGrant': Readonly<Record<string, never>>
+  'job.suggestion.outsideWindow': Readonly<Record<string, never>>
+  'job.suggestion.revoked': Readonly<Record<string, never>>
+  'job.suggestion.scopeMissing': Readonly<Record<string, never>>
   'job.unavailable': Readonly<Record<string, never>>
   'job.validUntil': { readonly date: string | number }
   'job.withdraw': Readonly<Record<string, never>>
@@ -608,4 +613,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '67fc3b890d01b8ea3893d396425b6590d0643ab839610b6e4aa34cca930a3b75'
+export const catalogVersion = '625c3c9410918046e03bced22c6082ffa52a1685a53e4b9a35b80df39c3b8ffc'

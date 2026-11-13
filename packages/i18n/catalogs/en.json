@@ -390,8 +390,15 @@
       "fromWorker": "From the worker"
     },
     "agentSuggests": "Your agent {agent} suggests accepting this proposal.",
-    "agentSuggestsNote": "Its accept is only a suggestion: nothing counts until you accept yourself.",
-    "acceptSuggestion": "Accept as suggested"
+    "acceptSuggestion": "Accept as suggested",
+    "acceptedByYourAgent": "Accepted by your agent {agent}, under your grant.",
+    "suggestion": {
+      "scopeMissing": "Its grant does not let it accept for you, so its accept is only a suggestion until you accept yourself.",
+      "outsideWindow": "It accepted outside its grant’s window, so its accept is only a suggestion until you accept yourself.",
+      "revoked": "You revoked the grant it named, so its accept is only a suggestion until you accept yourself.",
+      "notYourGrant": "The grant it named is not yours for this key, so its accept is only a suggestion until you accept yourself.",
+      "noGrant": "It named no grant, so its accept is only a suggestion until you accept yourself."
+    }
   },
   "signer": {
     "title": "Your Nostr key",

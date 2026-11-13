@@ -1,4 +1,4 @@
-import { JobView, type ProposalView } from '@sidequest/fold'
+import { type GrantRefusal, JobView, type ProposalView } from '@sidequest/fold'
 import { NetworkRef, WalletAddress } from '@sidequest/protocol'
 import { Array, Effect, Option, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
@@ -9,7 +9,7 @@ import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../../Api.ts'
 import { Language } from '../../Language.ts'
 import { agentsOf, Me, type MyAgent, pubkeyOf, walletOn } from '../../Me.ts'
-import { defineReadNames, Names, unnamed, withNames } from '../../Names.ts'
+import { defineReadNames, Names, shortNpub, unnamed, withNames } from '../../Names.ts'
 import type { Preload } from '../../Preload.ts'
 import { failedWith, Problem } from '../../Problem.ts'
 import { PublishFailure, publishEvent, publishFailureOf } from '../../Publishing.ts'
@@ -461,17 +461,56 @@ const acceptProposal = (model: Model, id: string): UpdateReturn =>
 const confirmedAccept = (model: Model): UpdateReturn =>
   Action.guards.ConfirmingAccept(model.action) ? acceptProposal(model, model.action.proposal) : { model }
 
-/** An agent the buyer granted accepted a proposal on the buyer's request: a suggestion the fold does not count. */
-export const suggestedBy = (model: Model, view: JobView, proposal: ProposalView): Option.Option<MyAgent> =>
-  isBuyer(model, view) && negotiable(view) && standing(proposal) && !proposal.accepted
-    ? Array.findFirst(agentsOf(model.me), (agent) =>
-        view.accepts.some(
+/** An agent's accept the fold does not count as the buyer's, and why: the grant it named does not authorise it
+ * (`grantRefusal`), or it named none. */
+export interface Suggestion {
+  readonly agent: MyAgent
+  readonly maybeRefusal: Option.Option<GrantRefusal>
+}
+
+/**
+ * A key the buyer granted accepted a proposal on the buyer's request, and the fold does not count that accept as the
+ * buyer's (its grant lacks the `accept` scope, is refused, or is not named): a suggestion, which the buyer may follow
+ * with their own accept. An agent's accept that counts makes the proposal accepted, so it is never a suggestion.
+ */
+export const suggestedBy = (model: Model, view: JobView, proposal: ProposalView): Option.Option<Suggestion> => {
+  if (!isBuyer(model, view) || !negotiable(view) || !standing(proposal) || proposal.accepted) {
+    return Option.none()
+  }
+  return Array.findFirst(agentsOf(model.me), (agent) =>
+    Option.map(
+      Array.findFirst(
+        view.accepts,
+        (accept) =>
+          !accept.fromBuyer &&
+          accept.by === 'self' &&
+          accept.matchesProposal &&
+          accept.author === agent.pubkey &&
+          accept.proposal === proposal.id,
+      ),
+      (accept): Suggestion => ({ agent, maybeRefusal: Option.fromNullishOr(accept.grantRefusal) }),
+    ),
+  )
+}
+
+/** The buyer's agent accepted the proposal under the buyer's grant, which the fold counts as the buyer's own accept:
+ * the agent's label (or its short npub when the buyer granted it no longer). */
+export const acceptedByAgent = (model: Model, view: JobView, proposal: ProposalView): Option.Option<string> =>
+  isBuyer(model, view) && proposal.accepted
+    ? Option.map(
+        Array.findFirst(
+          view.accepts,
           (accept) =>
-            !accept.fromBuyer &&
-            accept.matchesProposal &&
-            accept.author === agent.pubkey &&
+            accept.fromBuyer &&
+            accept.by === 'agent' &&
+            accept.operator === view.buyer &&
             accept.proposal === proposal.id,
         ),
+        (accept) =>
+          Option.match(
+            Array.findFirst(agentsOf(model.me), (agent) => agent.pubkey === accept.author),
+            { onNone: () => shortNpub(accept.author), onSome: (agent) => agent.label },
+          ),
       )
     : Option.none()
 

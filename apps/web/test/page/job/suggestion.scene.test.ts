@@ -11,8 +11,12 @@ import { bidderKey, buyerKey, foldedJob, now, otherKey, proposalFrom, requestId 
 const agent = 'a9'.repeat(32)
 const proposal = proposalFrom(bidderKey, 'e1', '250000000')
 
-/** An accept of the proposal signed by `author`, which the fold labels not the buyer's. */
-const acceptBy = (author: string) => ({
+/** An accept of the proposal signed by `author`, as the fold judged it: by default not the buyer's, because the grant
+ * it named lacks the `accept` scope. */
+const acceptBy = (
+  author: string,
+  judged: Record<string, unknown> = { grant: 'ab'.repeat(32), grantRefusal: 'scopeMissing' },
+) => ({
   id: 'ac'.repeat(32),
   author,
   createdAt: now + 120,
@@ -21,6 +25,7 @@ const acceptBy = (author: string) => ({
   fromBuyer: false,
   matchesProposal: true,
   conflicting: false,
+  ...judged,
 })
 
 const buyerWithAgent = Me.Ready({
@@ -28,14 +33,18 @@ const buyerWithAgent = Me.Ready({
   standing: Standing.Known({ maybeName: Option.none(), wallets: [], agents: [{ pubkey: agent, label: 'Scout' }] }),
 })
 
-const opened = (author: string, me = buyerWithAgent) =>
+const opened = (accept: ReturnType<typeof acceptBy>, me = buyerWithAgent, accepted = false) =>
   init(
     'en',
     requestId,
     me,
     Option.some(
       Preload.Job({
-        view: foldedJob({ stage: 'proposed', proposals: [proposal], accepts: [acceptBy(author)] }),
+        view: foldedJob({
+          stage: accepted ? 'accepted' : 'proposed',
+          proposals: [{ ...proposal, accepted }],
+          accepts: [accept],
+        }),
         names: [],
       }),
     ),
@@ -47,8 +56,11 @@ describe('an accept by the buyer’s agent', () => {
   test('shows as the agent’s suggestion, and one click publishes the buyer’s own accept', () => {
     scene(
       { update, view: page() },
-      given(opened(agent)),
+      given(opened(acceptBy(agent))),
       expect(text('Your agent Scout suggests accepting this proposal.')).toExist(),
+      expect(
+        text('Its grant does not let it accept for you, so its accept is only a suggestion until you accept yourself.'),
+      ).toExist(),
       click(role('button', { name: 'Accept as suggested' })),
       Command.expectExact(
         PublishAccept({
@@ -67,7 +79,7 @@ describe('an accept by the buyer’s agent', () => {
   test('is no suggestion when a key the buyer did not grant signed it, or to anyone but the buyer', () => {
     scene(
       { update, view: page() },
-      given(opened(otherKey)),
+      given(opened(acceptBy(otherKey))),
       expect(text('Your agent Scout suggests accepting this proposal.')).not.toExist(),
     )
     const bidder = Me.Ready({
@@ -76,8 +88,19 @@ describe('an accept by the buyer’s agent', () => {
     })
     scene(
       { update, view: page() },
-      given(opened(agent, bidder)),
+      given(opened(acceptBy(agent), bidder)),
       expect(text('Your agent Scout suggests accepting this proposal.')).not.toExist(),
+    )
+  })
+
+  test('an accept under the buyer’s grant counts as the buyer’s: shown accepted by their agent, never as a suggestion', () => {
+    const counted = acceptBy(agent, { by: 'agent', operator: buyerKey, grant: 'ab'.repeat(32), fromBuyer: true })
+    scene(
+      { update, view: page() },
+      given(opened(counted, buyerWithAgent, true)),
+      expect(text('Accepted by your agent Scout, under your grant.')).toExist(),
+      expect(text('Your agent Scout suggests accepting this proposal.')).not.toExist(),
+      expect(role('button', { name: 'Accept as suggested' })).not.toExist(),
     )
   })
 })

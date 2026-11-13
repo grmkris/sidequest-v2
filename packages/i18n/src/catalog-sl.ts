@@ -343,8 +343,17 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'job.reviews.fromBuyer': 'Od naročnika',
   'job.reviews.fromWorker': 'Od izvajalca',
   'job.agentSuggests': 'Vaš agent {agent} predlaga, da sprejmete ta predlog.',
-  'job.agentSuggestsNote': 'Njegov sprejem je le predlog: nič ne šteje, dokler ne sprejmete sami.',
   'job.acceptSuggestion': 'Sprejmi, kot predlaga',
+  'job.acceptedByYourAgent': 'Sprejel ga je vaš agent {agent}, z vašim pooblastilom.',
+  'job.suggestion.scopeMissing':
+    'Njegovo pooblastilo mu ne dovoli sprejemati namesto vas, zato je njegov sprejem le predlog, dokler ne sprejmete sami.',
+  'job.suggestion.outsideWindow':
+    'Sprejel je zunaj obdobja svojega pooblastila, zato je njegov sprejem le predlog, dokler ne sprejmete sami.',
+  'job.suggestion.revoked':
+    'Pooblastilo, ki ga je navedel, ste preklicali, zato je njegov sprejem le predlog, dokler ne sprejmete sami.',
+  'job.suggestion.notYourGrant':
+    'Pooblastilo, ki ga je navedel, ni vaše za ta ključ, zato je njegov sprejem le predlog, dokler ne sprejmete sami.',
+  'job.suggestion.noGrant': 'Ni navedel pooblastila, zato je njegov sprejem le predlog, dokler ne sprejmete sami.',
   'signer.title': 'Vaš ključ Nostr',
   'signer.detecting': 'Iščemo podpisnika v tem brskalniku …',
   'signer.choose.withExtension':

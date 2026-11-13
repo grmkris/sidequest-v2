@@ -335,8 +335,17 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'job.reviews.fromBuyer': 'From the buyer',
   'job.reviews.fromWorker': 'From the worker',
   'job.agentSuggests': 'Your agent {agent} suggests accepting this proposal.',
-  'job.agentSuggestsNote': 'Its accept is only a suggestion: nothing counts until you accept yourself.',
   'job.acceptSuggestion': 'Accept as suggested',
+  'job.acceptedByYourAgent': 'Accepted by your agent {agent}, under your grant.',
+  'job.suggestion.scopeMissing':
+    'Its grant does not let it accept for you, so its accept is only a suggestion until you accept yourself.',
+  'job.suggestion.outsideWindow':
+    'It accepted outside its grant’s window, so its accept is only a suggestion until you accept yourself.',
+  'job.suggestion.revoked':
+    'You revoked the grant it named, so its accept is only a suggestion until you accept yourself.',
+  'job.suggestion.notYourGrant':
+    'The grant it named is not yours for this key, so its accept is only a suggestion until you accept yourself.',
+  'job.suggestion.noGrant': 'It named no grant, so its accept is only a suggestion until you accept yourself.',
   'signer.title': 'Your Nostr key',
   'signer.detecting': 'Looking for a signer in this browser…',
   'signer.choose.withExtension':
