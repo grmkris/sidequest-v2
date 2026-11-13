@@ -102,8 +102,9 @@ const proxyChecks = async (url: string) => {
 /** The proxy checks, as a test step. */
 export const proxiesOnlyTheOperatorApi = (url: string) => Effect.promise(() => proxyChecks(url))
 
-const terms = {
-  title: 'A logo for the inbox',
+/** Escrow terms on Arc testnet for a logo, delivered within 30 days, as a proposal offers them. */
+export const escrowTerms = (title: string) => ({
+  title,
   deliverables: ['SVG logo'],
   amount: '250000000',
   asset: UsdcOnArcTestnet.id,
@@ -113,8 +114,8 @@ const terms = {
   disputeWindowSeconds: 2 * 86_400,
   arbitrationWindowSeconds: 7 * 86_400,
   rail: 'escrow' as const,
-}
-const offered = Schema.decodeUnknownSync(Terms)(terms)
+})
+const offered = Schema.decodeUnknownSync(Terms)(escrowTerms('A logo for the inbox'))
 
 /**
  * A buyer's inbox, worked out in their browser: a bidder proposes on their request (signed events through the index),

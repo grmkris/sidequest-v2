@@ -7,7 +7,7 @@ import { agentGrant, envelopeTag, grantRevocation } from '@sidequest/nostr/vocab
 import { connectRelay, keyAuth, type RelayFailure } from '@sidequest/nostr/relay'
 import { foundingOf, type RelayPort, RelayPortFailure } from '@sidequest/nostr/rooms'
 import { messagingRelaysTemplate, RelayUrl } from '@sidequest/nostr/vocabulary'
-import { Person, SignedEvent, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { Person, SignedEvent } from '@sidequest/protocol'
 import { compatibility, sidequestWorkers } from '@sidequest/server/Stack'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
@@ -26,7 +26,7 @@ import {
   mcpClient,
   signedBy,
 } from '../../packages/server/rehearsal/GatewayClient.ts'
-import { inboxShowsAProposal, managesAnAgent, proxiesOnlyTheOperatorApi } from './WebsiteJourneys.ts'
+import { escrowTerms, inboxShowsAProposal, managesAnAgent, proxiesOnlyTheOperatorApi } from './WebsiteJourneys.ts'
 
 // The core and the agent gateway deployed together in workerd, each its own Worker and D1, the gateway configured with
 // the core's URL alone. An operator (a Nostr key the test holds, as their browser's signer would) makes an agent at the
@@ -132,18 +132,7 @@ harness.afterAll(
 const now = () => Math.floor(Date.now() / 1000)
 const entropy = () => crypto.getRandomValues(new Uint8Array(32))
 
-const terms = {
-  title: 'A logo',
-  deliverables: ['SVG logo'],
-  amount: '250000000',
-  asset: UsdcOnArcTestnet.id,
-  network: UsdcOnArcTestnet.network,
-  deliveryDeadline: now() + 30 * 86_400,
-  reviewWindowSeconds: 3 * 86_400,
-  disputeWindowSeconds: 2 * 86_400,
-  arbitrationWindowSeconds: 7 * 86_400,
-  rail: 'escrow',
-}
+const terms = escrowTerms('A logo')
 
 /**
  * The world before the agent acts: the operator links a wallet (where their agent's proposals ask to be paid), a
