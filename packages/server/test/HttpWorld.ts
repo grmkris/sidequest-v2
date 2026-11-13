@@ -40,6 +40,17 @@ export const withApi = async (test: (api: Api) => Promise<void>, world = serverW
   }
 }
 
+/** POSTs `body` as JSON to `path`. */
+export const post = (api: Api, path: string, body: unknown) =>
+  api.fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+
+/** A response's JSON as `schema` reads it; an error status fails the test, with what the API said. */
+export const json = async <A>(schema: Schema.Decoder<A>, response: Response) => {
+  const body: unknown = await response.json()
+  if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(body)}`)
+  return Schema.decodeUnknownSync(schema)(body)
+}
+
 /** A reply's body as `schema` reads it; a body it does not read fails the test. */
 export const bodyOf = <S extends Schema.ConstraintDecoder<unknown>>(schema: S, reply: Reply): S['Type'] =>
   Schema.decodeUnknownSync(schema)(reply.body)

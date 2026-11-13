@@ -1,5 +1,5 @@
 import { Erc8004Deployment, Erc8004Identity, Erc8004RegistrationCall, WalletAddress } from '@sidequest/protocol'
-import { Array, Duration, Effect, Option, Schedule, Schema } from 'effect'
+import { Array, Effect, Option, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { AsyncData, Command, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
@@ -11,7 +11,8 @@ import { Language } from '../Language.ts'
 import { failedWith, Problem } from '../Problem.ts'
 import { PublishFailure, publishEvent, publishFailureOf } from '../Publishing.ts'
 import type { Signers } from '../Signer.ts'
-import { Connection, type ReceiptLog, Wallet } from '../Wallet.ts'
+import { Connection, minedLogs, type ReceiptLog, Wallet } from '../Wallet.ts'
+import { connectWallet } from '../WalletConnect.ts'
 
 // An operator's agents on ERC-8004 (ADR-0007): each agent's identities as the index verified them and its feedback in
 // short, and registering one. Registering is the operator's wallet sending `register(agentURI)`, which the core
@@ -128,10 +129,7 @@ export const ReadSummaries = Command.define('ReadSummaries', {
 /** Which account the wallet sends from. */
 export const ConnectRegistrationWallet = Command.define('ConnectRegistrationWallet', {
   messages: [Message.SucceededConnectWallet, Message.FailedConnectWallet],
-  execute: Effect.gen(function* () {
-    const connection = yield* (yield* Wallet).connect
-    return Message.SucceededConnectWallet({ connection })
-  }).pipe(Effect.catch(failedWith(Message.FailedConnectWallet))),
+  execute: connectWallet((connection) => Message.SucceededConnectWallet({ connection }), Message.FailedConnectWallet),
 })
 
 /** The core prepares `register(agentURI)` with the agent's registration file on this origin. */
@@ -173,20 +171,12 @@ export const mintedAgentId = (logs: ReadonlyArray<ReceiptLog>, registry: string)
   )
 }
 
-class Pending extends Schema.TaggedError<Pending>()('Pending', {}) {}
-
 /** Waits for the transaction to be mined (polling every two seconds, up to three minutes) and reads the minted id. */
 export const AwaitRegistration = Command.define('AwaitRegistration', {
   args: { hash: Schema.String, registry: Schema.String },
   messages: [Message.SucceededAwaitRegistration, Message.FailedAwaitRegistration],
   execute: ({ hash, registry }) =>
-    Wallet.use((wallet) => wallet.receiptLogs(hash)).pipe(
-      Effect.flatMap(Option.match({ onNone: () => Effect.fail(new Pending()), onSome: Effect.succeed })),
-      Effect.retry({
-        schedule: Schedule.spaced(Duration.seconds(2)),
-        times: 90,
-        while: (error) => error instanceof Pending,
-      }),
+    minedLogs(hash).pipe(
       Effect.map((logs) =>
         Option.match(mintedAgentId(logs, registry), {
           onNone: () => Message.FailedAwaitRegistration({ failure: RegistrationFailure.NotMinted() }),

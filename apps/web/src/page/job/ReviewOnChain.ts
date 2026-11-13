@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
 import { Erc8004FeedbackCall, WalletAddress } from '@sidequest/protocol'
-import { Duration, Effect, Option, Schedule, Schema } from 'effect'
+import { Effect, Option, Schema } from 'effect'
 import { Command, type Html, Submodel, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { defineTaggedUnion } from 'foldkit/schema'
@@ -13,7 +13,8 @@ import { styled } from '../../Styled.ts'
 import { say } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
-import { Connection, Wallet } from '../../Wallet.ts'
+import { Connection, minedLogs, Wallet } from '../../Wallet.ts'
+import { connectWallet } from '../../WalletConnect.ts'
 import { sameAddress } from './money/message.ts'
 
 // The person's counted review, posted to ERC-8004 by their own wallet (ADR-0007, decision 6, option b): the core
@@ -63,10 +64,7 @@ export type Message = typeof Message.Type
 
 export const ConnectFeedbackWallet = Command.define('ConnectFeedbackWallet', {
   messages: [Message.SucceededConnectWallet, Message.FailedConnectWallet],
-  execute: Effect.gen(function* () {
-    const connection = yield* (yield* Wallet).connect
-    return Message.SucceededConnectWallet({ connection })
-  }).pipe(Effect.catch(failedWith(Message.FailedConnectWallet))),
+  execute: connectWallet((connection) => Message.SucceededConnectWallet({ connection }), Message.FailedConnectWallet),
 })
 
 /** The core prepares `giveFeedback` of the review's entry in the subject's feedback file. */
@@ -96,20 +94,12 @@ export const SendFeedback = Command.define('SendFeedback', {
     ),
 })
 
-class Pending extends Schema.TaggedError<Pending>()('Pending', {}) {}
-
 /** Waits for the transaction to be mined, polling every two seconds for up to three minutes. */
 export const AwaitFeedback = Command.define('AwaitFeedback', {
   args: { hash: Schema.String },
   messages: [Message.SucceededAwaitFeedback, Message.FailedAwaitFeedback],
   execute: ({ hash }) =>
-    Wallet.use((wallet) => wallet.receiptLogs(hash)).pipe(
-      Effect.flatMap(Option.match({ onNone: () => Effect.fail(new Pending()), onSome: Effect.succeed })),
-      Effect.retry({
-        schedule: Schedule.spaced(Duration.seconds(2)),
-        times: 90,
-        while: (error) => error instanceof Pending,
-      }),
+    minedLogs(hash).pipe(
       Effect.as(Message.SucceededAwaitFeedback()),
       Effect.catch(failedWith(Message.FailedAwaitFeedback)),
     ),

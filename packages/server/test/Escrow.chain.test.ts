@@ -1,13 +1,13 @@
 import { EscrowFunding, EscrowPaymentStatus, Relayed } from '@sidequest/protocol'
 import { ChainRpc } from '@sidequest/settlement/ChainRpc'
-import { Effect, Layer, Option, Schema } from 'effect'
+import { Effect, Layer, Option } from 'effect'
 import { isHex } from 'viem'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { signTyped } from '../rehearsal/Surfaces.ts'
 import { ChainFacts } from '../src/Index/ChainFacts.ts'
 import { ChainLogPoller } from '../src/Index/ChainLogPoller.ts'
 import { type LocalChain, onChainOnly, skipOnChain, startChain } from './Anvil.ts'
-import { type Api, withApi } from './HttpWorld.ts'
+import { type Api, json, post, withApi } from './HttpWorld.ts'
 import { accountOf, alice, bob, linked, walletOne, walletTwo } from './IndexWorld.ts'
 import { proposalBy, requestBy, termsFrom } from './JobWorld.ts'
 import { serverWorld } from './World.ts'
@@ -18,15 +18,6 @@ import { serverWorld } from './World.ts'
 // chain's logs. Skipped with a notice where Anvil or the contracts build is missing, and failed in CI, which has both.
 
 const amount = 250_000_000n
-
-const post = (api: Api, path: string, body: unknown) =>
-  api.fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-
-const json = async <A>(schema: Schema.Decoder<A>, response: Response) => {
-  const body: unknown = await response.json()
-  if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(body)}`)
-  return Schema.decodeUnknownSync(schema)(body)
-}
 
 describe.skipIf(skipOnChain)('the escrow on chain', () => {
   onChainOnly('the escrow on chain')

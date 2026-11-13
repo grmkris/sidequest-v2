@@ -2,7 +2,7 @@ import { type TypedData, WalletAddress, WalletSignature } from '@sidequest/proto
 
 type WalletAddress = typeof WalletAddress.Type
 type WalletSignature = typeof WalletSignature.Type
-import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
+import { Context, Duration, Effect, Layer, Option, Predicate, Schedule, Schema } from 'effect'
 import { arcChainHex, arcChainId, arcChainParameters } from './Chain.ts'
 
 // The wallet the person's browser injects, spoken to through EIP-1193 only: `window.ethereum`, or the first wallet
@@ -22,6 +22,9 @@ export class WalletFailed extends Schema.TaggedError<WalletFailed>()('WalletFail
   code: Schema.optionalKey(Schema.Number),
 }) {}
 export type WalletError = NoWallet | WalletRejected | WalletFailed
+
+/** A transaction is not mined yet. */
+class Pending extends Schema.TaggedError<Pending>()('Pending', {}) {}
 
 /** The wallet does not know the chain it was asked to switch to (EIP-3326 code 4902). */
 class UnknownChain extends Schema.TaggedError<UnknownChain>()('UnknownChain', {}) {}
@@ -189,6 +192,17 @@ const discoverProvider = (target: Window): Option.Option<Eip1193Provider> => {
     isProvider(injected) ? Option.some(injected) : Option.none(),
   )
 }
+
+/** A transaction's logs once it is mined, asking the wallet every two seconds for up to three minutes. */
+export const minedLogs = (hash: string) =>
+  Wallet.use((wallet) => wallet.receiptLogs(hash)).pipe(
+    Effect.flatMap(Option.match({ onNone: () => Effect.fail(new Pending()), onSome: Effect.succeed })),
+    Effect.retry({
+      schedule: Schedule.spaced(Duration.seconds(2)),
+      times: 90,
+      while: (error) => error instanceof Pending,
+    }),
+  )
 
 export const walletLayer = (target: Window) =>
   Layer.succeed(Wallet, makeWallet(Effect.sync(() => discoverProvider(target))))

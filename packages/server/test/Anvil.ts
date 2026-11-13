@@ -18,7 +18,7 @@ import {
   type TransactionReceipt,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
-import { beforeAll } from 'vitest'
+import { afterAll, beforeAll } from 'vitest'
 import type { SettlementConfig } from '../src/Settlement/SettlementConfig.ts'
 
 // A local chain for the tests that need one: Anvil with Arc testnet's chain id, the real `AuthCaptureEscrow` v1.1, its
@@ -64,6 +64,23 @@ export const onChainOnly = (suite: string) => {
   beforeAll(() => {
     if (unavailable !== undefined) throw new Error(`CI must run "${suite}" on Anvil, but ${unavailable}`)
   })
+}
+
+/**
+ * Anvil for the enclosing suite (`describe.skipIf(skipOnChain)`): started before its tests, stopped after them, with
+ * `onChainOnly`'s notice or failure. Answers the running chain, for tests to read.
+ */
+export const suiteChain = (suite: string) => {
+  onChainOnly(suite)
+  let started: LocalChain | undefined
+  beforeAll(async () => {
+    started = await startChain()
+  }, 60_000)
+  afterAll(() => started?.stop())
+  return (): LocalChain => {
+    if (started === undefined) throw new Error(`${suite}: Anvil did not start`)
+    return started
+  }
 }
 
 const Artifact = Schema.Struct({

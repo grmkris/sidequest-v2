@@ -17,14 +17,14 @@ import { ChainRpc } from '@sidequest/settlement/ChainRpc'
 import { Effect, Layer, Option, Result, Schema } from 'effect'
 import { decodeEventLog, isHex, keccak256, stringToHex, type TransactionReceipt } from 'viem'
 import type { PrivateKeyAccount } from 'viem/accounts'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { beforeEach, describe, expect, test } from 'vitest'
 import { signTyped } from '../rehearsal/Surfaces.ts'
 import { Erc8004Reader } from '../src/Erc8004/Erc8004Reader.ts'
 import { entryDocument, entryHash, isoSeconds } from '../src/Erc8004/Feedback.ts'
 import { verifyFeedbackFile } from '../src/Erc8004/FeedbackVerifier.ts'
 import { ChainLogPoller } from '../src/Index/ChainLogPoller.ts'
-import { type LocalChain, onChainOnly, skipOnChain, startChain } from './Anvil.ts'
-import { type Api, withApi } from './HttpWorld.ts'
+import { type LocalChain, skipOnChain, suiteChain } from './Anvil.ts'
+import { type Api, json, post, withApi } from './HttpWorld.ts'
 import { accountOf, alice, bob, carol, linked, signed, walletOne, walletTwo } from './IndexWorld.ts'
 import { proposalBy, requestBy, termsFrom } from './JobWorld.ts'
 import { serverWorld } from './World.ts'
@@ -39,15 +39,6 @@ import { serverWorld } from './World.ts'
 
 const amount = 120_000_000n
 const identityRegistry = 'eip155:5042002:0x8004a818bfb912233c491871b3d84c89a494bd9e'
-
-const post = (api: Api, path: string, body: unknown) =>
-  api.fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-
-const json = async <A>(schema: Schema.Decoder<A>, response: Response) => {
-  const body: unknown = await response.json()
-  if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(body)}`)
-  return Schema.decodeUnknownSync(schema)(body)
-}
 
 const event = <C>(spec: KindSpec<C>, content: unknown, key: SecretKey, createdAt: number) =>
   Effect.runPromise(
@@ -73,14 +64,14 @@ const mintedId = (receipt: TransactionReceipt) => {
 }
 
 describe.skipIf(skipOnChain)('ERC-8004 on chain', () => {
-  onChainOnly('ERC-8004 on chain')
+  const chainOf = suiteChain('ERC-8004 on chain')
   let chain: LocalChain
-  beforeAll(async () => {
-    chain = await startChain()
-  }, 60_000)
-  afterAll(() => chain?.stop())
+  beforeEach(() => {
+    chain = chainOf()
+  })
 
-  const onChain = (run: Parameters<typeof withApi>[0]) =>
+  /** The API on a fresh database, settling on this suite's chain. */
+  const settlingOn = (run: Parameters<typeof withApi>[0]) =>
     withApi(run, serverWorld(chain.client, { escrow: Option.some(chain.config) }).layer)
 
   const pollChain = (api: Api) =>
@@ -167,7 +158,7 @@ describe.skipIf(skipOnChain)('ERC-8004 on chain', () => {
   test(
     'register, claim, verify, and a settled job’s review served as checkable feedback, posted and read back',
     () =>
-      onChain(async (api) => {
+      settlingOn(async (api) => {
         const hire = await settledHire(api)
         const carolKey = publicKeyOf(carol)
 
