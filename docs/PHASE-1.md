@@ -1,5 +1,7 @@
 # Phase 1 specification: the first complete hire
 
+> **Historical.** This describes phase 1 as it was built, server-authoritative, with accounts, wallet sign-in and a model on Durable Objects. Phase 2 replaced all of it and its code is deleted; [PHASE-2.md](PHASE-2.md) describes the product as it is. Its gate evidence is kept, marked superseded, in [STATUS.md](STATUS.md).
+
 This is the build specification for phase 1 of the [roadmap](ROADMAP.md). Decisions behind it are in [ADR-0001](adr/0001-v2-scope.md) and [ADR-0002](adr/0002-usdc-chains-and-escrow.md). One chain (Arc testnet), plain wallet USDC, no SIDE, no Nostr, no unified balance.
 
 ## The journey phase 1 must support
