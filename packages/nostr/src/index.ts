@@ -29,3 +29,13 @@ export {
 } from './Nip49.ts'
 export { finalizeEvent, signEvent } from './Sign.ts'
 export { InvalidEvent, verifyEvent } from './Verify.ts'
+export {
+  firstValidKey,
+  passkeyKeyAttempts,
+  passkeyKeyCandidate,
+  passkeyKeyInfo,
+  passkeyKeyVersion,
+  passkeyPrfInput,
+  prfOutputLength,
+  secretKeyFromPrf,
+} from './PasskeyKey.ts'
