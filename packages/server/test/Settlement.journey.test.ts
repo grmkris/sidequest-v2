@@ -6,8 +6,12 @@ import { RegisterAccount } from '@sidequest/domain/Identity/RegisterAccount.comm
 import { ReserveWallet } from '@sidequest/domain/Identity/ReserveWallet.command'
 import { WalletClaim } from '@sidequest/domain/Identity/WalletClaim.aggregate'
 import { AccountId, EscrowStatus, FundingRequest, type JobId, Relayed, TypedData } from '@sidequest/protocol'
-import { Effect, Option } from 'effect'
+import { ChainRpc } from '@sidequest/settlement/ChainRpc'
+import { jobIdWord } from '@sidequest/settlement/Words'
+import { Effect, Layer, Option } from 'effect'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import { ChainFacts } from '../src/Index/ChainFacts.ts'
+import { ChainLogPoller } from '../src/Index/ChainLogPoller.ts'
 import { walletRef } from '../src/SignIn/Siwe.ts'
 import { type LocalChain, onChainOnly, skipOnChain, startChain } from './Anvil.ts'
 import { artifactHash, buyerViewOf, named, postJob, propose } from './Hire.ts'
@@ -131,6 +135,48 @@ describe.skipIf(skipOnChain)('the hire on chain', () => {
         expect((await chain.balanceOf(chain.treasury)) - feesBefore).toBe(12_500_000n)
         const status = bodyOf(EscrowStatus, await worker.get(`/api/jobs/${job}/payment`))
         expect(status).toMatchObject({ stage: 'Settled', settlement: { outcome: 'Approved' }, problems: [] })
+      }),
+    60_000,
+  )
+
+  test(
+    'the index’s chain log poller records the funding once, and only once its block is confirmed',
+    () =>
+      onChain(async ({ signIn, run }) => {
+        const { job } = await fundedHire(signIn)
+        const word = jobIdWord(job)
+        const head = await chain.client.getBlockNumber()
+        const logs = await chain.client.getLogs({ address: chain.chain.operator, fromBlock: 0n, toBlock: head })
+        const funding = logs.find((log) => log.topics[2] === word)?.blockNumber
+        if (funding == null) throw new Error('No JobFunded for the job')
+        /** One pass of the poller, reading from block 0, counting `confirmations` blocks as confirming a log. */
+        const pass = (confirmations: number) =>
+          run(
+            Effect.gen(function* () {
+              yield* (yield* ChainLogPoller).run
+              const facts = yield* ChainFacts
+              return {
+                facts: yield* facts.forJob(word.slice(2)),
+                scannedTo: Option.getOrNull(yield* facts.scannedTo(chain.chain.asset.network)),
+              }
+            }).pipe(
+              Effect.provide(
+                ChainLogPoller.layer({ ...chain.chain, confirmations }, Option.some(0n)).pipe(
+                  Layer.provide(Layer.succeed(ChainRpc, chain.client)),
+                ),
+              ),
+            ),
+          )
+        // The funding's block is one short of confirmed: nothing recorded, and the cursor stops before it.
+        expect(await pass(Number(head - funding) + 2)).toEqual({ facts: [], scannedTo: Number(funding) - 1 })
+        const confirmed = await pass(Number(head - funding) + 1)
+        expect(confirmed.scannedTo).toBe(Number(funding))
+        expect(confirmed.facts).toMatchObject([
+          { _tag: 'Funded', job: word.slice(2), amount: String(amount), at: { block: Number(funding) } },
+        ])
+        // Every later pass re-reads blocks below its cursor; the funding is still one fact.
+        expect((await pass(1)).facts).toEqual(confirmed.facts)
+        expect((await pass(1)).facts).toHaveLength(1)
       }),
     60_000,
   )

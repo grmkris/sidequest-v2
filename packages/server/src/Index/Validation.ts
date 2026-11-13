@@ -23,6 +23,7 @@ import { Effect, Option, Result, Schema } from 'effect'
 import {
   type Derived,
   grantOf,
+  listingOf,
   messagingRelaysOf,
   profileOf,
   relayListOf,
@@ -54,7 +55,10 @@ export class EventRefused extends Schema.TaggedError<EventRefused>()('EventRefus
   kind: Schema.optionalKey(Schema.Int),
 }) {}
 
-/** A valid event, what it passed, and what it derives (a profile, relay list, wallet link, grant or revocation), if anything. */
+/**
+ * A valid event, what it passed, and what it derives (a profile, relay list, listing, wallet link, grant or revocation),
+ * if anything.
+ */
 export interface Validated {
   readonly event: NostrEvent
   readonly validation: Validation
@@ -119,7 +123,10 @@ const readers: ReadonlyMap<number, Reader> = new Map<number, Reader>([
   [standardKinds.messagingRelays, deriving('messagingRelays', parseMessagingRelays, messagingRelaysOf)],
   [
     standardKinds.listing,
-    (event) => parseServiceListing(event).pipe(Effect.as({ validation: 'listing', derived: nothingDerived })),
+    (event) =>
+      parseServiceListing(event).pipe(
+        Effect.map((parsed) => ({ validation: 'listing', derived: Option.some(listingOf(event, parsed)) })),
+      ),
   ],
   sidequestDeriving(walletLink, walletLinkOf),
   sidequest(jobRequest),

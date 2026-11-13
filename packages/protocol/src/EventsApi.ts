@@ -2,6 +2,10 @@ import { Schema } from 'effect'
 import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { AccountRef } from './AccountRef.ts'
 import { GrantScope } from './Grant.ts'
+import { Hex32 } from './Hex32.ts'
+import { IndexListing, IndexListingDetail, IndexListingQuery, IndexListingSlug } from './IndexListing.ts'
+import { Page } from './Page.ts'
+import { BadCursor } from './Refusals.ts'
 import { Unavailable } from './SessionApi.ts'
 
 /**
@@ -18,9 +22,6 @@ export const SignedEvent = Schema.Struct({
   sig: Schema.String,
 })
 export type SignedEvent = typeof SignedEvent.Type
-
-/** 32 bytes as 64 lowercase hex characters: an event id or an x-only public key. */
-const Hex32 = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u))
 
 /** What publishing did: stored the event, or found it stored already. */
 export const Published = Schema.Struct({ id: Hex32, status: Schema.Literals(['stored', 'duplicate']) })
@@ -64,7 +65,7 @@ export class RateLimited extends Schema.TaggedError<RateLimited>()(
   { httpApiStatus: 429 },
 ) {}
 
-/** The index has no such event, or knows nothing of that key. */
+/** The index has no such event, knows nothing of that key, or holds no such listing or job. */
 export class NotIndexed extends Schema.TaggedError<NotIndexed>()('NotIndexed', {}, { httpApiStatus: 404 }) {}
 
 /** Where a person's latest list came from: its event and when they signed it. */
@@ -142,7 +143,8 @@ export type LinkedWallet = typeof LinkedWallet.Type
 /**
  * The index over signed Nostr events. Anyone publishes one signed event through it (the event authenticates itself,
  * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
- * of a key, and which key a wallet is linked to. Publishing is limited per client and per key.
+ * of a key, which key a wallet is linked to, and sellers' NIP-99 listings (searched newest first, or one by its seller
+ * and slug). Publishing is limited per client and per key.
  */
 export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.post('publish', '/api/events', {
@@ -163,6 +165,16 @@ export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.get('wallet', '/api/wallets/:account', {
     params: { account: AccountRef },
     success: LinkedWallet,
+    error: [NotIndexed, Unavailable],
+  }),
+  HttpApiEndpoint.get('listings', '/api/index/listings', {
+    query: IndexListingQuery,
+    success: Page(IndexListing),
+    error: [BadCursor, Unavailable],
+  }),
+  HttpApiEndpoint.get('listing', '/api/index/listings/:pubkey/:slug', {
+    params: { pubkey: Hex32, slug: IndexListingSlug },
+    success: IndexListingDetail,
     error: [NotIndexed, Unavailable],
   }),
 ) {}

@@ -41,6 +41,14 @@ export {
   WalletLink,
 } from './EventsApi.ts'
 export { Bytes32 } from './Bytes32.ts'
+export { Hex32 } from './Hex32.ts'
+export {
+  IndexListing,
+  IndexListingDetail,
+  IndexListingQuery,
+  IndexListingSlug,
+  IndexListingTopic,
+} from './IndexListing.ts'
 export { findAsset, UsdcOnArcTestnet } from './AssetRegistry.ts'
 export { Delivery } from './Delivery.ts'
 export { Digest, textDigest } from './Digest.ts'

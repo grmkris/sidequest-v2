@@ -5,6 +5,7 @@ import { Context, Effect, Layer, Option, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { stored } from '../SignIn/Stored.ts'
+import { putListing } from './Listings.ts'
 import type { Derived, GrantRow, ProfileRow, RelayListRow, RevocationRow, WalletLinkRow } from './Derived.ts'
 import { validateEvent, type Validated } from './Validation.ts'
 
@@ -12,7 +13,8 @@ import { validateEvent, type Validated } from './Validation.ts'
 export type Source = 'publish' | `relay:${string}`
 
 const Tags = Schema.fromJsonString(NostrEvent.fields.tags)
-const EventRow = Schema.Struct({ ...NostrEvent.fields, tags: Tags })
+/** A stored event row as `events` holds it: its tags as JSON. */
+export const EventRow = Schema.Struct({ ...NostrEvent.fields, tags: Tags })
 const Urls = Schema.fromJsonString(Schema.Array(Schema.String))
 const ProfileRecord = Schema.Struct({
   pubkey: Schema.String,
@@ -74,8 +76,8 @@ export interface Known {
 export const knownLimits = { wallets: 100, unverifiedWallets: 20, grants: 100 } as const
 
 /**
- * The index's tables on D1: `events` and `event_tags`, the latest-per-key tables derived from them, `profiles` and
- * `relay_lists`, and the identity facts, `wallet_links`, `agent_grants` and `grant_revocations`. D1 runs each statement on its own, so every write here is one idempotent statement and a write cut
+ * The index's tables on D1: `events` and `event_tags`, the latest-per-key tables derived from them, `profiles`,
+ * `relay_lists` and `nostr_listings`, and the identity facts, `wallet_links`, `agent_grants` and `grant_revocations`. D1 runs each statement on its own, so every write here is one idempotent statement and a write cut
  * short is repaired by doing it again: storing an event that is there already still indexes its tags and applies what
  * it derives. A derived row is replaced only by an event that supersedes it (`supersedes`), decided in the statement
  * itself, so the tables come out the same whatever order events arrive in. An identity fact is one row per event,
@@ -92,7 +94,11 @@ export class EventStore extends Context.Service<
     readonly wallet: (account: string) => Effect.Effect<Option.Option<WalletLinkRow>, Unavailable>
     /** Keys that signed Sidequest events or listings, whose profiles and relay lists the poller asks relays for. */
     readonly authors: (limit: number) => Effect.Effect<ReadonlyArray<string>, Unavailable>
-    /** Rebuilds every derived table from `events` alone, as if every stored event had just arrived. */
+    /**
+     * Rebuilds every derived table from `events` alone, as if every stored event had just arrived: profiles, relay
+     * lists, listings and the identity facts. `chain_facts` is not among them: it holds no event's content, and is
+     * rebuilt by re-reading the chain (the chain log poller from an earlier cursor).
+     */
     readonly rebuild: Effect.Effect<void, Unavailable>
   }
 >()('Sidequest/Index/EventStore') {}
@@ -144,6 +150,8 @@ const writes = (sql: SqlClient.SqlClient) => {
     switch (derived.table) {
       case 'profiles':
         return profile(derived.row)
+      case 'listings':
+        return putListing(sql, derived.row)
       case 'relay_lists':
         return relayList(derived.row)
       case 'wallet_links':
@@ -190,7 +198,7 @@ const reads = (sql: SqlClient.SqlClient) => {
     Result: EventRow,
     execute: (after) => sql`
       SELECT id, pubkey, created_at, kind, tags, content, sig FROM events
-      WHERE (validation IN ('profile', 'relayList', 'messagingRelays')
+      WHERE (validation IN ('profile', 'relayList', 'messagingRelays', 'listing')
           OR kind IN (${sidequestKinds.walletLink}, ${sidequestKinds.grant}, ${sidequestKinds.revocation}))
         AND id > ${after}
       ORDER BY id LIMIT ${rebuildPage}`,
@@ -323,6 +331,7 @@ export const D1EventStore = Layer.effect(
         ),
       rebuild: Effect.gen(function* () {
         yield* stored(sql`DELETE FROM profiles`)
+        yield* stored(sql`DELETE FROM nostr_listings`)
         yield* stored(sql`DELETE FROM relay_lists`)
         yield* stored(sql`DELETE FROM wallet_links`)
         yield* stored(sql`DELETE FROM agent_grants`)

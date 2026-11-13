@@ -17,12 +17,13 @@ import { grantStatus, type WalletLinkRow } from '../Index/Derived.ts'
 import type { Known, KnownGrant } from '../Index/EventStore.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { Ingest, nowSeconds } from '../Index/Ingest.ts'
+import { Listings } from '../Index/Listings.ts'
 import { Outbox } from '../Index/Outbox.ts'
 import { publishLimits, RateLimiter } from '../Index/RateLimiter.ts'
 import { type EventRefused, validateEvent } from '../Index/Validation.ts'
 
 /** A response anyone, and any cache, may keep for `seconds`. */
-const publicFor = (seconds: number, immutable = false) =>
+export const publicFor = (seconds: number, immutable = false) =>
   HttpEffect.appendPreResponseHandler((_, response) =>
     Effect.succeed(
       HttpServerResponse.setHeader(
@@ -118,6 +119,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const events = yield* EventStore
     const limiter = yield* RateLimiter
     const outbox = yield* Outbox
+    const listings = yield* Listings
     return handlers
       .handle('publish', ({ payload }) =>
         Effect.gen(function* () {
@@ -153,6 +155,21 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           if (Option.isNone(linked)) return yield* new NotIndexed()
           yield* publicFor(60)
           return { ...walletOf(linked.value), pubkey: linked.value.pubkey }
+        }),
+      )
+      .handle('listings', ({ query }) =>
+        Effect.gen(function* () {
+          const page = yield* listings.search(query)
+          yield* publicFor(30)
+          return page
+        }),
+      )
+      .handle('listing', ({ params }) =>
+        Effect.gen(function* () {
+          const found = yield* listings.get(params.pubkey, params.slug)
+          if (Option.isNone(found)) return yield* new NotIndexed()
+          yield* publicFor(30)
+          return found.value
         }),
       )
   }),

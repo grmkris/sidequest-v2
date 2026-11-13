@@ -1,8 +1,9 @@
 import { publicKeyOf } from '@sidequest/nostr'
-import { LinkedWallet, Person, SameOrigin, SidequestApi, SignedEvent } from '@sidequest/protocol'
+import { LinkedWallet, Person, SameOrigin, SignedEvent } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
+import { ServedApi } from '../src/Http/IndexJobsApi.ts'
 import { publishLimits } from '../src/Index/RateLimiter.ts'
 import { eventLimits } from '../src/Index/Validation.ts'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
@@ -246,7 +247,7 @@ describe('the same-origin rule', () => {
   test('still guards every other endpoint of the API', () =>
     withApi(async ({ fetch }) => {
       const unguarded: Array<string> = []
-      HttpApi.reflect(SidequestApi, {
+      HttpApi.reflect(ServedApi, {
         onGroup: () => undefined,
         onEndpoint: ({ endpoint, middleware }) => {
           if (!Array.from(middleware, ({ key }) => key).includes(SameOrigin.key))
@@ -255,6 +256,10 @@ describe('the same-origin rule', () => {
       })
       expect(unguarded.toSorted()).toEqual([
         'GET /api/events/:id',
+        'GET /api/index/jobs',
+        'GET /api/index/jobs/:id',
+        'GET /api/index/listings',
+        'GET /api/index/listings/:pubkey/:slug',
         'GET /api/people/:pubkey',
         'GET /api/wallets/:account',
         'POST /api/events',

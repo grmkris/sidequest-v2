@@ -1,10 +1,11 @@
-import { SidequestApi } from '@sidequest/protocol'
 import { Layer } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { accountHandlers } from './Http/AccountHttp.ts'
 import { agentsHandlers } from './Http/AgentsHttp.ts'
 import { eventsHandlers } from './Http/EventsHttp.ts'
 import { inboxHandlers } from './Http/InboxHttp.ts'
+import { ServedApi } from './Http/IndexJobsApi.ts'
+import { indexJobsHandlers } from './Http/IndexReadsHttp.ts'
 import { jobsHandlers } from './Http/JobsHttp.ts'
 import { listingsHandlers } from './Http/ListingsHttp.ts'
 import { roomsHandlers } from './Http/RoomsHttp.ts'
@@ -39,14 +40,14 @@ const Reads = Layer.mergeAll(
 const OAuthStores = Layer.mergeAll(OAuthClients.layer, ConnectRequests.layer, Connections.layer)
 
 /**
- * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` with its handlers and the `SameOrigin`
- * and `SignedIn` middleware) and the MCP endpoint, two transports over the same model and D1 reads. It needs the
+ * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` and the index's jobs, with their handlers
+ * and the `SameOrigin` and `SignedIn` middleware) and the MCP endpoint, two transports over the same model and D1 reads. It needs the
  * hosted model, sign-in's `Sessions` and `AgentAccess`, the database's `SqlClient`, the `Escrow` and the index
  * (`IndexLive`).
  */
 export const apiRoutes = (release: string) =>
   Layer.mergeAll(
-    HttpApiBuilder.layer(SidequestApi).pipe(
+    HttpApiBuilder.layer(ServedApi).pipe(
       Layer.provide([
         systemHandlers(release),
         sessionHandlers,
@@ -59,6 +60,7 @@ export const apiRoutes = (release: string) =>
         inboxHandlers,
         connectHandlers,
         eventsHandlers,
+        indexJobsHandlers,
       ]),
       Layer.provide([SameOriginLive, SignedInLive]),
     ),

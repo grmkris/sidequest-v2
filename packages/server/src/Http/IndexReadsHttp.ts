@@ -1,0 +1,36 @@
+import { NotIndexed } from '@sidequest/protocol'
+import { Effect, Option } from 'effect'
+import { HttpApiBuilder } from 'effect/http-api'
+import { Jobs } from '../Index/Jobs.ts'
+import { publicFor } from './EventsHttp.ts'
+import { ServedApi } from './IndexJobsApi.ts'
+
+/**
+ * The index's job reads: a job folded from what the index holds, and the open requests. Public and sessionless; a
+ * job changes with every event and chain fact, so caches keep an answer for seconds only.
+ */
+export const indexJobsHandlers = HttpApiBuilder.group(ServedApi, 'indexJobs', (handlers) =>
+  Effect.gen(function* () {
+    const jobs = yield* Jobs
+    return handlers
+      .handle('job', ({ params }) =>
+        Effect.gen(function* () {
+          const job = yield* jobs.job(params.id)
+          if (Option.isNone(job)) return yield* new NotIndexed()
+          yield* publicFor(10)
+          return job.value
+        }),
+      )
+      .handle('openJobs', ({ query }) =>
+        Effect.gen(function* () {
+          const page = yield* jobs.open({
+            hideExpired: query.expired === 'exclude',
+            limit: query.limit,
+            cursor: query.cursor,
+          })
+          yield* publicFor(10)
+          return page
+        }),
+      )
+  }),
+)

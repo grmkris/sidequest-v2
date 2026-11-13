@@ -1,7 +1,7 @@
 import * as Cloudflare from '@alchemy.run/cloudflare'
 import * as AlchemyHttp from 'alchemy/Http'
 import { RuntimeContext } from 'alchemy/RuntimeContext'
-import { Effect, Layer, Logger } from 'effect'
+import { Effect, Layer, Logger, Option } from 'effect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import { apiRoutes } from './Api.ts'
@@ -10,9 +10,10 @@ import { DomainLive } from './DomainLive.ts'
 import { ClientDocuments } from './OAuth/ClientDocuments.ts'
 import { SidequestMedia } from './Resources.ts'
 import { IndexSettingsLive } from './Index/IndexConfig.ts'
+import { ChainLogPoller } from './Index/ChainLogPoller.ts'
 import { IndexLive, indexSchedule } from './Index/IndexLive.ts'
 import { escrowConfigFrom } from './Settlement/EscrowConfig.ts'
-import { escrowLive } from './Settlement/SettlementLive.ts'
+import { ChainRpcFromArc, escrowLive } from './Settlement/SettlementLive.ts'
 import { ArcRpc, arcRpcUrlFrom } from './SignIn/ArcRpc.ts'
 import { SignInLive } from './SignIn/SignInLive.ts'
 import { releaseFromEnvironment } from './Status.ts'
@@ -36,13 +37,23 @@ const EscrowLive = Layer.unwrap(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => escrowLive(escrowConfigFrom(environment))),
 )
 
+/**
+ * The chain log poller on the settlement chain, if the Worker's configuration names one; otherwise disabled. It reads
+ * through the same Arc RPC client as settlement and sign-in, from the confirmed head of its first run.
+ */
+const ChainLogPollerLive = Layer.unwrap(
+  Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) =>
+    Option.match(escrowConfigFrom(environment), {
+      onNone: () => ChainLogPoller.disabled,
+      onSome: ({ chain }) => ChainLogPoller.layer(chain, Option.none()).pipe(Layer.provide(ChainRpcFromArc)),
+    }),
+  ),
+)
+
 /** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow; the
  * fetcher of MCP clients' metadata documents; and the index, configured by the Worker's variables. */
-const Runtime = Layer.mergeAll(
-  SignInLive,
-  ClientDocuments.layer,
-  IndexLive.pipe(Layer.provide(IndexSettingsLive)),
-).pipe(
+const Runtime = Layer.mergeAll(SignInLive, ClientDocuments.layer, ChainLogPollerLive).pipe(
+  Layer.provideMerge(IndexLive.pipe(Layer.provide(IndexSettingsLive))),
   Layer.provideMerge(DomainLive),
   Layer.provideMerge(EscrowLive),
   Layer.provideMerge(ArcRpcLive),

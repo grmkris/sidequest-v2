@@ -167,3 +167,15 @@ export const derivedTables = (sqlite: ReturnType<typeof localSql>['sqlite']) => 
   grants: sqlite.prepare('SELECT * FROM agent_grants ORDER BY event_id').all(),
   revocations: sqlite.prepare('SELECT * FROM grant_revocations ORDER BY event_id').all(),
 })
+
+/** Sort keys for one arrival order of `count` events, as a property test draws them. */
+export const arrivalKeys = (count: number) =>
+  Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 1_000_000 }))).check(
+    Schema.isBetweenLength(count, count),
+  )
+
+/** `pool` in the order `keys` sort it into, with the first `repeats` of that order arriving again at the end. */
+export const arrivalOrder = <A>(pool: ReadonlyArray<A>, keys: ReadonlyArray<number>, repeats: number) => {
+  const order = pool.map((item, index) => ({ item, key: keys[index] ?? 0 })).toSorted((a, b) => a.key - b.key)
+  return [...order, ...order.slice(0, repeats)].map(({ item }) => item)
+}

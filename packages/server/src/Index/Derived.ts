@@ -4,6 +4,7 @@ import {
   type GrantRevocationContent,
   type MessagingRelays,
   type ParsedEvent,
+  type ParsedListing,
   type ProfileName,
   type RelayList,
   recoverAddress,
@@ -65,9 +66,26 @@ export interface RevocationRow {
   readonly pubkey: string
 }
 
-/** What an event derives: a profile, a relay list, a wallet link, a grant or a revocation. */
+/**
+ * A seller's latest listing under one slug: what search and display need. `network` is the CAIP-2 chain of the price
+ * hint's asset (a listing names no network of its own), `null` without a price.
+ */
+export interface ListingRow extends Origin {
+  readonly slug: string
+  readonly title: string
+  readonly summary: string
+  readonly description: string
+  readonly topics: ReadonlyArray<string>
+  readonly price: { readonly amount: string; readonly asset: string } | null
+  readonly network: string | null
+  readonly status: 'active' | 'sold'
+  readonly publishedAt: number
+}
+
+/** What an event derives: a profile, a relay list, a listing, a wallet link, a grant or a revocation. */
 export type Derived =
   | { readonly table: 'profiles'; readonly row: ProfileRow }
+  | { readonly table: 'listings'; readonly row: ListingRow }
   | { readonly table: 'relay_lists'; readonly row: RelayListRow }
   | { readonly table: 'wallet_links'; readonly row: WalletLinkRow }
   | { readonly table: 'agent_grants'; readonly row: GrantRow }
@@ -112,6 +130,23 @@ export const profileOf = (event: NostrEvent, names: ProfileName): Derived => {
     },
   }
 }
+
+/** The listing row of a NIP-99 listing `parseServiceListing` read. */
+export const listingOf = (event: NostrEvent, { listing }: ParsedListing): Derived => ({
+  table: 'listings',
+  row: {
+    ...originOf(event),
+    slug: listing.slug,
+    title: listing.title,
+    summary: listing.summary,
+    description: listing.description,
+    topics: listing.topics,
+    price: listing.price === undefined ? null : { amount: listing.price.amount, asset: listing.price.asset },
+    network: listing.price === undefined ? null : listing.price.asset.slice(0, listing.price.asset.indexOf('/')),
+    status: listing.status,
+    publishedAt: listing.publishedAt,
+  },
+})
 
 /** The relay-list row of a NIP-65 list. */
 export const relayListOf = (event: NostrEvent, list: RelayList): Derived => ({
