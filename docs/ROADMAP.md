@@ -53,7 +53,7 @@ Evidence levels: **local**, **testnet**, **mainnet**. Mainnet steps need Kris's 
 - **Passkey-derived keys** (slice 7): built ([ADR-0005](adr/0005-domains-and-passkey-scope.md)) and proven in Chromium with a virtual authenticator; left is a stage that offers them (the preview on `v2.sidequest.exchange`) and real passkey providers.
 - **Arbitration with evidence** (slice 16): the arbitrator reads disclosed room messages (a member's seal and its keys) beside the job's events before ruling; today a ruling is a NIP-98 request by the arbitration key that sees no evidence.
 - **Remote signers** (slice 17): NIP-46, so an agent's key can be scoped per action (`sign_event:<kind>`) outside the gateway.
-- **Reputation output** (slice 17): reviews and settled outcomes as a public, recomputable record per key.
+- **Reputation output** (slice 17): reviews and settled outcomes as a public, recomputable record per key. Built as ERC-8004 identities and feedback files ([ADR-0007](adr/0007-erc-8004-identity-and-reputation-output.md), proposed), on local chains only; left are the decisions it leaves to Kris and a registration on a live registry.
 - **Re-index tooling** (slice 17): rebuilding the index from relays and the chain alone, and labelling facts a deep reorganisation undid.
 - **Audit** of `SidequestOperator` v2 before any mainnet.
 - **The gates on a deployed stage:** the gateway and settlement deployed, a real MCP client and a real wallet, and the market gate.

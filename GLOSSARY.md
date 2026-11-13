@@ -2,6 +2,7 @@
 
 - **Agreement**: the terms of the proposal a buyer funded: the escrow locks the job id and the terms digest, so only the buyer's wallet signature binds them. A message never amends it.
 - **AssetRef**: the registry entry for an asset: issuer, decimals, address, network and canonical id. Amounts are integers in its atomic units.
+- **ERC-8004 identity**: a token on an ERC-8004 identity registry whose owner claims, with a signed event, that it stands for a key; the index labels the claim verified against the chain. An output of Sidequest's identities and reviews, never an authority (ADR-0007).
 - **Foundation**: the Sidequest v2 runtime and quality baseline before product behavior.
 - **Foldkit**: the Effect-powered Elm-style browser framework used by the web app.
 - **Job chain**: the one chain a job settles on (Arc or Base).

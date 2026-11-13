@@ -24,18 +24,19 @@ Only wallet signatures bind. Everything else (requests, proposals, accepts, deli
 
 Sidequest's kinds are one block, 8410–8420, in NIP-01's regular range (`packages/nostr/src/Kinds.ts`). Every Sidequest event carries `["sq", "2"]`; one about money names its CAIP-2 network in `sq-net`; one an agent's key signs under a grant names it in `sq-grant`.
 
-| Kind | Event         | Content                                                                                                          |
-| :--- | :------------ | :--------------------------------------------------------------------------------------------------------------- |
-| 8410 | Wallet link   | A CAIP-10 wallet, when, and the wallet's EIP-712 signature of the key (`LinkNostrKey`).                          |
-| 8411 | Request       | Title, description, expiry. Its event id is the job's id and the escrow's `jobId`.                               |
-| 8412 | Proposal      | The job, its buyer, the terms and their digest (`sha256(JCS(terms))`), the wallet to pay, valid-until, previous. |
-| 8413 | Accept        | The buyer accepts one proposal and its digest. A signal: nothing binds until the buyer's wallet funds.           |
-| 8414 | Delivery note | The worker's note of a delivery's hash, before the wallet records it on chain.                                   |
-| 8415 | Statement     | `withdraw_request`, `withdraw_proposal` or `rejection_reason`.                                                   |
-| 8416 | Review        | One party's review of the other after settlement.                                                                |
-| 8418 | Grant         | An operator lets an agent's key act: scopes (`discuss`, `propose`, `accept`, `deliver`), a window, a label.      |
-| 8419 | Revocation    | The operator revokes a grant. A revoked grant authorises nothing, whenever the revocation arrived.               |
-| 8420 | Receipt       | A buyer's receipt for one paid call on the x402 rail: listing, version, payer, amount, settlement transaction.   |
+| Kind | Event          | Content                                                                                                                                                                   |
+| :--- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 8410 | Wallet link    | A CAIP-10 wallet, when, and the wallet's EIP-712 signature of the key (`LinkNostrKey`).                                                                                   |
+| 8411 | Request        | Title, description, expiry. Its event id is the job's id and the escrow's `jobId`.                                                                                        |
+| 8412 | Proposal       | The job, its buyer, the terms and their digest (`sha256(JCS(terms))`), the wallet to pay, valid-until, previous.                                                          |
+| 8413 | Accept         | The buyer accepts one proposal and its digest. A signal: nothing binds until the buyer's wallet funds.                                                                    |
+| 8414 | Delivery note  | The worker's note of a delivery's hash, before the wallet records it on chain.                                                                                            |
+| 8415 | Statement      | `withdraw_request`, `withdraw_proposal` or `rejection_reason`.                                                                                                            |
+| 8416 | Review         | One party's review of the other after settlement.                                                                                                                         |
+| 8417 | ERC-8004 claim | The owner of an ERC-8004 identity token says it stands for a key: themselves, or an agent they granted ([ADR-0007](adr/0007-erc-8004-identity-and-reputation-output.md)). |
+| 8418 | Grant          | An operator lets an agent's key act: scopes (`discuss`, `propose`, `accept`, `deliver`), a window, a label.                                                               |
+| 8419 | Revocation     | The operator revokes a grant. A revoked grant authorises nothing, whenever the revocation arrived.                                                                        |
+| 8420 | Receipt        | A buyer's receipt for one paid call on the x402 rail: listing, version, payer, amount, settlement transaction.                                                            |
 
 Standard kinds read and written: profiles (0), relay lists (10002), inbox relays (10050), NIP-99 listings (30402, 30403), and for rooms the chat rumor (14), seal (13), gift wrap (1059) and NIP-42 authentication (22242). There is no `pay` scope: agents never pay.
 
@@ -46,6 +47,8 @@ The API Worker's index takes signed events in two ways: `POST /api/events` from 
 It keeps only valid events of the kinds it reads: a bad signature, a schema its kind refuses, more than 64 KiB of content or 256 tags is refused. It labels instead of judging: a wallet link whose signature does not recover to its wallet (an ERC-1271 contract wallet, which needs a chain call the index does not make) is stored as `unverified`; a superseded proposal, a revoked grant or an expired request is a label the fold reads. Rows derived from events (profiles, relay lists, wallet links, grants, revocations, listings) are the same for the same events in any order. Publishing is rate-limited per client address (120 a minute) and, once the signature verified, per key (30 a minute). The signed request and every proposal the chain funded are kept for good (`kept_events`), since the chain holds only their digest.
 
 Reads, all public and cacheable: an event (`/api/events/:id`), what the index knows of a key (`/api/people/:pubkey`: its profile, relay lists, linked wallets, and the grants it gave and was given), names of up to 50 keys (`/api/people?pubkeys=`), the jobs a key requested or proposed on (`/api/people/:pubkey/jobs`, at most 25, what the website computes the inbox from), which key a wallet is linked to (`/api/wallets/:account`), listings (`/api/index/listings`, filterable by `rail`, `/api/index/listings/:pubkey/:slug` and its x402 `receipts`) and jobs (`/api/index/jobs?stage=open`, `/api/index/jobs/:id`).
+
+ERC-8004 ([ADR-0007](adr/0007-erc-8004-identity-and-reputation-output.md)): a person's read lists the ERC-8004 identities claimed for the key, each verified when the index's latest read of the token on the settlement chain's registry (on the minute Cron Trigger, at the confirmation depth) finds it owned by a wallet currently linked to the claim's author, the subject granted by them unrevoked (or the author themselves), and its `agentURI` the subject's registration file; decided at the read, so the same in any order and after a rebuild. `/api/erc8004` names the stage's registries; `/api/erc8004/agents/:pubkey/registration` is a key's registration file; `…/feedback` its counted reviews as ERC-8004 feedback with their evidence, each entry also served alone as the RFC 8785 bytes its `feedbackHash` is of (`…/feedback/:review`); `…/registration-call` and `…/feedback/:review/call` the calldata of `register` and `giveFeedback`, for the wallets to send.
 
 ## The fold
 
