@@ -47,9 +47,10 @@ const decodeEventId = Schema.decodeUnknownOption(EventId)
 
 /**
  * One tool call as the calling agent: counted against its rate limits (a write against both), then let through the
- * grant gate with the scope the tool needs (`null` for a read). Every refusal is the tool's typed `Refused`.
+ * grant gate with the scope the tool needs (`null` for a read). A tool that needs a scope but signs and publishes
+ * nothing (reading a room) passes `reads`, and counts as a call only. Every refusal is the tool's typed `Refused`.
  */
-export const acting = Effect.fnUntraced(function* (scope: GrantScope | null) {
+export const acting = Effect.fnUntraced(function* (scope: GrantScope | null, reads = false) {
   const caller = Option.getOrUndefined(yield* McpCaller)
   if (caller === undefined) return yield* Effect.die(new Error('An MCP tool ran without an authenticated caller'))
   const limiter = yield* RateLimiter
@@ -63,7 +64,7 @@ export const acting = Effect.fnUntraced(function* (scope: GrantScope | null) {
       }),
     )
   yield* limited(agentLimits.calls)
-  if (scope !== null) yield* limited(agentLimits.writes)
+  if (scope !== null && !reads) yield* limited(agentLimits.writes)
   return yield* gate.admit(caller.agent, caller.operator, scope).pipe(
     Effect.catchTags({
       GrantRefused: ({ reason, scope: missing }) =>

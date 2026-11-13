@@ -46,9 +46,10 @@ const fromRooms = (refused: RoomRefused) =>
 
 const store = Effect.mapError(() => refusedAs('CoreUnavailable', 'The gateway’s store.'))
 
-/** The calling agent past the grant gate (`discuss`) and not paused by its operator. */
-const discussing = Effect.gen(function* () {
-  const admitted = yield* Effect.mapError(acting('discuss'), fromTool)
+/** The calling agent past the grant gate (`discuss`) and not paused by its operator; `reads` for a tool that sends
+ * nothing, which counts against the agent's calls but not its writes. */
+const discussing = Effect.fnUntraced(function* (reads: boolean) {
+  const admitted = yield* Effect.mapError(acting('discuss', reads), fromTool)
   const state = yield* AgentRoomState
   if (yield* store(state.paused(admitted.agent))) return yield* refusedAs('Paused')
   return admitted
@@ -94,7 +95,7 @@ const polled = (rooms: RoomTransport) =>
 /** `list_rooms`: the agent's rooms on `job`, whose buyer is the job's buyer as the index shows it. */
 export const listRooms = (job: string) =>
   Effect.gen(function* () {
-    const { agent } = yield* discussing
+    const { agent } = yield* discussing(true)
     const core = yield* Core
     const view = yield* core.job(job).pipe(Effect.mapError((error) => fromTool(refusedByCore(error))))
     if (Option.isNone(view)) return yield* refusedAs('UnknownJob')
@@ -138,7 +139,7 @@ const relaysOf = (report: PollReport) => report.relays.map(({ relay, outcome }) 
 
 /** `read_room_messages`: what arrived since the last read, once each, in each room's order. */
 export const readRoomMessages = Effect.gen(function* () {
-  const { agent } = yield* discussing
+  const { agent } = yield* discussing(true)
   return yield* withRooms(agent, (rooms) =>
     Effect.gen(function* () {
       const report = yield* polled(rooms)
@@ -157,7 +158,7 @@ export const readRoomMessages = Effect.gen(function* () {
  * unless the index already knows one, which is kept. */
 export const setInboxRelays = (asked: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const { agent } = yield* discussing
+    const { agent } = yield* discussing(false)
     const network = yield* RoomNetwork
     const known = yield* network.inboxRelays(agent)
     if (known.length > 0) return { relays: known, published: false }
@@ -178,7 +179,7 @@ const decodeRelay = (url: string) => Option.toArray(Schema.decodeUnknownOption(R
 /** `send_room_message`: the text to every member, unless gateway agents already sent six in a row. */
 export const sendRoomMessage = (room: string, text: string) =>
   Effect.gen(function* () {
-    const { agent } = yield* discussing
+    const { agent } = yield* discussing(false)
     return yield* withRooms(agent, (rooms) =>
       Effect.gen(function* () {
         yield* polled(rooms)

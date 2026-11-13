@@ -1,7 +1,16 @@
 import type { NostrEvent, PublicKey } from '@sidequest/nostr'
-import type { RelayPort } from '@sidequest/nostr/rooms'
+import type { SecretKey } from '@sidequest/nostr'
+import {
+  defaultRoomOptions,
+  emptyRoomState,
+  localRoomSigner,
+  makeNip17Rooms,
+  type RelayPort,
+  type RoomState,
+} from '@sidequest/nostr/rooms'
 import type { RelayUrl } from '@sidequest/nostr/vocabulary'
-import { Effect, Layer } from 'effect'
+import { webCrypto } from '@sidequest/protocol'
+import { Crypto, Effect, Layer, Ref } from 'effect'
 import { RoomNetwork } from '../src/Rooms/RoomNetwork.ts'
 
 // The relays and inbox lists room tools reach, in memory: one shared store of events per relay URL, filtered as a relay
@@ -50,3 +59,27 @@ export const memoryRooms = (): MemoryRooms => {
   })
   return { relays, inbox, port, layer }
 }
+
+/**
+ * A person's rooms held in the test process, as their browser would hold them: their own key, a store in memory, and
+ * the relays and inbox lists the test gives.
+ */
+export const personRooms = (
+  key: SecretKey,
+  relays: RelayPort,
+  inboxRelays: (pubkey: PublicKey) => Effect.Effect<ReadonlyArray<RelayUrl>>,
+) =>
+  Effect.runPromise(
+    Effect.gen(function* () {
+      const held = yield* Ref.make<RoomState>(emptyRoomState)
+      return yield* makeNip17Rooms(
+        {
+          signer: localRoomSigner(key, webCrypto),
+          relays,
+          directory: { inboxRelays },
+          store: { load: Ref.get(held), save: (next) => Ref.set(held, next) },
+        },
+        defaultRoomOptions,
+      )
+    }).pipe(Effect.provideService(Crypto.Crypto, webCrypto)),
+  )

@@ -1,38 +1,18 @@
-import { type PublicKey, publicKeyOf, type SecretKey } from '@sidequest/nostr'
-import {
-  defaultRoomOptions,
-  emptyRoomState,
-  foundingOf,
-  localRoomSigner,
-  makeNip17Rooms,
-  RoomState,
-} from '@sidequest/nostr/rooms'
+import { publicKeyOf, type SecretKey } from '@sidequest/nostr'
+import { foundingOf, RoomState } from '@sidequest/nostr/rooms'
 import { jobRequest, RelayUrl } from '@sidequest/nostr/vocabulary'
-import { webCrypto } from '@sidequest/protocol'
-import { Crypto, Effect, Ref, Schema } from 'effect'
+import { Effect, Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
 import { connect, tool } from './Connect.ts'
 import { freshKey, type Gateway, signed, withGateway } from './GatewayWorld.ts'
+import { personRooms } from './MemoryRooms.ts'
 
 const now = () => Math.floor(Date.now() / 1000)
 const relay = (name: string) => Schema.decodeSync(RelayUrl)(`wss://${name}.relay.test`)
 
-/** A person's rooms in the test process, over the gateway's memory relays, as their browser would hold them. */
-const personRooms = (gateway: Gateway, key: SecretKey) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const held = yield* Ref.make<RoomState>(emptyRoomState)
-      return yield* makeNip17Rooms(
-        {
-          signer: localRoomSigner(key, webCrypto),
-          relays: gateway.rooms.port,
-          directory: { inboxRelays: (pubkey: PublicKey) => Effect.succeed(gateway.rooms.inbox.get(pubkey) ?? []) },
-          store: { load: Ref.get(held), save: (next) => Ref.set(held, next) },
-        },
-        defaultRoomOptions,
-      )
-    }).pipe(Effect.provideService(Crypto.Crypto, webCrypto)),
-  )
+/** A person's rooms over the gateway's memory relays. */
+const roomsOf = (gateway: Gateway, key: SecretKey) =>
+  personRooms(key, gateway.rooms.port, (pubkey) => Effect.succeed(gateway.rooms.inbox.get(pubkey) ?? []))
 
 const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromise(effect)
 
@@ -51,8 +31,8 @@ const setUp = async (gateway: Gateway) => {
   gateway.rooms.inbox.set(operator, [relay('operator')])
   gateway.rooms.inbox.set(agent, [relay('agent')])
   const founding = foundingOf(request.id, buyer, operator)
-  const ofBuyer = await personRooms(gateway, buyerKey)
-  const ofOperator = await personRooms(gateway, operatorKey)
+  const ofBuyer = await roomsOf(gateway, buyerKey)
+  const ofOperator = await roomsOf(gateway, operatorKey)
   await run(ofBuyer.create(founding))
   await run(ofOperator.create(founding))
   await run(ofOperator.add(founding.room, agent))
