@@ -2,7 +2,7 @@ import { NotIndexed, SidequestApi } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
 import type { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import { HttpApiBuilder } from 'effect/http-api'
-import { type Hex, isHex } from 'viem'
+import { getAddress, type Hex, isHex } from 'viem'
 import { Jobs } from '../Index/Jobs.ts'
 import { type Limit, RateLimiter } from '@sidequest/serving/RateLimiter'
 import { requireArbitrationKey } from '../Native/Arbitration.ts'
@@ -47,6 +47,21 @@ export const indexSettlementHandlers = HttpApiBuilder.group(SidequestApi, 'index
       )
       .handle('deliver', ({ params, payload, request }) =>
         limited(request, escrow.deliver(params.id, hexOf(payload.deliveryHash), hexOf(payload.signature))),
+      )
+      .handle('deliveryDelegationToSign', ({ params, query, request }) =>
+        limited(request, escrow.delegationToSign(params.id, getAddress(query.delegate.toLowerCase()), query.expiry)),
+      )
+      .handle('deliverDelegated', ({ params, payload, request }) =>
+        limited(
+          request,
+          escrow.deliverDelegated(params.id, {
+            deliveryHash: hexOf(payload.deliveryHash),
+            delegate: getAddress(payload.delegate.toLowerCase()),
+            expiry: payload.expiry,
+            signature: hexOf(payload.signature),
+            delegation: hexOf(payload.delegation),
+          }),
+        ),
       )
       .handle('approvalToSign', ({ params, request }) => limited(request, escrow.verdictToSign(params.id, 'approve')))
       .handle('approve', ({ params, payload, request }) =>

@@ -8,10 +8,13 @@ import {
   Unavailable,
 } from '@sidequest/protocol'
 import type { OperatorCall } from '@sidequest/settlement/OperatorCall'
+
+type DeliverDelegatedCall = Extract<OperatorCall, { readonly function: 'deliverDelegated' }>
 import { type Payment, termsPaymentOf } from '@sidequest/settlement/Payment'
 import type { RelayError } from '@sidequest/settlement/Relayer'
 import {
   approvalTypedData,
+  deliveryDelegateTypedData,
   deliveryTypedData,
   fundingTypedData,
   rejectionTypedData,
@@ -19,7 +22,7 @@ import {
 } from '@sidequest/settlement/TypedData'
 import { addressOn } from '@sidequest/settlement/Words'
 import { Effect, Match, Option, Predicate } from 'effect'
-import { getAddress, type Hex, isHex } from 'viem'
+import { type Address, getAddress, type Hex, isHex } from 'viem'
 import { ChainFacts } from '../Index/ChainFacts.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { nowSeconds } from '../Index/Ingest.ts'
@@ -187,6 +190,19 @@ export const nativeEscrowWith = (chain: Option.Option<NativeChain>) =>
     deliver: (job: string, deliveryHash: Hex, signature: Hex) =>
       Effect.flatMap(funded(w, job), ({ on, payment }) =>
         relayFor(on, 'delivery', payment, { function: 'deliver', info: payment.info, deliveryHash, signature }),
+      ),
+    /** What the worker's wallet signs to let `delegate` record the job's delivery until `expiry`. */
+    delegationToSign: (job: string, delegate: Address, expiry: number) =>
+      Effect.map(funded(w, job), ({ on, payment }) =>
+        toProtocolTypedData(deliveryDelegateTypedData(payment.hash, delegate, expiry, on.chain)),
+      ),
+    /**
+     * Relays a delivery the delegate signed under the worker's delegation. Its own intent per payment, beside the
+     * worker's direct `delivery`: whichever the chain mines first is the delivery, and the other then reverts.
+     */
+    deliverDelegated: (job: string, delivery: Omit<DeliverDelegatedCall, 'function' | 'info'>) =>
+      Effect.flatMap(funded(w, job), ({ on, payment }) =>
+        relayFor(on, 'delegated-delivery', payment, { function: 'deliverDelegated', info: payment.info, ...delivery }),
       ),
     verdictToSign: (job: string, kind: 'approve' | 'reject') =>
       Effect.map(deliveredHash(w, job), ({ on, payment, deliveryHash }) =>

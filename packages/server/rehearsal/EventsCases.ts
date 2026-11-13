@@ -1,5 +1,6 @@
 import type { JobView } from '@sidequest/fold'
-import type { NostrEvent } from '@sidequest/nostr'
+import { type NostrEvent, publicKeyOf, SecretKey } from '@sidequest/nostr'
+import { deliveryDigestOfTypedData, evmAddressOf, signDigestAsEvm } from '@sidequest/nostr/vocabulary'
 import {
   FundedTerms,
   IndexFunding,
@@ -9,9 +10,11 @@ import {
   TypedData,
   UsdcOnArcTestnet,
 } from '@sidequest/protocol'
+import { sidequestOperatorAbi } from '@sidequest/settlement/abi/SidequestOperator'
 import type { PaymentInfo } from '@sidequest/settlement/Payment'
-import { Predicate, Schema } from 'effect'
+import { Option, Predicate, Schema } from 'effect'
 import { getAddress, isHex } from 'viem'
+import { generatePrivateKey } from 'viem/accounts'
 import { balances, passTime, reclaimFromEscrow, settled, type Wallets } from './Cases.ts'
 import type { RehearsalChain } from './Chain.ts'
 import { type CaseResult, type Evidence, step } from './Evidence.ts'
@@ -19,7 +22,7 @@ import { anyone, foldedJob, type NostrPerson, sign } from './Nostr.ts'
 import type { RpcProxy } from './RpcProxy.ts'
 import { bodyOf, eventually, signTyped } from './Surfaces.ts'
 
-// The four hires of the gate, Nostr-native (ROADMAP slice 12): two Nostr keys with their linked wallets hire through
+// The hires of the gate, Nostr-native (ROADMAP slices 12 and 13): two Nostr keys with their linked wallets hire through
 // signed events published to `POST /api/events` and the sessionless escrow endpoints, with no sign-in, no session
 // cookie and no MCP. The job's stage is the index's fold of its events and the chain's logs, asserted at every step.
 
@@ -226,6 +229,74 @@ export const ruledAfterRejection = async (world: EventsWorld): Promise<CaseResul
     treasury: fee(captured),
   })
   return result('b', 'rejected, then ruled through NIP-98', started, deal, view, quote)(rows)
+}
+
+/**
+ * The agent's side of (e), exactly as the gateway does it: its Nostr key's EVM address is the delegate, and it signs
+ * the operator's `Delivery` digest of the typed data the index serves with that key.
+ */
+const agentDelivers = (agent: SecretKey, typed: TypedData) => {
+  const signature = Option.flatMap(deliveryDigestOfTypedData(typed), (digest) => signDigestAsEvm(digest, agent))
+  if (Option.isNone(signature)) throw new Error('Not a delivery to sign')
+  return signature.value
+}
+
+/**
+ * (e) The worker's wallet signs one delegation to an agent's key; the agent's key alone records the delivery (no
+ * further wallet signature), the logs name it as the delegate, and the buyer's approval pays the worker.
+ */
+export const releasedAfterDelegatedDelivery = async (world: EventsWorld): Promise<CaseResult> => {
+  const started = Date.now()
+  const before = await balances(world)
+  const deal = await agreed(world, 'e', 2 * hour)
+  const quote = await funded(world, 'e', deal)
+  const api = anyone(world.url)
+  const agent = Schema.decodeSync(SecretKey)(generatePrivateKey().slice(2))
+  const delegate = Option.getOrUndefined(evmAddressOf(publicKeyOf(agent)))
+  if (delegate === undefined) throw new Error('A Nostr key has an EVM address')
+  const expiry = (await world.chain.now()) + hour
+  const job = `/api/index/jobs/${deal.request.id}`
+  const toDelegate = bodyOf(
+    TypedData,
+    await api.get(`${job}/delivery-delegation?delegate=${delegate}&expiry=${expiry}`),
+    'delegation to sign',
+  )
+  const delegation = await signTyped(world.worker.wallet, toDelegate)
+  step(world.evidence, {
+    case: 'e',
+    step: 'worker’s wallet signed one DeliveryDelegate to the agent’s key (its Nostr key’s EVM address)',
+    detail: { delegate, expiry },
+  })
+  await api.publish(await sign.note(world.worker, deal.request, deliveryHash))
+  const typed = bodyOf(TypedData, await api.get(`${job}/delivery?deliveryHash=${deliveryHash}`), 'delivery to sign')
+  const signature = agentDelivers(agent, typed)
+  const relayed = bodyOf(
+    Relayed,
+    await api.post(`${job}/delegated-delivery`, { deliveryHash, delegate, expiry, signature, delegation }),
+    'delegated delivery',
+  )
+  const logged = await world.chain.client.getContractEvents({
+    address: world.chain.operator,
+    abi: sidequestOperatorAbi,
+    eventName: 'JobDeliveryDelegated',
+    args: { paymentInfoHash: isHex(quote.paymentHash) ? quote.paymentHash : undefined },
+    fromBlock: 0n,
+  })
+  if (logged.length !== 1 || logged[0]?.args.delegate?.toLowerCase() !== delegate)
+    throw new Error(`The chain logged ${logged.length} delegated deliveries for the payment`)
+  step(world.evidence, {
+    case: 'e',
+    step: 'the agent’s key signed the delivery, relayed with no wallet signature; JobDeliveryDelegated names it',
+    transactionHash: relayed.transactionHash,
+  })
+  const shown = await folded(world, deal, 'e', 'delivered')
+  if (!shown.deliveryNotes.some((note) => note.fromWorker && note.matchesChain))
+    throw new Error('The fold has no worker’s delivery note matching the chain')
+  await decided(world, 'e', deal, 'approval')
+  const view = await folded(world, deal, 'e', 'released')
+  const { amount } = world.chain
+  const rows = await settled(world, before, { buyer: -amount, worker: amount - fee(amount), treasury: fee(amount) })
+  return result('e', 'delivered by an agent’s key under one delegation, approved', started, deal, view, quote)(rows)
 }
 
 /** Funded jobs nothing will be delivered for: (c)'s, refunded by the settler, and (d)'s, whose calls are withheld. */

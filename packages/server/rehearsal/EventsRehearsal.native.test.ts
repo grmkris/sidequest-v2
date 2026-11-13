@@ -7,6 +7,7 @@ import {
   fundUndeliveredDeals,
   reclaimedByBuyer,
   refundedBySettler,
+  releasedAfterDelegatedDelivery,
   releasedOnApproval,
   ruledAfterRejection,
   type UndeliveredDeals,
@@ -60,7 +61,7 @@ const startWorld = Effect.gen(function* () {
   const url = yield* deployWith(proxy, settlement)
   const buyer = nostrPerson('buyer', chain.keys.buyer)
   const worker = nostrPerson('worker', chain.keys.worker)
-  yield* Effect.promise(async () => chain.mint?.(buyer.wallet.address, 4n * chain.amount))
+  yield* Effect.promise(async () => chain.mint?.(buyer.wallet.address, 5n * chain.amount))
   yield* Effect.promise(() => linkWallet(url, buyer))
   yield* Effect.promise(() => linkWallet(url, worker))
   const evidence = evidenceFor(
@@ -91,6 +92,13 @@ test(
 test(
   '(b) the buyer rejects; a ruling asked for by the arbitration key over NIP-98 splits it: ruled',
   rehearse('b', 'rejected, then ruled through NIP-98', ruledAfterRejection),
+  { timeout: 600_000 },
+)
+
+// Before (c) and (d), which move the chain's clock past their escrows' expiry.
+test(
+  '(e) the worker’s wallet delegates once; the agent’s key delivers with no further wallet signature; approved',
+  rehearse('e', 'delivered by an agent’s key under one delegation, approved', releasedAfterDelegatedDelivery),
   { timeout: 600_000 },
 )
 

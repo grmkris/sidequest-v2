@@ -260,6 +260,7 @@ describe('the same-origin rule', () => {
         'GET /api/index/jobs/:id',
         'GET /api/index/jobs/:id/approval',
         'GET /api/index/jobs/:id/delivery',
+        'GET /api/index/jobs/:id/delivery-delegation',
         'GET /api/index/jobs/:id/payment',
         'GET /api/index/jobs/:id/proposals/:proposal/funding',
         'GET /api/index/jobs/:id/rejection',
@@ -272,6 +273,7 @@ describe('the same-origin rule', () => {
         'POST /api/events',
         // The sessionless escrow: each carries a wallet signature (or the ruling's NIP-98 authorization).
         'POST /api/index/jobs/:id/approval',
+        'POST /api/index/jobs/:id/delegated-delivery',
         'POST /api/index/jobs/:id/delivery',
         'POST /api/index/jobs/:id/proposals/:proposal/funding',
         'POST /api/index/jobs/:id/rejection',

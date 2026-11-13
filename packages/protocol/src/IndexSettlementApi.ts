@@ -134,6 +134,25 @@ export type FundedTerms = typeof FundedTerms.Type
 const Relayed = Schema.Struct({ transactionHash: Bytes32 })
 const Signed = Schema.Struct({ signature: WalletSignature })
 const onJob = { id: Hex32 }
+/** Unix seconds in a query string, within the contract's `uint48`. */
+const SecondsFromString = Schema.FiniteFromString.check(
+  Schema.isInt(),
+  Schema.isBetween({ minimum: 0, maximum: 2 ** 48 - 1 }),
+)
+
+/**
+ * A delivery recorded under the worker's delegation (`SidequestOperator.deliverDelegated`): the artefact's hash, the
+ * delegate's EIP-712 `Delivery` signature (an EOA key, for an agent its Nostr key's EVM key), and the worker wallet's
+ * `DeliveryDelegate` signature naming that delegate and `expiry`, which bounds it.
+ */
+export const DelegatedDelivery = Schema.Struct({
+  deliveryHash: Bytes32,
+  delegate: WalletAddress,
+  expiry: Seconds,
+  signature: WalletSignature,
+  delegation: WalletSignature,
+})
+export type DelegatedDelivery = typeof DelegatedDelivery.Type
 const onProposal = { id: Hex32, proposal: Hex32 }
 const errors = [IndexSettlementRefused, NotIndexed, RateLimited, Unavailable]
 
@@ -168,6 +187,18 @@ export class IndexSettlementApi extends HttpApiGroup.make('indexSettlement').add
   HttpApiEndpoint.post('deliver', '/api/index/jobs/:id/delivery', {
     params: onJob,
     payload: Schema.Struct({ deliveryHash: Bytes32, signature: WalletSignature }),
+    success: Relayed,
+    error: errors,
+  }),
+  HttpApiEndpoint.get('deliveryDelegationToSign', '/api/index/jobs/:id/delivery-delegation', {
+    params: onJob,
+    query: Schema.Struct({ delegate: WalletAddress, expiry: SecondsFromString }),
+    success: TypedData,
+    error: errors,
+  }),
+  HttpApiEndpoint.post('deliverDelegated', '/api/index/jobs/:id/delegated-delivery', {
+    params: onJob,
+    payload: DelegatedDelivery,
     success: Relayed,
     error: errors,
   }),

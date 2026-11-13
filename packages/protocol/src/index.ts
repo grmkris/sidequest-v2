@@ -45,6 +45,7 @@ export {
 export { Bytes32 } from './Bytes32.ts'
 export {
   ArbitrationRefused,
+  DelegatedDelivery,
   EscrowJobParams,
   EscrowPaymentInfo,
   FundedTerms,
