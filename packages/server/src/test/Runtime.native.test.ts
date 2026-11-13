@@ -33,6 +33,8 @@ import {
   refusesForeignPipes,
   rendersRequestsOnTheServer,
 } from './NostrJourneys.ts'
+import { startTestRelay } from '../../test/TestRelay.ts'
+import { talksInARoom } from './RoomJourneys.ts'
 import {
   browserOf,
   createdBy,
@@ -51,6 +53,8 @@ import {
 // `test:native` builds the website with this release before the test runs (package.json).
 const release = 'acceptance'
 const forgedCorrelation = 'forged-by-the-client'
+// The stage's default inbox relay: a NIP-17 inbox that hands gift wraps only to their authenticated recipients.
+const inboxRelay = await startTestRelay({ wrapsForRecipients: true })
 // The API reaches Arc only to check a contract account's signature. Nothing listens on the discard port, so a key's
 // sign-in passes only if it never calls the chain, and the test needs no network.
 const unreachableRpc = 'http://127.0.0.1:9'
@@ -69,7 +73,7 @@ const Stack = Alchemy.Stack(
           main: 'apps/web/dist/server/fetch.js',
           assets: { directory: 'apps/web/dist/client' },
           compatibility,
-          env: { API: api },
+          env: { API: api, SIDEQUEST_DEFAULT_INBOX_RELAYS: inboxRelay.url },
         }),
       unreachableRpc,
       {},
@@ -107,7 +111,7 @@ const stack = beforeAll(
   ),
   { timeout: 120000 },
 )
-afterAll(destroy(Stack), { timeout: 60000 })
+afterAll(destroy(Stack).pipe(Effect.ensuring(Effect.promise(() => inboxRelay.close()))), { timeout: 60000 })
 
 test(
   'serves the typed status with the release and the API security headers through the edge',
@@ -387,6 +391,14 @@ test(
     Effect.provide(FetchHttpClient.layer),
   ),
   { timeout: 180000 },
+)
+
+test(
+  'two people talk in a job’s encrypted room through the relay pipe; a private proposal becomes fundable on consent',
+  Effect.scoped(Effect.flatMap(stack, ({ url }) => talksInARoom(url, inboxRelay))).pipe(
+    Effect.provide(FetchHttpClient.layer),
+  ),
+  { timeout: 300000 },
 )
 
 test(

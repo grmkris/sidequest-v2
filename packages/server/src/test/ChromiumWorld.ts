@@ -1,4 +1,6 @@
-import { Entropy, type EventTemplate, finalizeEvent, publicKeyOf, SecretKey } from '@sidequest/nostr'
+import { Entropy, type EventTemplate, finalizeEvent, PublicKey, publicKeyOf, SecretKey } from '@sidequest/nostr'
+import { localRoomSigner } from '@sidequest/nostr/rooms'
+import { webCrypto } from '@sidequest/protocol'
 import { Effect, Schema } from 'effect'
 import { type Browser, type BrowserContext, chromium, type Page } from 'playwright'
 import { isHex } from 'viem'
@@ -65,11 +67,18 @@ const EventTemplateJson = Schema.Struct({
 })
 
 /** A NIP-07 extension in the context's pages: `window.nostr`, backed by a key in this process, installed like the
- * wallet. It signs whatever it is asked to, as a real extension does once the person approved. */
-export const nostrExtension = (context: BrowserContext) =>
+ * wallet. It signs whatever it is asked to, as a real extension does once the person approved. With `nip44` it also
+ * encrypts and decrypts with that key (NIP-07's optional `nip44`), which rooms need; `key` puts the same key in a
+ * second browser, as a person's second device. */
+export const nostrExtension = (
+  context: BrowserContext,
+  options: { readonly nip44?: boolean; readonly key?: SecretKey } = {},
+) =>
   Effect.gen(function* () {
-    const key = yield* Schema.decodeEffect(SecretKey)(generatePrivateKey().slice(2))
+    const key = options.key ?? (yield* Schema.decodeEffect(SecretKey)(generatePrivateKey().slice(2)))
     const auxRand = yield* Schema.decodeEffect(Entropy)(new Uint8Array(32))
+    const rooms = localRoomSigner(key, webCrypto)
+    const run = Effect.runPromiseWith(yield* Effect.context())
     yield* Effect.promise(() =>
       context.exposeFunction('__sidequestNostr', async (method: string, event: unknown) => {
         if (method === 'getPublicKey') return publicKeyOf(key)
@@ -78,12 +87,21 @@ export const nostrExtension = (context: BrowserContext) =>
       }),
     )
     yield* Effect.promise(() =>
-      context.addInitScript({
-        content:
-          "window.nostr = { getPublicKey: () => window.__sidequestNostr('getPublicKey'), signEvent: (event) => window.__sidequestNostr('signEvent', event) }",
+      context.exposeFunction('__sidequestNip44', async (method: string, peer: string, text: string) => {
+        const other = Schema.decodeUnknownSync(PublicKey)(peer)
+        return run(method === 'encrypt' ? rooms.encrypt(other, text) : rooms.decrypt(other, text))
       }),
     )
-    return { pubkey: publicKeyOf(key) }
+    const nip44 =
+      options.nip44 === true
+        ? ", nip44: { encrypt: (peer, text) => window.__sidequestNip44('encrypt', peer, text), decrypt: (peer, text) => window.__sidequestNip44('decrypt', peer, text) }"
+        : ''
+    yield* Effect.promise(() =>
+      context.addInitScript({
+        content: `window.nostr = { getPublicKey: () => window.__sidequestNostr('getPublicKey'), signEvent: (event) => window.__sidequestNostr('signEvent', event)${nip44} }`,
+      }),
+    )
+    return { pubkey: publicKeyOf(key), key }
   })
 
 /** Wait until Foldkit adopted the server-rendered root, which it marks by removing the root's stamp. */
@@ -156,14 +174,19 @@ export const useExtension = (page: Page, pubkey: string) =>
 
 /** A person in their own browser context: a wallet, a NIP-07 extension, a page that set the extension up as their
  * signer on the identity page and, with `linkWallet`, linked the wallet to their key. */
-export const extensionPerson = (browser: Browser, url: string, linkWallet: boolean) =>
+export const extensionPerson = (
+  browser: Browser,
+  url: string,
+  linkWallet: boolean,
+  extension: Parameters<typeof nostrExtension>[1] = {},
+) =>
   Effect.gen(function* () {
     const person = yield* walletContext(browser)
-    const { pubkey } = yield* nostrExtension(person.context)
+    const { pubkey, key } = yield* nostrExtension(person.context, extension)
     const opened = yield* openPage(person.context, url)
     yield* useExtension(opened.page, pubkey)
     if (linkWallet) yield* clickThenSee(opened.page, 'Link your wallet', 'Your wallet is linked to your key.')
-    return { ...person, ...opened, pubkey }
+    return { ...person, ...opened, pubkey, key }
   })
 
 /** Fill the fields labelled as `fields` names them, in order. */

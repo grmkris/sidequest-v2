@@ -16,6 +16,8 @@ export default Alchemy.Stack(
     const arcRpcUrl = yield* stageRpcUrl
     // The index's relays come from the deploying shell too; unset, it polls and relays nowhere.
     const index = yield* indexVariablesFromShell
+    // The default inbox relays (NIP-17) the identity page offers people who have none; unset, none are offered.
+    const defaultInboxRelays = yield* Config.String('SIDEQUEST_DEFAULT_INBOX_RELAYS').pipe(Config.withDefault(''))
     // The agent gateway's secret comes from the deploying shell; unset, the stage runs without a gateway.
     const gatewaySecret = yield* gatewaySecretFromShell
     const core = yield* sidequestWorkers(
@@ -23,7 +25,7 @@ export default Alchemy.Stack(
       (api) =>
         Cloudflare.Website.Foldkit('SidequestWebsite', {
           rootDir: 'apps/web',
-          env: { VITE_SIDEQUEST_RELEASE: release, API: api },
+          env: { VITE_SIDEQUEST_RELEASE: release, API: api, SIDEQUEST_DEFAULT_INBOX_RELAYS: defaultInboxRelays },
           compatibility,
           observability,
           workersDev: { enabled: false, previewsEnabled: false },
