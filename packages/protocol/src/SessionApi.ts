@@ -1,5 +1,4 @@
 import { Schema } from 'effect'
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSecurity } from 'effect/http-api'
 import { AccountRef } from './AccountRef.ts'
 import { AccountId } from './Id.ts'
 import { UnixSeconds } from './UnixSeconds.ts'
@@ -9,7 +8,6 @@ import { UnixSeconds } from './UnixSeconds.ts'
  * belongs to the one origin that set it.
  */
 export const sessionCookieName = '__Host-sidequest-session'
-export const SessionCookie = HttpApiSecurity.apiKey({ key: sessionCookieName, in: 'cookie' })
 
 /** An EVM address: `0x` and 20 bytes in hex, in any letter case. */
 export const WalletAddress = Schema.String.check(Schema.isPattern(/^0x[0-9a-fA-F]{40}$/))
@@ -56,19 +54,3 @@ export class NotSignedIn extends Schema.TaggedError<NotSignedIn>()('NotSignedIn'
 
 /** Something the server depends on (its database, the chain) did not answer; the request may be retried. */
 export class Unavailable extends Schema.TaggedError<Unavailable>()('Unavailable', {}, { httpApiStatus: 503 }) {}
-
-/** Signing in with a wallet: ask for a message to sign, send it back signed, read the session, sign out. */
-export class SessionApi extends HttpApiGroup.make('session').add(
-  HttpApiEndpoint.post('challenge', '/api/session/challenge', {
-    payload: Schema.Struct({ address: WalletAddress }),
-    success: SignInChallenge,
-    error: Unavailable,
-  }),
-  HttpApiEndpoint.post('verify', '/api/session/verify', {
-    payload: Schema.Struct({ message: Schema.String.check(Schema.isMaxLength(4096)), signature: WalletSignature }),
-    success: SessionView,
-    error: [SignInRefused, Unavailable],
-  }),
-  HttpApiEndpoint.get('current', '/api/session', { success: SessionView, error: [NotSignedIn, Unavailable] }),
-  HttpApiEndpoint.post('signOut', '/api/session/sign-out', { error: Unavailable }),
-) {}

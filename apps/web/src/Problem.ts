@@ -3,7 +3,6 @@ import {
   BadCursor,
   Conflict,
   ConflictReason,
-  CrossSiteRequest,
   Forbidden,
   ForbiddenReason,
   NotFound,
@@ -27,7 +26,6 @@ export const Problem = defineTaggedUnion({
   Conflict: { reason: ConflictReason },
   Unprocessable: { reason: UnprocessableReason },
   BadCursor: {},
-  CrossSite: {},
   Unreachable: {},
   NoWallet: {},
   WalletRejected: {},
@@ -65,9 +63,6 @@ const plainProblemOf = (error: unknown): Problem => {
   }
   if (error instanceof BadCursor) {
     return Problem.BadCursor()
-  }
-  if (error instanceof CrossSiteRequest) {
-    return Problem.CrossSite()
   }
   return walletProblemOf(error)
 }
@@ -141,7 +136,6 @@ export const problemText = (language: Language, problem: Problem): string =>
     Conflict: ({ reason }) => format(language, conflictKeys[reason], {}),
     Unprocessable: ({ reason }) => format(language, unprocessableKeys[reason], {}),
     BadCursor: () => format(language, 'problem.badCursor', {}),
-    CrossSite: () => format(language, 'problem.crossSite', {}),
     Unreachable: () => format(language, 'problem.unreachable', {}),
     NoWallet: () => format(language, 'problem.wallet.missing', {}),
     WalletRejected: () => format(language, 'problem.wallet.rejected', {}),

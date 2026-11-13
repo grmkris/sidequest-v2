@@ -1,5 +1,5 @@
 import { JobView } from '@sidequest/fold'
-import { OpenJob } from '@sidequest/fold/api'
+import { OpenJob } from './OpenJob.ts'
 import { IndexListing, IndexListingDetail, Page } from '@sidequest/protocol'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { Names } from './Names.ts'

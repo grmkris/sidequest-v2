@@ -1,12 +1,7 @@
 import { Schema, SchemaTransformation } from 'effect'
-import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { AccountRef } from './AccountRef.ts'
 import { GrantScope } from './Grant.ts'
 import { Hex32 } from './Hex32.ts'
-import { IndexListing, IndexListingDetail, IndexListingQuery, IndexListingSlug } from './IndexListing.ts'
-import { Page } from './Page.ts'
-import { BadCursor } from './Refusals.ts'
-import { Unavailable } from './SessionApi.ts'
 
 /**
  * A signed Nostr event as JSON (NIP-01), in the shape a client sends and the index serves. The shape only: the server
@@ -144,7 +139,7 @@ export type LinkedWallet = typeof LinkedWallet.Type
 export const maxPeoplePerLookup = 50
 
 /** Public keys in the query string, comma separated: one to {@link maxPeoplePerLookup}, each once. */
-const Pubkeys = Schema.String.pipe(
+export const Pubkeys = Schema.String.pipe(
   Schema.decodeTo(
     Schema.Array(Hex32).check(Schema.isMinLength(1), Schema.isMaxLength(maxPeoplePerLookup), Schema.isUnique()),
     SchemaTransformation.transform<ReadonlyArray<string>, string>({
@@ -175,54 +170,3 @@ export type KeyJob = typeof KeyJob.Type
 
 /** The most jobs one read of a key's jobs answers, newest first. */
 export const maxKeyJobs = 25
-
-/**
- * The index over signed Nostr events. Anyone publishes one signed event through it (the event authenticates itself,
- * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
- * of a key, the names of up to {@link maxPeoplePerLookup} keys at once (one answer for each key asked for), which
- * key a wallet is linked to, the jobs a key wrote a request or a proposal for (newest first, at most
- * {@link maxKeyJobs}: what a client computes its inbox from), and sellers' NIP-99 listings (searched newest first, or
- * one by its seller and slug). Publishing is limited per client and per key.
- */
-export class EventsApi extends HttpApiGroup.make('events').add(
-  HttpApiEndpoint.post('publish', '/api/events', {
-    payload: SignedEvent,
-    success: Published,
-    error: [EventInvalid, KindNotIndexed, EventTooLarge, RateLimited, Unavailable],
-  }),
-  HttpApiEndpoint.get('event', '/api/events/:id', {
-    params: { id: Hex32 },
-    success: SignedEvent,
-    error: [NotIndexed, Unavailable],
-  }),
-  HttpApiEndpoint.get('person', '/api/people/:pubkey', {
-    params: { pubkey: Hex32 },
-    success: Person,
-    error: [NotIndexed, Unavailable],
-  }),
-  HttpApiEndpoint.get('personJobs', '/api/people/:pubkey/jobs', {
-    params: { pubkey: Hex32 },
-    success: Schema.Struct({ items: Schema.Array(KeyJob) }),
-    error: Unavailable,
-  }),
-  HttpApiEndpoint.get('people', '/api/people', {
-    query: { pubkeys: Pubkeys },
-    success: Schema.Struct({ people: Schema.Array(PersonName) }),
-    error: Unavailable,
-  }),
-  HttpApiEndpoint.get('wallet', '/api/wallets/:account', {
-    params: { account: AccountRef },
-    success: LinkedWallet,
-    error: [NotIndexed, Unavailable],
-  }),
-  HttpApiEndpoint.get('listings', '/api/index/listings', {
-    query: IndexListingQuery,
-    success: Page(IndexListing),
-    error: [BadCursor, Unavailable],
-  }),
-  HttpApiEndpoint.get('listing', '/api/index/listings/:pubkey/:slug', {
-    params: { pubkey: Hex32, slug: IndexListingSlug },
-    success: IndexListingDetail,
-    error: [NotIndexed, Unavailable],
-  }),
-) {}

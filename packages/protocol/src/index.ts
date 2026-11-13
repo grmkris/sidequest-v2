@@ -29,7 +29,6 @@ export {
   AgentGrantView,
   EventInvalid,
   EventInvalidReason,
-  EventsApi,
   EventTooLarge,
   KindNotIndexed,
   LinkedWallet,
@@ -53,7 +52,6 @@ export {
   FundedTerms,
   IndexFunding,
   IndexPaymentStatus,
-  IndexSettlementApi,
   IndexSettlementReason,
   IndexSettlementRefused,
   RelayedCall,
@@ -115,7 +113,7 @@ export {
   WorkerFee,
 } from './JobView.ts'
 export { Listing, ListingDetails, PriceHint } from './Listing.ts'
-export { ListingsApi, SearchText } from './ListingsApi.ts'
+export { SearchText } from './ListingsApi.ts'
 export { NetworkRef } from './NetworkRef.ts'
 export { Cursor, defaultPageSize, maxPageSize, Page, PageQuery, PageSize } from './Page.ts'
 export { JobRole, PartyJob } from './PartyJob.ts'
@@ -141,8 +139,6 @@ export { IdempotencyKey, Message, MessageSeq, MessageText, RoomRef } from './Roo
 export { RoomsApi } from './RoomsApi.ts'
 export {
   NotSignedIn,
-  SessionApi,
-  SessionCookie,
   sessionCookieName,
   SessionView,
   SignInChallenge,
@@ -167,3 +163,7 @@ export { TypedData } from './TypedData.ts'
 export { UnixSeconds } from './UnixSeconds.ts'
 export { webCrypto } from './WebCrypto.ts'
 export { OpenRequest, WorkRequest } from './WorkRequest.ts'
+export { EventsApi } from './EventsGroup.ts'
+export { IndexSettlementApi } from './IndexSettlementGroup.ts'
+export { SessionApi, SessionCookie } from './SessionGroup.ts'
+export { ListingsApi } from './ListingsGroup.ts'

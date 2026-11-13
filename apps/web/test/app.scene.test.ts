@@ -1,4 +1,4 @@
-import { OpenJob } from '@sidequest/fold/api'
+import { OpenJob } from '../src/OpenJob.ts'
 import { Option, Schema } from 'effect'
 import { Command, expect, given, role, scene, text } from 'foldkit/scene'
 import { fromString } from 'foldkit/url'

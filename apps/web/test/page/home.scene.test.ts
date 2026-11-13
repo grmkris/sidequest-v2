@@ -1,4 +1,4 @@
-import { OpenJob } from '@sidequest/fold/api'
+import { OpenJob } from '../../src/OpenJob.ts'
 import { Cursor, IndexListing, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
 import { Command, click, expect, given, label, role, scene, submit, text, type, withViewInputs } from 'foldkit/scene'

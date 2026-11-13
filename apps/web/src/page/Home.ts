@@ -1,5 +1,5 @@
 import { format } from '@sidequest/i18n'
-import { OpenJob } from '@sidequest/fold/api'
+import { OpenJob } from '../OpenJob.ts'
 import { Cursor, IndexListing, SearchText } from '@sidequest/protocol'
 import { Array, Effect, Option, Schema } from 'effect'
 import { Command, type Html, Submodel, type Update } from 'foldkit'

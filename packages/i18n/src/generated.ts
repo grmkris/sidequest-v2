@@ -422,7 +422,6 @@ export interface MessageArgumentsByKey<_T = string> {
   'problem.conflict.staleHead': Readonly<Record<string, never>>
   'problem.conflict.supersededVersion': Readonly<Record<string, never>>
   'problem.conflict.wrongState': Readonly<Record<string, never>>
-  'problem.crossSite': Readonly<Record<string, never>>
   'problem.forbidden.agentPaused': Readonly<Record<string, never>>
   'problem.forbidden.agentRevoked': Readonly<Record<string, never>>
   'problem.forbidden.grantExpired': Readonly<Record<string, never>>
@@ -609,4 +608,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '4714005e290b14edee6d8f17cad5f2831129054203b9f22b97ff047e9c60f129'
+export const catalogVersion = '273893b2fb3855fd30322ecd0388489cd35818b8f53c3f155acc732b1ae843b6'

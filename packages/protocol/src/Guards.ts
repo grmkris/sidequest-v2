@@ -1,7 +1,8 @@
 import { Context, Schema } from 'effect'
 import { HttpApiMiddleware } from 'effect/http-api'
 import { AccountId } from './Id.ts'
-import { NotSignedIn, SessionCookie, Unavailable } from './SessionApi.ts'
+import { NotSignedIn, Unavailable } from './SessionApi.ts'
+import { SessionCookie } from './SessionGroup.ts'
 
 /** A state-changing request that another site, or a page the server cannot tell from one, sent. */
 export class CrossSiteRequest extends Schema.TaggedError<CrossSiteRequest>()(

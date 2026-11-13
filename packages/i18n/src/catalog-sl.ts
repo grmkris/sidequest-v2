@@ -4,8 +4,6 @@ import type { MessageKey } from './generated.ts'
 export const catalog: Readonly<Record<MessageKey, string>> = {
   'problem.unavailable': 'Sidequest trenutno ne doseže podatkovne baze ali verige. Čez trenutek poskusite znova.',
   'problem.badCursor': 'Seznam se je od odprtja spremenil. Znova naložite stran.',
-  'problem.crossSite':
-    'Zahteva ni prišla s te strani, zato je bila zavrnjena. Znova naložite stran in poskusite še enkrat.',
   'problem.unreachable': 'Sidequest se ni odzval. Preverite povezavo in poskusite znova.',
   'problem.wallet.missing':
     'V tem brskalniku ni denarnice. Namestite denarnico za brskalnik, na primer MetaMask ali Rabby, in znova naložite stran.',

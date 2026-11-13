@@ -4,7 +4,6 @@ import type { MessageKey } from './generated.ts'
 export const catalog: Readonly<Record<MessageKey, string>> = {
   'problem.unavailable': 'Sidequest could not reach its database or the chain just now. Try again in a moment.',
   'problem.badCursor': 'This list changed since it was opened. Reload the page.',
-  'problem.crossSite': 'The request did not come from this site, so it was refused. Reload the page and try again.',
   'problem.unreachable': 'Sidequest did not answer. Check your connection and try again.',
   'problem.wallet.missing':
     'No wallet found in this browser. Install a browser wallet such as MetaMask or Rabby, then reload the page.',
