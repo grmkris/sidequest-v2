@@ -2,38 +2,30 @@ import { expect } from 'bun:test'
 import * as Cloudflare from '@alchemy.run/cloudflare'
 import { gatewayWorker } from '@sidequest/gateway/Stack'
 import { JobView } from '@sidequest/fold'
-import {
-  Entropy,
-  finalizeEvent,
-  httpAuthHeader,
-  httpAuthTemplate,
-  type NostrEvent,
-  PublicKey,
-  type SecretKey,
-} from '@sidequest/nostr'
-import {
-  agentGrant,
-  buildSidequestEvent,
-  envelopeTag,
-  grantRevocation,
-  type KindSpec,
-} from '@sidequest/nostr/vocabulary'
+import { Entropy, finalizeEvent, type PublicKey, type SecretKey } from '@sidequest/nostr'
+import { agentGrant, envelopeTag, grantRevocation } from '@sidequest/nostr/vocabulary'
 import { connectRelay, keyAuth, type RelayFailure } from '@sidequest/nostr/relay'
 import { foundingOf, type RelayPort, RelayPortFailure } from '@sidequest/nostr/rooms'
 import { messagingRelaysTemplate, RelayUrl } from '@sidequest/nostr/vocabulary'
-import { Person, SignedEvent, textDigest, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { Person, SignedEvent, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { compatibility, sidequestWorkers } from '@sidequest/server/Stack'
 import * as Alchemy from 'alchemy'
 import * as Test from 'alchemy/Test/Bun'
 import { Duration, Effect, Option, Redacted, Schema } from 'effect'
-import { Base64Url } from 'effect/encoding'
-import { McpClient, McpProtocol } from 'effect/ai'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import * as HttpClient from 'effect/http/HttpClient'
 import { anyone, nostrPerson, sign } from '../../packages/server/rehearsal/Nostr.ts'
 import { eventually } from '../../packages/server/rehearsal/Surfaces.ts'
 import { startTestRelay } from '../../packages/server/test/TestRelay.ts'
 import { personRooms } from '../../apps/gateway/test/MemoryRooms.ts'
+import {
+  authorized,
+  connectOverOAuth,
+  createAgent,
+  json,
+  mcpClient,
+  signedBy,
+} from '../../packages/server/rehearsal/GatewayClient.ts'
 
 // The core and the agent gateway deployed together in workerd, each its own Worker and D1, the gateway configured with
 // the core's URL alone. An operator (a Nostr key the test holds, as their browser's signer would) makes an agent at the
@@ -102,77 +94,6 @@ harness.afterAll(harness.destroy(Stack).pipe(Effect.ensuring(Effect.promise(() =
 const now = () => Math.floor(Date.now() / 1000)
 const entropy = () => crypto.getRandomValues(new Uint8Array(32))
 
-/** A Sidequest event `key` signs, as the operator's own signer would. */
-const signedBy = async <C>(key: SecretKey, spec: KindSpec<C>, content: C): Promise<NostrEvent> => {
-  const template = await Effect.runPromise(buildSidequestEvent(spec, content, { createdAt: now() }))
-  return finalizeEvent(template, key, Schema.decodeSync(Entropy)(entropy()))
-}
-
-/** A request to the gateway carrying `key`'s NIP-98 authorization of exactly it. */
-const authorized = async (
-  key: SecretKey,
-  url: string,
-  method: string,
-  body?: string,
-  headers: Record<string, string> = {},
-) => {
-  const payload = body === undefined ? {} : { payloadSha256: await Effect.runPromise(textDigest(body)) }
-  const template = httpAuthTemplate({ url, method, ...payload }, now())
-  const authorization = httpAuthHeader(finalizeEvent(template, key, Schema.decodeSync(Entropy)(entropy())))
-  return fetch(url, {
-    method,
-    headers: { ...headers, authorization, ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
-    ...(body === undefined ? {} : { body }),
-  })
-}
-
-const json = async (response: Response): Promise<unknown> => response.json()
-const Created = Schema.Struct({ agent: PublicKey })
-const Registered = Schema.Struct({ client_id: Schema.String })
-const Decision = Schema.Struct({ redirect: Schema.String })
-const Tokens = Schema.Struct({ access_token: Schema.String, refresh_token: Schema.String })
-
-/** The operator connects an MCP client to `agent` over OAuth: registration, authorization, consent, the token. */
-const connectOverOAuth = async (gatewayUrl: string, operator: SecretKey, agent: string) => {
-  const redirect = 'http://127.0.0.1:9/callback'
-  const registered = await fetch(`${gatewayUrl}/oauth/register`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ client_name: 'Acceptance', redirect_uris: [redirect] }),
-  })
-  const { client_id: client } = Schema.decodeUnknownSync(Registered)(await json(registered))
-  const verifier = Base64Url.encode(entropy())
-  const challenge = Base64Url.encode(
-    new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))),
-  )
-  const query = new URLSearchParams({ response_type: 'code', client_id: client, redirect_uri: redirect, state: 's' })
-  query.set('code_challenge', challenge)
-  query.set('code_challenge_method', 'S256')
-  const opened = await fetch(`${gatewayUrl}/oauth/authorize?${query.toString()}`, { redirect: 'manual' })
-  const consent = opened.headers.get('location') ?? ''
-  const cookie = (opened.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
-  expect(consent).toMatch(/^\/consent\/connect_/u)
-  const page = await fetch(`${gatewayUrl}${consent}`, { headers: { cookie } })
-  expect(page.headers.get('content-security-policy')).toContain("default-src 'none'")
-  const allowed = await authorized(operator, `${gatewayUrl}${consent}/allow`, 'POST', JSON.stringify({ agent }), {
-    cookie,
-  })
-  expect(allowed.status).toBe(200)
-  const code = new URL(Schema.decodeUnknownSync(Decision)(await json(allowed)).redirect).searchParams.get('code') ?? ''
-  const exchanged = await fetch(`${gatewayUrl}/oauth/token`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      code_verifier: verifier,
-      redirect_uri: redirect,
-      client_id: client,
-    }).toString(),
-  })
-  return Schema.decodeUnknownSync(Tokens)(await json(exchanged))
-}
-
 const terms = {
   title: 'A logo',
   deliverables: ['SVG logo'],
@@ -198,9 +119,7 @@ const prepare = async (url: string, gatewayUrl: string) => {
   await core.publish(await sign.link(operator))
   const request = await sign.request(buyer, 'A logo for a café')
   await core.publish(request)
-  const created = await authorized(operator.key, `${gatewayUrl}/api/agents`, 'POST', JSON.stringify({ label: 'Scout' }))
-  expect(created.status).toBe(201)
-  const { agent } = Schema.decodeUnknownSync(Created)(await json(created))
+  const agent = await createAgent(gatewayUrl, operator.key, 'Scout')
   const content = {
     agent,
     scopes: ['propose' as const],
@@ -230,19 +149,6 @@ const expectIndexed = async (url: string, job: string, proposal: string, agent: 
   expect(stored.pubkey).toBe(agent)
   expect(stored.tags).toContainEqual([envelopeTag.grant, grant])
 }
-
-/** An MCP client at the gateway's `/mcp`, with the access token the operator's consent gave. */
-const mcpClient = (gatewayUrl: string, accessToken: string) =>
-  McpClient.make({ name: 'gateway-acceptance', version: '1' }).pipe(
-    Effect.provideServiceEffect(
-      McpClient.Transport,
-      McpClient.http({
-        url: `${gatewayUrl}/mcp`,
-        protocol: McpProtocol.v2026_07_28,
-        headers: { authorization: `Bearer ${accessToken}` },
-      }),
-    ),
-  )
 
 test(
   'an operator grants a gateway agent, an MCP client connects over OAuth, the agent proposes; revoked, it is refused',
@@ -334,13 +240,7 @@ const prepareRoom = async (url: string, gatewayUrl: string) => {
   const request = await sign.request(buyer, 'A logo, discussed in a room')
   await core.publish(request)
   for (const person of [operator, buyer]) await core.publish(inboxListOf(person.key))
-  const created = await authorized(
-    operator.key,
-    `${gatewayUrl}/api/agents`,
-    'POST',
-    JSON.stringify({ label: 'Talker' }),
-  )
-  const { agent } = Schema.decodeUnknownSync(Created)(await json(created))
+  const agent = await createAgent(gatewayUrl, operator.key, 'Talker')
   const content = {
     agent,
     scopes: ['discuss' as const],

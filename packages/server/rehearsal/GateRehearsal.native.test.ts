@@ -11,7 +11,7 @@ import { arcTestnetFromEnvironment, localChainMissing, type RehearsalChain, star
 import { evidenceFor } from './Evidence.ts'
 import type { World } from './Hire.ts'
 import { startProxy } from './RpcProxy.ts'
-import { chainEvidence, rehearsalRun, rehearsalStage, settlementFor } from './Stage.ts'
+import { chainEvidence, reclaimNotRun, rehearsalRun, rehearsalStage, settlementFor } from './Stage.ts'
 import { eventually, type Person, registerAgent, signIn } from './Surfaces.ts'
 
 // The phase 1 technical gate, rehearsed (docs/ROADMAP.md): two unrelated accounts complete escrowed hires through MCP
@@ -87,7 +87,7 @@ const startWorld = Effect.gen(function* () {
   return world
 })
 
-const { world, rehearse, finish } = rehearsalRun(stage, startWorld)
+const { rehearse, notRun, finish } = rehearsalRun(stage, startWorld)
 
 test(
   '(a) an agent proposes, the buyer funds, the work is delivered and approved: paid with the exact fee',
@@ -128,16 +128,7 @@ test(
     ? rehearse('d', 'settlement withheld until expiry, reclaimed by the buyer', async (current) =>
         reclaimedAfterExpiry(current, await funded(current)),
       )
-    : Effect.gen(function* () {
-        const current = yield* world
-        current.evidence.cases.push({
-          case: 'd',
-          title: 'settlement withheld until expiry, reclaimed by the buyer',
-          status: 'not run',
-          reason:
-            'the escrow expires at least 38 h after funding (review 1 h + dispute 1 h + arbitration 12 h + 24 h margin)',
-        })
-      }),
+    : notRun('d', 'settlement withheld until expiry, reclaimed by the buyer', reclaimNotRun),
   { timeout: 300_000 },
 )
 

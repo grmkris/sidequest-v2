@@ -146,7 +146,6 @@ export const registerAgent = async (url: string, operator: Person, name: string,
   return agentAt(url, id, token)
 }
 
-/** One tool call through Effect's MCP client, connected for it as the agent holding `token`. */
 /**
  * Effect's MCP client, connected as the agent holding `token`, and the tool `name` it lists. Connecting and listing
  * change nothing, so a transport failure there is retried.
@@ -190,10 +189,12 @@ const callTool = (url: string, token: string, name: string, args: Record<string,
     Effect.provide(FetchHttpClient.layer),
   )
 
-const agentAt = (url: string, id: AgentId, token: string): Agent => ({
-  id,
+/** The MCP tools at `url`'s `/mcp`, called as the holder of the access token `token`. */
+export const toolsAt = (url: string, token: string): Pick<Agent, 'call'> => ({
   call: (tool, args) => Effect.runPromise(callTool(url, token, tool, args)),
 })
+
+const agentAt = (url: string, id: AgentId, token: string): Agent => ({ id, ...toolsAt(url, token) })
 
 /**
  * Ask until `done` holds, every `everyMillis` (100 ms) for at most `seconds`: views, projections and the chain follow

@@ -45,31 +45,52 @@ export const settlementFor = (chain: RehearsalChain, extra: Readonly<Record<stri
   return settlementVariablesOf(plain, secrets)
 }
 
+/** What the stack is deployed with; filled in before each deploy, read when the stack's program runs. */
+interface Settings {
+  rpcUrl: string
+  settlement: SettlementVariables
+}
+
+/** The core: the API, the website and the edge, reaching the chain at the settings' RPC URL. */
+const coreWorkers = (release: string, settings: Settings) =>
+  sidequestWorkers(
+    release,
+    (api) =>
+      Cloudflare.Worker('SidequestWebsite', {
+        main: 'apps/web/dist/server/fetch.js',
+        assets: { directory: 'apps/web/dist/client' },
+        compatibility,
+        env: { API: api },
+      }),
+    settings.rpcUrl,
+    settings.settlement,
+  )
+type CoreWorkers = ReturnType<typeof coreWorkers>
+type Url = Effect.Success<CoreWorkers>['url']
+
 /**
- * The rehearsal's stack on the local stage `stage`, with the test functions bound to it. `deployWith` deploys (or
- * redeploys) it with `settlement`, reaching the chain through `proxy`, and waits until the edge serves the API.
+ * Workers a rehearsal deploys beside the core, knowing only the core's public URL (the agent gateway, for one): it
+ * answers their URLs by name.
  */
-export const rehearsalStage = (release: string, stage: string) => {
-  /** What the stack is deployed with; filled in before each deploy, read when the stack's program runs. */
-  const settings: { rpcUrl: string; settlement: SettlementVariables } = {
-    rpcUrl: 'http://127.0.0.1:9',
-    settlement: {},
-  }
+export type Beside = (
+  coreUrl: Url,
+) => Effect.Effect<{ readonly gatewayUrl: Url }, Effect.Error<CoreWorkers>, Effect.Services<CoreWorkers>>
+
+/**
+ * The rehearsal's stack on the local stage `stage`, with the test functions bound to it, and `beside` deployed with the
+ * core. `deployWith` deploys (or redeploys) it with `settlement`, reaching the chain through `proxy`, and waits until
+ * the edge (and what `beside` deployed) serves; it answers the core's URL, and `deployBesideWith` every URL.
+ */
+export const rehearsalStage = (release: string, stage: string, beside?: Beside) => {
+  const settings: Settings = { rpcUrl: 'http://127.0.0.1:9', settlement: {} }
   const Stack = Alchemy.Stack(
     'SidequestGateRehearsal',
     { providers: Cloudflare.providers(), state: Alchemy.localState() },
     Effect.suspend(() =>
-      sidequestWorkers(
-        release,
-        (api) =>
-          Cloudflare.Worker('SidequestWebsite', {
-            main: 'apps/web/dist/server/fetch.js',
-            assets: { directory: 'apps/web/dist/client' },
-            compatibility,
-            env: { API: api },
-          }),
-        settings.rpcUrl,
-        settings.settlement,
+      Effect.flatMap(coreWorkers(release, settings), (core) =>
+        beside === undefined
+          ? Effect.succeed({ ...core, gatewayUrl: core.url })
+          : Effect.map(beside(core.url), (urls) => ({ ...core, ...urls })),
       ),
     ),
   )
@@ -80,15 +101,18 @@ export const rehearsalStage = (release: string, stage: string) => {
     dev: true,
     sidecar: { omitEnv: ['CLOUDFLARE_'] },
   })
-  const deployWith = (proxy: RpcProxy, settlement: SettlementVariables) =>
+  const deployBesideWith = (proxy: RpcProxy, settlement: SettlementVariables) =>
     Effect.gen(function* () {
       settings.rpcUrl = proxy.url
       settings.settlement = settlement
-      const { url } = yield* harness.deploy(Stack)
+      const { url, gatewayUrl } = yield* harness.deploy(Stack)
       yield* Test.getWhenReady(`${url}/api/status`)
-      return url
+      if (beside !== undefined) yield* Test.getWhenReady(`${gatewayUrl}/status`)
+      return { url, gatewayUrl }
     }).pipe(Effect.provide(FetchHttpClient.layer))
-  return { ...harness, Stack, deployWith }
+  const deployWith = (proxy: RpcProxy, settlement: SettlementVariables) =>
+    Effect.map(deployBesideWith(proxy, settlement), ({ url }) => url)
+  return { ...harness, Stack, deployWith, deployBesideWith }
 }
 
 /** The chain's contracts, the amount and the two service keys' addresses, for the evidence. */
@@ -150,5 +174,14 @@ export const rehearsalRun = <W extends Rehearsed>(
     process.stdout.write(`\n${summaryOf(current.evidence)}\n  evidence: ${path.pathname}\n\n`)
     expect(current.evidence.cases.filter(({ status }) => status === 'failed')).toEqual([])
   })
-  return { world, rehearse, finish }
+  /** Records a case that does not run in this mode, and why. */
+  const notRun = (name: string, title: string, reason: string) =>
+    Effect.map(world, (current) => {
+      current.evidence.cases.push({ case: name, title, status: 'not run', reason })
+    })
+  return { world, rehearse, notRun, finish }
 }
+
+/** Why (d) does not run on a live chain: its escrow's authorisation expires long after funding. */
+export const reclaimNotRun =
+  'the escrow expires at least 38 h after funding (review 1 h + dispute 1 h + arbitration 12 h + 24 h margin)'
