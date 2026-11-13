@@ -1,0 +1,14 @@
+{
+  "name": "@sidequest/fold",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@sidequest/nostr": "workspace:*",
+    "@sidequest/protocol": "workspace:*",
+    "effect": "catalog:"
+  }
+}

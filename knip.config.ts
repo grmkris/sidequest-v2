@@ -27,6 +27,7 @@ export default {
     'packages/i18n': { project: ['src/**/*.ts!'] },
     'packages/protocol': { project: ['src/**/*.ts!'] },
     'packages/nostr': { project: ['src/**/*.ts!'] },
+    'packages/fold': { project: ['src/**/*.ts!'] },
   },
   // Agents' git worktrees (`.claude/worktrees`) are other checkouts, not this one's sources.
   ignore: ['tools/oxlint/anti-slop/**', 'repos/**', '.claude/**'],

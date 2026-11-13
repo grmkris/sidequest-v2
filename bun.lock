@@ -63,6 +63,14 @@
         "effect": "catalog:",
       },
     },
+    "packages/fold": {
+      "name": "@sidequest/fold",
+      "dependencies": {
+        "@sidequest/nostr": "workspace:*",
+        "@sidequest/protocol": "workspace:*",
+        "effect": "catalog:",
+      },
+    },
     "packages/i18n": {
       "name": "@sidequest/i18n",
       "dependencies": {
@@ -589,6 +597,8 @@
     "@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
 
     "@sidequest/domain": ["@sidequest/domain@workspace:packages/domain"],
+
+    "@sidequest/fold": ["@sidequest/fold@workspace:packages/fold"],
 
     "@sidequest/i18n": ["@sidequest/i18n@workspace:packages/i18n"],
 

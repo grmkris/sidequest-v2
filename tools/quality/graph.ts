@@ -12,9 +12,16 @@ const Manifest = Schema.Struct({
 type Workspace = { readonly directory: string; readonly manifest: typeof Manifest.Type }
 
 const directions: Readonly<Record<string, readonly string[]>> = {
-  '@sidequest/web': ['@sidequest/i18n', '@sidequest/nostr', '@sidequest/observability', '@sidequest/protocol'],
+  '@sidequest/web': [
+    '@sidequest/fold',
+    '@sidequest/i18n',
+    '@sidequest/nostr',
+    '@sidequest/observability',
+    '@sidequest/protocol',
+  ],
   '@sidequest/server': [
     '@sidequest/domain',
+    '@sidequest/fold',
     '@sidequest/i18n',
     '@sidequest/nostr',
     '@sidequest/observability',
@@ -29,6 +36,8 @@ const directions: Readonly<Record<string, readonly string[]>> = {
   '@sidequest/settlement': ['@sidequest/protocol'],
   // Nostr events, keys and private messages: browser-safe and Workers-safe, over the shared protocol schemas only.
   '@sidequest/nostr': ['@sidequest/protocol'],
+  // The job as a pure fold over events and chain facts: browser-safe, run by the index and the website alike.
+  '@sidequest/fold': ['@sidequest/nostr', '@sidequest/protocol'],
   '@sidequest/i18n': [],
   '@sidequest/observability': [],
 }
