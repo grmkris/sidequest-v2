@@ -106,6 +106,14 @@ const nothingKnown = (known: Known) =>
 /** An EVM account as wallet links spell it: in lowercase, so `eip155:1:0xAbC…` finds the same wallet. */
 const linkSpelling = (account: string) => (account.startsWith('eip155:') ? account.toLowerCase() : account)
 
+/** A listing's receipts; one turns verified when the chain log poller records its transaction, so caches keep seconds. */
+const receiptsOf = (payPerCall: PayPerCall['Service'], params: { readonly pubkey: string; readonly slug: string }) =>
+  Effect.gen(function* () {
+    const items = yield* payPerCall.receipts(params.pubkey, params.slug)
+    yield* publicFor(10)
+    return { items }
+  })
+
 /**
  * The `events` group: publish-through and the index's public reads.
  *
@@ -190,13 +198,6 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           return found.value
         }),
       )
-      .handle('listingReceipts', ({ params }) =>
-        Effect.gen(function* () {
-          const items = yield* payPerCall.receipts(params.pubkey, params.slug)
-          // A receipt turns verified when the chain log poller records its transaction: seconds only.
-          yield* publicFor(10)
-          return { items }
-        }),
-      )
+      .handle('listingReceipts', ({ params }) => receiptsOf(payPerCall, params))
   }),
 )
