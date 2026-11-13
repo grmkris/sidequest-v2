@@ -31,6 +31,18 @@ export type EventTemplate = typeof EventTemplate.Type
 export const UnsignedEvent = Schema.Struct({ pubkey: PublicKey, ...EventTemplate.fields })
 export type UnsignedEvent = typeof UnsignedEvent.Type
 
+/**
+ * A template as `pubkey`'s unsigned event. Copies exactly the template's fields, so a signed event passed as a
+ * template never carries its old id, key or signature into the new one.
+ */
+export const authored = (pubkey: PublicKey, template: EventTemplate): UnsignedEvent => ({
+  pubkey,
+  created_at: template.created_at,
+  kind: template.kind,
+  tags: template.tags,
+  content: template.content,
+})
+
 /** A NIP-01 event. Decoding checks only its shape; `verifyEvent` checks its id and signature. */
 export const NostrEvent = Schema.Struct({ id: EventId, ...UnsignedEvent.fields, sig: Signature })
 export type NostrEvent = typeof NostrEvent.Type

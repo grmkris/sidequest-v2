@@ -1,5 +1,5 @@
 import { Schema } from 'effect'
-import { EventId, type EventTemplate, UnsignedEvent } from './Event.ts'
+import { authored, EventId, type EventTemplate, UnsignedEvent } from './Event.ts'
 import { eventIdOf } from './EventHash.ts'
 import type { PublicKey } from './Keys.ts'
 
@@ -12,6 +12,6 @@ export type Rumor = typeof Rumor.Type
 
 /** The rumor `author` would say, with its id computed. */
 export const makeRumor = (template: EventTemplate, author: PublicKey): Rumor => {
-  const unsigned = { pubkey: author, ...template }
+  const unsigned = authored(author, template)
   return { id: eventIdOf(unsigned), ...unsigned }
 }

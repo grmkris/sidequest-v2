@@ -99,6 +99,13 @@ const Template = Schema.Struct({
 })
 
 describe('signing', () => {
+  test('signs a signed event as a new one, carrying none of its old id, key or signature', () => {
+    const resigned = finalizeEvent(relayNote, secret('01'.repeat(32)), entropy('00'.repeat(32)))
+    expect(reason(resigned)).toBe('valid')
+    expect(resigned.pubkey).toBe(publicKeyOf(secret('01'.repeat(32))))
+    expect(resigned.id).not.toBe(relayNote.id)
+  })
+
   it.prop(
     'signs any template so that it verifies as its key',
     [GeneratedSecret, Hex32, Template],

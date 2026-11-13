@@ -2,6 +2,7 @@ import { chacha20 } from '@noble/ciphers/chacha.js'
 import { equalBytes } from '@noble/ciphers/utils.js'
 import { hmac } from '@noble/hashes/hmac.js'
 import { sha256 } from '@noble/hashes/sha2.js'
+import { concatBytes } from '@noble/hashes/utils.js'
 import { Result } from 'effect'
 import { Base64 } from 'effect/encoding'
 import { Entropy } from './Entropy.ts'
@@ -12,17 +13,8 @@ import { pad, unpad } from './Nip44Padding.ts'
 const version = 2
 const refuse = (reason: Nip44Refused['reason']) => Result.fail(new Nip44Refused({ reason }))
 
-const concat = (...parts: ReadonlyArray<Uint8Array>) => {
-  const out = new Uint8Array(parts.reduce((total, part) => total + part.length, 0))
-  parts.reduce((offset, part) => {
-    out.set(part, offset)
-    return offset + part.length
-  }, 0)
-  return out
-}
-
 const macOf = (keys: MessageKeys, nonce: Uint8Array, ciphertext: Uint8Array) =>
-  hmac(sha256, keys.hmacKey, concat(nonce, ciphertext))
+  hmac(sha256, keys.hmacKey, concatBytes(nonce, ciphertext))
 
 // With the `u` flag a surrogate pair is one code point, so this finds only unpaired surrogates, which UTF-8 cannot carry.
 const unpairedSurrogate = /[\uD800-\uDFFF]/u
@@ -42,7 +34,7 @@ export const encryptNip44 = (
   const keys = messageKeys(key, nonce)
   const ciphertext = chacha20(keys.chachaKey, keys.chachaNonce, pad(bytes))
   return Result.succeed(
-    Base64.encode(concat(Uint8Array.of(version), nonce, ciphertext, macOf(keys, nonce, ciphertext))),
+    Base64.encode(concatBytes(Uint8Array.of(version), nonce, ciphertext, macOf(keys, nonce, ciphertext))),
   )
 }
 
