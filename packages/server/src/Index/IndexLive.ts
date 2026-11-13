@@ -19,7 +19,9 @@ import { RateLimiter } from '@sidequest/serving/RateLimiter'
  * The chain log poller is separate (`ChainLogPoller`): it needs the settlement chain, which not every stage has.
  */
 export const IndexLive = Layer.mergeAll(Poller.layer, Outbox.layer, Jobs.layer).pipe(
-  Layer.provideMerge(Layer.mergeAll(Ingest.layer, RateLimiter.layer, Listings.layer, PayPerCall.layer, Moderation.layer)),
+  Layer.provideMerge(
+    Layer.mergeAll(Ingest.layer, RateLimiter.layer, Listings.layer, PayPerCall.layer, Moderation.layer),
+  ),
   Layer.provideMerge(Layer.merge(D1EventStore, ChainFacts.layer)),
 )
 
