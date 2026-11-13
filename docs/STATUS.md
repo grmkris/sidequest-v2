@@ -7,20 +7,20 @@
 
 ## Phase 2 so far (2026-11-13)
 
-Built beside phase 1. The website has an identity page (a Nostr key and the wallet link); everything else on the website, MCP and settlement still runs on accounts, sessions and server-held jobs and rooms. Deployed to the preview at release `3a268ff`.
+Built beside phase 1. On the website, the identity page (a Nostr key and the wallet link) and the marketplace before funding run on signed events and the index: the home page's requests and listings, a listing and its new versions, a request and its job page, proposals, revisions, withdrawals, the buyer's accept and closing a request. The money steps (fund, deliver, approve, reject) are not on the website yet, and phase 1's job page is gone; agents, connections and the inbox still run on accounts and sessions, as do MCP and settlement. Deployed to the preview at release `3a268ff`, before the marketplace pages moved.
 
-| Piece                                                                                                               | State                                                                                   |
-| :------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------- |
-| `packages/nostr`: events, signatures, NIP-19/44/59/98, Sidequest's kinds (8410–8420), wallet-link typed data        | built, unit-tested against the NIPs' vectors                                            |
-| The index: stored events, profiles, relay lists, wallet links, agent grants; `POST /api/events` and public reads    | built; tested on SQLite and in workerd; the same events in any order give the same rows |
-| Outbox and relay poller                                                                                             | built; tested against an in-process relay only; no relay is configured on any stage     |
-| The relay pipe: `GET /relay?url=` on the edge, a same-origin WebSocket to a public relay                            | built (server half); tested in workerd against an in-process relay; no page uses it yet |
-| `packages/fold`: a job's state from signed events and chain facts                                                   | built and tested; the index's job read calls it                                         |
-| The index's listings (NIP-99) and jobs: `GET /api/index/listings`, `/api/index/jobs`, `/api/index/jobs/:id`         | built; tested on SQLite and (one job read) in workerd; the website does not read them   |
-| Chain facts: a poller of the operator's and the escrow's logs into `chain_facts`, every minute where settled        | built; tested against Anvil; not run against Arc testnet or on Cloudflare               |
-| Escrow without sessions for Nostr-native jobs: quote, fund, deliver, approve, reject, NIP-98 ruling, payment, terms | built; fund's rules story-tested on SQLite; rehearsed on Anvil (`gate:rehearse:events`) |
-| The settler: deadline calls from chain facts and the chain's time, on the minute Cron Trigger; funded terms kept    | built; story-tested on SQLite; rehearsed on Anvil; not run on Cloudflare or Arc testnet |
-| Rooms                                                                                                               | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                    |
+| Piece                                                                                                               | State                                                                                                 |
+| :------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------- |
+| `packages/nostr`: events, signatures, NIP-19/44/59/98, Sidequest's kinds (8410–8420), wallet-link typed data        | built, unit-tested against the NIPs' vectors                                                          |
+| The index: stored events, profiles, relay lists, wallet links, agent grants; `POST /api/events` and public reads    | built; tested on SQLite and in workerd; the same events in any order give the same rows               |
+| Outbox and relay poller                                                                                             | built; tested against an in-process relay only; no relay is configured on any stage                   |
+| The relay pipe: `GET /relay?url=` on the edge, a same-origin WebSocket to a public relay                            | built (server half); tested in workerd against an in-process relay; no page uses it yet               |
+| `packages/fold`: a job's state from signed events and chain facts                                                   | built and tested; the index's job read calls it                                                       |
+| The index's listings (NIP-99) and jobs: `GET /api/index/listings`, `/api/index/jobs`, `/api/index/jobs/:id`         | built; tested on SQLite and (one job read) in workerd; the website reads them, in Chromium in workerd |
+| Chain facts: a poller of the operator's and the escrow's logs into `chain_facts`, every minute where settled        | built; tested against Anvil; not run against Arc testnet or on Cloudflare                             |
+| Escrow without sessions for Nostr-native jobs: quote, fund, deliver, approve, reject, NIP-98 ruling, payment, terms | built; fund's rules story-tested on SQLite; rehearsed on Anvil (`gate:rehearse:events`)               |
+| The settler: deadline calls from chain facts and the chain's time, on the minute Cron Trigger; funded terms kept    | built; story-tested on SQLite; rehearsed on Anvil; not run on Cloudflare or Arc testnet               |
+| Rooms                                                                                                               | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                                  |
 
 Checked on the preview (2026-11-13, release `3a268ff`, from a script, not a browser): a signed profile, request and proposal published through `POST /api/events` and read back as a person and a job in stage `proposed` from the deployed D1; the relay pipe carrying a subscription to two public relays (nos.lol, relay.primal.net); a pipe from another origin refused.
 
