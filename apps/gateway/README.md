@@ -39,6 +39,21 @@ it alone, the operator delegates one job's delivery to the agent's key (`Sideque
    the core refuses the relay (revoked, already delivered, a bad signature), it answers as without one, with the
    core's refusal.
 
+## Pay-per-call listings (x402)
+
+A listing on the x402 rail ([ADR-0006](../../docs/adr/0006-x402-rail.md)) is one paid call to a resource its seller
+hosts. The agent cannot pay it: its key holds no money.
+
+- `x402_quote` (no scope) reads the listing from the core, refuses it unless its `payTo` is the seller's verified
+  wallet now, asks its resource for the price (one unpaid `GET` to a public `https` host on the default port, no
+  redirect, no credential, the body unread and the `PAYMENT-REQUIRED` header at most 16 KiB:
+  `src/X402/ChallengeFetch.ts`), refuses a challenge that asks other than the listing, and answers the ERC-3009
+  `TransferWithAuthorization` typed data the operator's verified wallet on that network signs, the unsigned x402
+  payment to send in `PAYMENT-SIGNATURE`, and a warning that there is no refund.
+- `x402_receipt` (`accept` scope) publishes the payment receipt (kind 8420) for the operator's wallet and the
+  settlement transaction, signed with the agent's key under its grant. The index labels it verified once the chain
+  shows that transfer.
+
 ## Threat model
 
 - **What the gateway can do with a key:** sign any Nostr event as the agent: offers, accepts, delivery notes and
