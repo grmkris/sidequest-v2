@@ -4,6 +4,7 @@ import { type Entropy, freshEntropy } from './Entropy.ts'
 import type { NostrEvent, Tag } from './Event.ts'
 import { hexOf } from './Hex.ts'
 import { type PublicKey, SecretKey } from './Keys.ts'
+import { standardKinds } from './Kinds.ts'
 import { encryptNip44 } from './Nip44.ts'
 import { conversationKey } from './Nip44Keys.ts'
 import type { Nip44Refused } from './Nip44Refused.ts'
@@ -11,8 +12,8 @@ import type { Rumor } from './Rumor.ts'
 import { finalizeEvent } from './Sign.ts'
 
 /** NIP-59 kinds: the author's signed seal, and the one-time key's gift wrap around it. */
-export const sealKind = 13
-export const giftWrapKind = 1059
+export const sealKind = standardKinds.seal
+export const giftWrapKind = standardKinds.giftWrap
 
 /**
  * Everything random in one gift wrap. NIP-59 asks for a fresh one-time key per wrap; passing it in keeps building
@@ -56,6 +57,32 @@ const encryptedLayer = (layer: Layer, recipient: PublicKey): Result.Result<Nostr
     ),
   )
 
+/** What wrapping a seal draws: the one-time key, the wrap's NIP-44 nonce and its signature's auxiliary randomness. */
+export type SealWrapEntropy = Pick<WrapEntropy, 'wrapKey' | 'wrapNonce' | 'wrapAux'>
+
+/**
+ * Wraps a signed seal for `recipient` under the one-time key (kind 1059, tagged `p` with the recipient). The seal may
+ * come from any signer, an extension's included: only the wrap's own layer needs a key here, and it is a fresh one.
+ */
+export const wrapSeal = (
+  seal: NostrEvent,
+  recipient: PublicKey,
+  wrapCreatedAt: UnixSeconds,
+  entropy: SealWrapEntropy,
+): Result.Result<NostrEvent, Nip44Refused> =>
+  encryptedLayer(
+    {
+      kind: giftWrapKind,
+      tags: [['p', recipient]],
+      inner: seal,
+      signer: entropy.wrapKey,
+      createdAt: wrapCreatedAt,
+      nonce: entropy.wrapNonce,
+      aux: entropy.wrapAux,
+    },
+    recipient,
+  )
+
 /**
  * Seals `rumor` from `author` to `recipient` (kind 13, no tags) and wraps the seal under the one-time key (kind 1059,
  * tagged `p` with the recipient). The rumor's author should be `author`'s public key, or `unwrapGift` refuses it.
@@ -80,19 +107,7 @@ export const giftWrap = (
       },
       recipient,
     ),
-    (seal) =>
-      encryptedLayer(
-        {
-          kind: giftWrapKind,
-          tags: [['p', recipient]],
-          inner: seal,
-          signer: entropy.wrapKey,
-          createdAt: times.wrapCreatedAt,
-          nonce: entropy.wrapNonce,
-          aux: entropy.wrapAux,
-        },
-        recipient,
-      ),
+    (seal) => wrapSeal(seal, recipient, times.wrapCreatedAt, entropy),
   )
 
 /** Fresh entropy for one gift wrap from the host's `Crypto` service. */
