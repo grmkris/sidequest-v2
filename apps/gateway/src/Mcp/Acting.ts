@@ -55,16 +55,17 @@ export const acting = Effect.fnUntraced(function* (scope: GrantScope | null, rea
   if (caller === undefined) return yield* Effect.die(new Error('An MCP tool ran without an authenticated caller'))
   const limiter = yield* RateLimiter
   const gate = yield* GrantGate
-  const limited = (limit: Limit) =>
-    limiter.take(`agent:${caller.agent}`, limit).pipe(
+  // Each limit counts in a bucket of its own: one shared bucket would count a write twice, against both.
+  const limited = (name: keyof typeof agentLimits) =>
+    limiter.take(`agent:${caller.agent}:${name}`, agentLimits[name]).pipe(
       Effect.catchTags({
         RateLimited: ({ retryAfterSeconds }) =>
           Effect.fail(new Refused({ reason: 'RateLimited', detail: `Try again in ${retryAfterSeconds} s.` })),
         Unavailable: () => Effect.fail(new Refused({ reason: 'CoreUnavailable', detail: 'The gateway’s store.' })),
       }),
     )
-  yield* limited(agentLimits.calls)
-  if (scope !== null && !reads) yield* limited(agentLimits.writes)
+  yield* limited('calls')
+  if (scope !== null && !reads) yield* limited('writes')
   return yield* gate.admit(caller.agent, caller.operator, scope).pipe(
     Effect.catchTags({
       GrantRefused: ({ reason, scope: missing }) =>

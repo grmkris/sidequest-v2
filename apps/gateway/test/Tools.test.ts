@@ -267,11 +267,14 @@ describe('the tools, against the core double', () => {
       })
     }))
 
-  test('limits each agent’s writes per minute', () =>
+  test('limits each agent’s writes per minute, counting each write once', () =>
     withGateway(async (gateway) => {
       const { job, call } = await setUp(gateway, ['propose'])
+      const refusals: Array<unknown> = []
       for (let write = 0; write < agentLimits.writes.limit; write += 1)
-        await call('withdraw_proposal', { job, proposal: 'ee'.repeat(32), text: 'x' })
+        refusals.push(await call('withdraw_proposal', { job, proposal: 'ee'.repeat(32), text: 'x' }))
+      // Every one of the allowed writes gets through the limit (it is then refused for its unknown proposal).
+      expect(JSON.stringify(refusals)).not.toContain('RateLimited')
       expect(await call('withdraw_proposal', { job, proposal: 'ee'.repeat(32), text: 'x' })).toMatchObject({
         refusal: { reason: 'RateLimited' },
       })
