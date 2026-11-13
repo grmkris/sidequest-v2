@@ -3,6 +3,7 @@
 - **Phase:** 2 ([roadmap](ROADMAP.md), [phase 2 spec](PHASE-2.md)). Sidequest is one system on signed Nostr events: the index, the fold, the escrow and its settler, the agent gateway and encrypted rooms. Phase 1's server-authoritative code (accounts, wallet sign-in, sessions, the model on Durable Objects, the core's MCP and OAuth) is deleted. The phase 2 technical gate has passed on Arc testnet for four of its five cases; the fifth (buyer reclaim after expiry) has passed only on a local chain. The market gate (an outside agent completes a hire) is open.
 - **Source:** bootstrapped from Styld v2 commit `d0663c3` on 2026-10-29. No Sidequest V1 or Nod code has been ported.
 - **Contract:** `SidequestOperator` v2 (delivery delegation) is deployed on Arc testnet (chain 5042002) at `0xA515f69EcAE571B1c7BC0911b3D1550f9eDb974b`, in block 72190184 (`0x44d88e8`), with a 500 bps fee to a throwaway test treasury. It is unaudited and exists on no other chain. It supersedes v1 at `0x979Ef80b97702ebCFCf6b0D9f9fc015C50C15a99`, which stays on chain unused.
+- **Mainnet:** none. [MAINNET-READINESS.md](MAINNET-READINESS.md) (2026-11-13) lists what stands before one; blockers are the operator's audit, a Safe arbitrator and treasury, a production stage with remote deploy state, gateway secret rotation, alerts and legal review. Arc mainnet (chain 5042) is live but has no commerce-payments escrow; Base mainnet has the same escrow bytecode at the same addresses (fork-checked 2026-11-13). A stage names its chain (`SIDEQUEST_CHAIN`, default Arc testnet); mainnets are refused at deploy and by the Worker unless `SIDEQUEST_ALLOW_MAINNET` is the exact phrase for that chain, and the operator's deploy script needs its own phrase per chain id.
 - **Preview:** Alchemy stage `preview`, deployed from the build box, at `https://v2.sidequest.exchange` with its agent gateway at `https://agents.v2.sidequest.exchange`, at release `98abaeb` on 2026-11-13, with testnet settlement on operator v2. Preview evidence says nothing about production.
 
 ## What is built (2026-11-13)
@@ -31,6 +32,8 @@ People are Nostr keys with a linked wallet; there is no account, session or cook
 | Passkey-derived keys (WebAuthn PRF, HKDF-SHA256, ADR-0005): make, back up or decline, unlock, find on another device | built; vectors and story tests; in Chromium in workerd with a virtual authenticator, with and without PRF                      |
 | Custom domains (`SIDEQUEST_SITE_DOMAIN`, `SIDEQUEST_GATEWAY_DOMAIN`) and the passkeys' relying party, from the shell | built; the settings unit-tested; deployed on the preview (`v2.sidequest.exchange`, `agents.v2.sidequest.exchange`)             |
 | The x402 rail (ADR-0006, proposed): pay-per-call listings, receipts (8420) verified from the chain, `x402_quote`     | built; story-tested on SQLite; end to end on Anvil with a reference seller and an in-test facilitator; not deployed            |
+| Launch caps (max job amount, buyer and bidder allowlist, daily gas budget), refused as `LaunchCap`                   | built; story-tested on SQLite; unset on the preview, not deployed                                                              |
+| The hide list (`/api/moderation/hidden`, moderator NIP-98), `sidequest-labels: hidden`; relayer health read          | built; tested over the API on SQLite; no moderator key on any stage; migration 0015 not yet applied to the preview             |
 
 Checked on the preview (2026-11-13, release `3a268ff`, from a script, not a browser): a signed profile, request and proposal published through `POST /api/events` and read back as a person and a job in stage `proposed` from the deployed D1; the relay pipe carrying a subscription to two public relays (nos.lol, relay.primal.net); a pipe from another origin refused.
 
@@ -89,5 +92,8 @@ Evidence: [evidence/2026-11-13-arc-testnet-gate-v2.json](evidence/2026-11-13-arc
 - The API sends no CORS headers: a third-party web client on another origin cannot call it from a browser.
 - No rate limiting on the gateway's OAuth endpoints (its MCP tools are limited per agent).
 - A job funded by the first live run (`0x1546…`, 0.1 test USDC, operator v1) stays in the escrow on Arc testnet until the test buyer reclaims it after expiry.
-- Deploy state is local to the build box, so only the build box can deploy.
+- Deploy state is local to the build box, so only the build box can deploy (remote state options: MAINNET-READINESS §3.3).
+- Nothing pages anyone: the logs carry `alert` annotations, and the settler warns each minute while the relayer's balance is low, but no alert rule reads them.
+- The gateway's secret, which seals every hosted agent's key, cannot be rotated yet (design: MAINNET-READINESS §2.4).
+- Events by id are now cached for an hour, not a year, so a hide reaches caches; this changes the preview's cache headers on its next deploy.
 - The Slovenian copy has not been reviewed by a native speaker.

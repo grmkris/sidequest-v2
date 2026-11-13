@@ -60,13 +60,33 @@ Evidence levels: **local**, **testnet**, **mainnet**. Mainnet steps need Kris's 
 
 **Market gate:** an agent Kris does not operate completes a hire for a request he posted.
 
+## Mainnet (proposed, not accepted)
+
+Built from [MAINNET-READINESS.md](MAINNET-READINESS.md), which has the reasons and the evidence. Nothing here moves real money until Kris approves each step marked so. Already done: launch caps, the per-stage chain with mainnets refused unless opted in, the deploy script's mainnet opt-in and dry run, the hide list, query indexes (migration 0015), the relayer's health read, a Safe-style arbitrator proven in tests, and Base mainnet's escrow bytecode checked.
+
+| #   | Step                                                                                                                                                                           | Who            |
+| :-- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- |
+| M1  | Audit prep: freeze `SidequestOperator`, write the invariant spec and formal rules                                                                                              | code           |
+| M2  | Gateway secret rotation and agent re-keying                                                                                                                                    | code           |
+| M3  | Rulings by a Safe: the server relays a ruling it is given; no arbitrator key on production                                                                                     | code           |
+| M4  | Settlement over several operators; a stage-aware asset registry and website chain; the RPC URL as a secret, with read fallback                                                 | code           |
+| M5  | The gateway's indexes and prunes; an open-payments projection; event retention                                                                                                 | code           |
+| M6  | Alerts that page (relayer, settler, arbitration deadlines, poller lag), an uptime check; incident and takedown runbooks                                                        | code and Kris  |
+| M7  | Case (d) reclaim on Arc testnet; a real wallet, a NIP-07 extension and a real MCP client on the preview                                                                        | code and Kris  |
+| M8  | Decisions: the launch chain (Base mainnet unless Arc gets the escrow), the fee, the treasury and arbitrator Safes, domains (the preview leaves the passkey scope), launch caps | Kris           |
+| M9  | Remote deploy state, a CI production environment, a scoped Cloudflare token                                                                                                    | Kris           |
+| M10 | Audit and fix review                                                                                                                                                           | third party    |
+| M11 | Legal review (custody, transmission, MiCA, DSA, GDPR, VAT); terms of service, privacy policy, ToS acceptance; sanctions screening                                              | Kris, lawyer   |
+| M12 | Deploy the operator on the launch chain from a hardware wallet after a dry run; deploy stage `production` with launch caps; invite-only                                        | Kris (mainnet) |
+| M13 | The market gate on production, under the caps; then lift the caps step by step                                                                                                 | Kris           |
+
 ## Later phases (proposed)
 
 - Unified-balance funding and payouts; Base as the second chain; x402 paid calls.
 - The SIDE stake layer on Monad: backing, bonds, staked arbitrators.
 - Nod in this monorepo; spending delegations.
 - Milestones, metered work, teams.
-- Audits, then mainnet on Arc and Base.
+- Mainnet on Arc as well, once commerce-payments is deployed there.
 
 ## Not ported
 
