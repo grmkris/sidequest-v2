@@ -27,7 +27,7 @@ import { ChainFacts } from '../Index/ChainFacts.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { nowSeconds } from '../Index/Ingest.ts'
 import { moneyOf, paymentOfFunding } from './FundedPayment.ts'
-import { fundingRefusal } from './FundingRules.ts'
+import { fundingRefusal, refusalDetail } from './FundingRules.ts'
 import { type NativeChain, nativeChain, relayedReads } from './NativeChain.ts'
 import { requestOf, standingReads } from './Standing.ts'
 
@@ -91,7 +91,7 @@ const fundable = Effect.fnUntraced(function* (w: Wiring, job: string, proposal: 
   const offer = Option.getOrUndefined(standing.proposal)
   const receiver = offer === undefined ? undefined : addressOn(network, offer.content.payTo)
   const reason = fundingRefusal(standing, receiver === undefined ? '' : `${network}:${receiver}`, yield* nowSeconds)
-  if (reason !== undefined) return yield* refused(reason)
+  if (reason !== undefined) return yield* refused(reason, refusalDetail(standing, reason))
   // The rules found the proposal and its receiver on this network; this only narrows their types.
   if (offer === undefined || receiver === undefined) return yield* refused('ProposalNotIndexed')
   const payment = yield* termsPaymentOf(

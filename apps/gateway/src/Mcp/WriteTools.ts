@@ -1,4 +1,4 @@
-import type { JobView } from '@sidequest/fold'
+import type { JobView, ProposalView } from '@sidequest/fold'
 import type { EventId } from '@sidequest/nostr'
 import { deliveryNote, jobAccept, jobProposal, statement } from '@sidequest/nostr/vocabulary'
 import { type AccountRef, type Bytes32, type Terms, termsDigest, type UnixSeconds } from '@sidequest/protocol'
@@ -29,6 +29,13 @@ const proposalOf = (view: JobView, proposal: EventId) =>
     onSome: Effect.succeed,
   })
 
+/**
+ * Whether the fold counts the proposal as the admitted agent's operator's: theirs, or an agent's under their grant. The
+ * fold supersedes or withdraws a proposal only by its own bidder, so the gateway signs neither for another's.
+ */
+const isOperators = (proposal: ProposalView, admitted: Admitted) =>
+  (proposal.operator ?? proposal.author) === admitted.operator
+
 /** The operator's verified wallet on `network`: where an agent's proposal asks to be paid. */
 const payToOf = Effect.fnUntraced(function* (admitted: Admitted, network: string) {
   const core = yield* Core
@@ -56,7 +63,7 @@ export const propose = Effect.fnUntraced(function* (input: {
     return yield* new Refused({ reason: 'OwnRequest', detail: 'Your operator posted this request.' })
   if (input.previous !== undefined) {
     const previous = yield* proposalOf(view, input.previous)
-    if (previous.author !== admitted.agent) return yield* new Refused({ reason: 'NotYourProposal' })
+    if (!isOperators(previous, admitted)) return yield* new Refused({ reason: 'NotYourProposal' })
   }
   const payTo: AccountRef = yield* payToOf(admitted, input.terms.network)
   const content = {
@@ -79,8 +86,7 @@ export const withdrawProposal = Effect.fnUntraced(function* (input: {
 }) {
   const admitted = yield* acting('propose')
   const proposal = yield* proposalOf(yield* jobOf(input.job), input.proposal)
-  // The fold counts a withdrawal only by the proposal's own author.
-  if (proposal.author !== admitted.agent) return yield* new Refused({ reason: 'NotYourProposal' })
+  if (!isOperators(proposal, admitted)) return yield* new Refused({ reason: 'NotYourProposal' })
   const content = { job: input.job, about: input.proposal, type: 'withdraw_proposal' as const, text: input.text }
   const signed = yield* publishAs(admitted, statement, content)
   return { job: input.job, statement: signed.id, signedBy: signed.signedBy, grant: signed.grant }
@@ -121,7 +127,8 @@ export const deliver = Effect.fnUntraced(function* (
   const core = yield* Core
   const view = yield* jobOf(input.job)
   const funded = view.proposals.find(({ funded: isFunded }) => isFunded)
-  if (funded === undefined || view.worker !== admitted.agent) return yield* new Refused({ reason: 'NotTheWorker' })
+  // The worker is the funded proposal's bidder: the operator, when their agent proposed under their grant.
+  if (funded === undefined || view.worker !== admitted.operator) return yield* new Refused({ reason: 'NotTheWorker' })
   // The core refuses here when the chain has not funded the job: nothing is signed then.
   const typedData = yield* core.deliveryToSign(input.job, input.deliveryHash).pipe(Effect.mapError(refusedByCore))
   const content = {

@@ -46,7 +46,10 @@ it alone, the operator delegates one job's delivery to the agent's key (`Sideque
   move money: funding needs the operator's wallet, which it never sees, and so does recording a delivery, except
   where that wallet delegated one job's delivery to the agent's key (below). The grant gate and the
   tools' checks are the gateway's own discipline; a compromised gateway could sign outside them, with or without the
-  grant tag. The fold does not yet judge events by the grant they name: that is a later slice.
+  grant tag. The fold judges every event by the grant it names (`packages/fold/src/Grants.ts`): an event counts as
+  the operator's only inside the grant's scopes and window and while it is unrevoked, so outside them a compromised
+  gateway's signatures count as the agent key's own; within them they count as the operator's, which revoking the
+  grant undoes for everything but the money the chain already moved.
 - **A D1 leak alone gives nothing:** each key is sealed (XChaCha20-Poly1305) by its own random data key, and each data
   key by the gateway's secret, a Worker secret of the stage (`SIDEQUEST_GATEWAY_SECRET`) that is never in D1. Both
   seals bind the agent's public key, so a row copied to another agent does not open. Codes and tokens are stored as

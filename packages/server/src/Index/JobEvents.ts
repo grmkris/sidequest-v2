@@ -2,6 +2,7 @@ import type { JobEvent } from '@sidequest/fold'
 import type { NostrEvent } from '@sidequest/nostr'
 import {
   deliveryNote,
+  envelopeTag,
   jobAccept,
   jobProposal,
   jobRequest,
@@ -22,7 +23,8 @@ import { EventRow } from './EventStore.ts'
  * spam proposals costs the same as one with fifty: every event is verified again as it is read (about a millisecond
  * each), so a read verifies at most about 150. Besides these, a read always folds the events that decide the job's
  * stage whatever the spam: the buyer's newest accepts and the proposals they name, the buyer's withdrawal of the
- * request, and proposals whose terms digest the chain funded.
+ * request, and proposals whose terms digest the chain funded. The buyer's accepts and withdrawal include those their
+ * agents signed naming a grant the buyer gave; whether that grant authorises them is the fold's to judge.
  */
 export const jobReadLimits = {
   proposals: 50,
@@ -31,6 +33,7 @@ export const jobReadLimits = {
   statements: 30,
   reviews: 20,
   buyerAccepts: 10,
+  buyerWithdrawals: 10,
   fundedProposals: 5,
 } as const
 
@@ -76,22 +79,26 @@ export const jobQueries = (sql: SqlClient.SqlClient) => {
     execute: ({ job, kind, limit }) => sql`
       SELECT ${columns} FROM events WHERE ${about(job, kind)} ORDER BY created_at DESC, id LIMIT ${limit}`,
   })
+  // Signed by the buyer, or by a key naming a grant the buyer gave.
+  const byBuyer = (buyer: string) => sql`(pubkey = ${buyer} OR id IN (
+    SELECT t.event_id FROM event_tags AS t JOIN agent_grants AS g ON g.event_id = t.value
+    WHERE t.name = ${envelopeTag.grant} AND g.operator = ${buyer}))`
   const buyerAccepts = SqlSchema.findAll({
     Request: Schema.Struct({ job: Schema.String, buyer: Schema.String }),
     Result: EventRow,
     execute: ({ job, buyer }) => sql`
-      SELECT ${columns} FROM events WHERE ${about(job, sidequestKinds.accept)} AND pubkey = ${buyer}
+      SELECT ${columns} FROM events WHERE ${about(job, sidequestKinds.accept)} AND ${byBuyer(buyer)}
       ORDER BY created_at DESC, id LIMIT ${jobReadLimits.buyerAccepts}`,
   })
-  // The buyer's withdrawal of the request: exactly the fold's `closedByBuyer`.
+  // The buyer's withdrawal of the request: the fold's `closedByBuyer`, for the buyer's own key or an agent's.
   const withdrawal = SqlSchema.findAll({
     Request: Schema.Struct({ job: Schema.String, buyer: Schema.String }),
     Result: EventRow,
     execute: ({ job, buyer }) => sql`
-      SELECT ${columns} FROM events WHERE ${about(job, sidequestKinds.statement)} AND pubkey = ${buyer}
+      SELECT ${columns} FROM events WHERE ${about(job, sidequestKinds.statement)} AND ${byBuyer(buyer)}
         AND json_extract(content, '$.type') = 'withdraw_request'
         AND (json_extract(content, '$.about') IS NULL OR json_extract(content, '$.about') = ${job})
-      ORDER BY created_at DESC, id LIMIT 1`,
+      ORDER BY created_at DESC, id LIMIT ${jobReadLimits.buyerWithdrawals}`,
   })
   const proposalsNamed = SqlSchema.findAll({
     Request: Schema.Struct({ job: Schema.String, ids: Schema.Array(Schema.String) }),

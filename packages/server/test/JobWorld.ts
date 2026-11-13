@@ -1,5 +1,5 @@
 import { ChainFact } from '@sidequest/fold'
-import { type NostrEvent, publicKeyOf, type SecretKey } from '@sidequest/nostr'
+import { EventId, type NostrEvent, publicKeyOf, type SecretKey } from '@sidequest/nostr'
 import {
   buildSidequestEvent,
   deliveryNote,
@@ -40,11 +40,23 @@ export const termsFrom = (from: number, amount = '120000000') =>
     rail: 'escrow',
   })
 
-const build = <C>(spec: KindSpec<C>, content: unknown, key: SecretKey, createdAt: number, network?: NetworkRef) =>
+/** An event `key` signs; `grant` names the grant an agent's key signs it under (`sq-grant`). */
+const build = <C>(
+  spec: KindSpec<C>,
+  content: unknown,
+  key: SecretKey,
+  createdAt: number,
+  network?: NetworkRef,
+  grant?: string,
+) =>
   Effect.runPromise(
     Schema.decodeUnknownEffect(spec.content)(content).pipe(
       Effect.flatMap((decoded) =>
-        buildSidequestEvent(spec, decoded, network === undefined ? { createdAt } : { createdAt, network }),
+        buildSidequestEvent(spec, decoded, {
+          createdAt,
+          ...(network === undefined ? {} : { network }),
+          ...(grant === undefined ? {} : { grant: Schema.decodeSync(EventId)(grant) }),
+        }),
       ),
       Effect.map((template) => signed(template, key)),
     ),
@@ -56,7 +68,7 @@ export const requestBy = (key: SecretKey, createdAt: number, expiresIn = 7 * day
 
 /**
  * `key`'s proposal for `job` to its buyer, paying `key`'s wallet, valid for three days; `revising` names the buyer it
- * is for instead and the proposal it replaces.
+ * is for instead, the proposal it replaces, and the grant an agent's key proposes under.
  */
 export const proposalBy = async (
   key: SecretKey,
@@ -64,7 +76,7 @@ export const proposalBy = async (
   createdAt: number,
   offered = termsFrom(createdAt),
   payTo = walletOfKey(key),
-  revising: { readonly buyer?: string; readonly previous?: string } = {},
+  revising: { readonly buyer?: string; readonly previous?: string; readonly grant?: string } = {},
 ) =>
   build(
     jobProposal,
@@ -79,6 +91,8 @@ export const proposalBy = async (
     },
     key,
     createdAt,
+    undefined,
+    revising.grant,
   )
 
 const ProposalJson = Schema.fromJsonString(
@@ -89,8 +103,8 @@ const payToOf = (proposal: NostrEvent) => Schema.decodeUnknownSync(ProposalJson)
 /** The terms digest a proposal binds. */
 export const digestOf = (proposal: NostrEvent) => Schema.decodeUnknownSync(ProposalJson)(proposal.content).termsDigest
 
-/** `key` accepts `proposal`. */
-export const acceptBy = (key: SecretKey, proposal: NostrEvent, createdAt: number) =>
+/** `key` accepts `proposal`, under `grant` when an agent's key accepts. */
+export const acceptBy = (key: SecretKey, proposal: NostrEvent, createdAt: number, grant?: string) =>
   build(
     jobAccept,
     {
@@ -102,11 +116,26 @@ export const acceptBy = (key: SecretKey, proposal: NostrEvent, createdAt: number
     key,
     createdAt,
     arc,
+    grant,
   )
 
-/** `key` says something about `job`. */
-export const statementBy = (key: SecretKey, job: string, type: StatementType, createdAt: number, about?: string) =>
-  build(statement, { job, type, text: 'On the record.', ...(about === undefined ? {} : { about }) }, key, createdAt)
+/** `key` says something about `job`, under `grant` when an agent's key says it. */
+export const statementBy = (
+  key: SecretKey,
+  job: string,
+  type: StatementType,
+  createdAt: number,
+  about?: string,
+  grant?: string,
+) =>
+  build(
+    statement,
+    { job, type, text: 'On the record.', ...(about === undefined ? {} : { about }) },
+    key,
+    createdAt,
+    undefined,
+    grant,
+  )
 
 /** `key`'s delivery note for `job` to its buyer. */
 export const noteBy = (key: SecretKey, job: NostrEvent, createdAt: number, deliveryHash: string) =>

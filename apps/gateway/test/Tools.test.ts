@@ -133,25 +133,32 @@ describe('the tools, against the core double', () => {
       expect(gateway.core.events.filter(({ pubkey }) => pubkey === proposing.agent)).toEqual([])
     }))
 
-  test('withdraw_proposal signs a statement about the agent’s own proposal only', () =>
+  test('withdraw_proposal signs a statement about its operator’s proposals only: the agent’s or their own', () =>
     withGateway(async (gateway) => {
-      const { job, call, buyerKey } = await setUp(gateway, ['propose'])
+      const { job, call, buyerKey, operatorKey } = await setUp(gateway, ['propose'])
       await call('propose', { job, terms, validUntil: now() + day })
       const [own] = await eventsOfKind(gateway.core, jobProposal)
       const other = await proposalBy(freshKey(), job, publicKeyOf(buyerKey))
-      gateway.core.events.push(other)
+      const operators = await proposalBy(operatorKey, job, publicKeyOf(buyerKey))
+      gateway.core.events.push(other, operators)
       expect(await call('withdraw_proposal', { job, proposal: other.id, text: 'no' })).toMatchObject({
         refusal: { reason: 'NotYourProposal' },
       })
       expect(await call('withdraw_proposal', { job, proposal: own?.event.id, text: 'Booked up' })).toMatchObject({
         ok: true,
       })
-      expect(await eventsOfKind(gateway.core, statement)).toMatchObject([{ content: { type: 'withdraw_proposal' } }])
+      expect(await call('withdraw_proposal', { job, proposal: operators.id, text: 'Booked up' })).toMatchObject({
+        ok: true,
+      })
+      expect(await eventsOfKind(gateway.core, statement)).toMatchObject([
+        { content: { type: 'withdraw_proposal' } },
+        { content: { type: 'withdraw_proposal' } },
+      ])
       const shown = await call('get_job', { job })
-      expect(JSON.stringify(shown)).toContain('"withdrawn":true')
+      expect(JSON.stringify(shown).match(/"withdrawn":true/gu)).toHaveLength(2)
     }))
 
-  test('accept signs an accept for the operator’s own request; the fold does not count it as the buyer’s', () =>
+  test('accept signs an accept for the operator’s own request, which the fold counts as the buyer’s', () =>
     withGateway(async (gateway) => {
       const { operatorKey, operator, call, job } = await setUp(gateway, ['accept'])
       const mine = signed(jobRequest, { title: 'Mine', description: 'Mine', expiresAt: now() + day }, operatorKey)
@@ -164,7 +171,7 @@ describe('the tools, against the core double', () => {
       const accepted = await call('accept', { job: mine.id, proposal: bid.id })
       expect(accepted).toMatchObject({
         ok: true,
-        value: { fold: { stage: 'proposed', fromBuyer: false, matchesProposal: true } },
+        value: { fold: { stage: 'accepted', fromBuyer: true, matchesProposal: true } },
       })
       const [published] = await eventsOfKind(gateway.core, jobAccept)
       expect(published?.envelope.network).toMatchObject({ value: UsdcOnArcTestnet.network })

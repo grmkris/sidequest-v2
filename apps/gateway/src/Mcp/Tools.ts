@@ -137,7 +137,9 @@ const Propose = Tool.make('propose', {
     ...onJob,
     terms: Terms,
     validUntil: UnixSeconds.annotate({ description: 'When the offer lapses, in Unix seconds.' }),
-    previous: Schema.optionalKey(EventId.annotate({ description: 'Your proposal this one replaces.' })),
+    previous: Schema.optionalKey(
+      EventId.annotate({ description: 'Your operator’s proposal (yours, or theirs) this one replaces.' }),
+    ),
   }),
   success: Schema.Struct({ job: EventId, proposal: EventId, payTo: AccountRef, ...Signed }),
   failure: Refused,
@@ -145,7 +147,7 @@ const Propose = Tool.make('propose', {
 
 const WithdrawProposal = Tool.make('withdraw_proposal', {
   description:
-    'Withdraw one of your own proposals with a statement saying why. A buyer could still fund it on chain; your ' +
+    'Withdraw one of your operator’s proposals (yours, theirs or another of their agents’) with a statement saying why. A buyer could still fund it on chain; your ' +
     `operator’s remedy is then not to deliver, and the escrow refunds. ${binds} Needs the \`propose\` scope.`,
   parameters: Schema.Struct({ ...onJob, proposal: EventId, text: Text(4000) }),
   success: Schema.Struct({ job: EventId, statement: EventId, ...Signed }),
@@ -154,9 +156,9 @@ const WithdrawProposal = Tool.make('withdraw_proposal', {
 
 const Accept = Tool.make('accept', {
   description:
-    'For a request your operator posted, sign an accept of one proposal, naming its exact terms. It is a signal ' +
-    'under your grant: the job’s fold counts accepts only from the buyer’s own key, so the job does not move to ' +
-    '`accepted`; your operator accepts and funds from their own signer and wallet. Answers what the fold shows. ' +
+    'For a request your operator posted, sign an accept of one proposal, naming its exact terms. Under your grant ' +
+    'the job’s fold counts it as your operator’s accept (the job moves to `accepted`) while the grant holds; it is ' +
+    'still only a signal: your operator funds from their own wallet. Answers what the fold shows. ' +
     `${binds} Needs the \`accept\` scope.`,
   parameters: Schema.Struct({ ...onJob, proposal: EventId }),
   success: Schema.Struct({
@@ -205,7 +207,8 @@ const AwaitingWallet = Schema.Struct({
 
 const Deliver = Tool.make('deliver', {
   description:
-    'On a funded job whose funded proposal you signed, publish a delivery note: the delivery’s hash (0x and 64 hex) ' +
+    'On a funded job whose worker is your operator (you, or they, made the funded proposal), publish a delivery ' +
+    'note: the delivery’s hash (0x and 64 hex) ' +
     'and where to fetch it. If your operator delegated this job’s delivery to your key (see `delivery_delegation`), ' +
     'your key also records the delivery on chain, unattended (`onChain.signer` is `agent-delegate`). Otherwise ' +
     'recording it needs your operator’s WALLET signature, which you do not have: the answer carries the EIP-712 ' +

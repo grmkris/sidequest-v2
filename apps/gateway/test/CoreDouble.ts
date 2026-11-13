@@ -1,5 +1,5 @@
-import { foldJob, type JobEvent, type JobView } from '@sidequest/fold'
-import { EventId, type NostrEvent } from '@sidequest/nostr'
+import { foldJob, type GrantFact, type JobEvent, type JobView } from '@sidequest/fold'
+import { EventId, type NostrEvent, PublicKey } from '@sidequest/nostr'
 import {
   agentGrant,
   deliveryNote,
@@ -93,11 +93,32 @@ const readAll = (events: ReadonlyArray<NostrEvent>): Effect.Effect<Readings> =>
     return { jobEvents, grants }
   })
 
+const GrantIds = Schema.Struct({ grant: EventId, operator: PublicKey, agent: PublicKey })
+
+/** A grant as the fold reads it, revoked or not. */
+const grantFactOf = (grant: AgentGrantView): ReadonlyArray<GrantFact> =>
+  Option.toArray(
+    Option.map(Schema.decodeUnknownOption(GrantIds)({ ...grant, grant: grant.event }), (ids) => ({
+      ...ids,
+      scopes: grant.scopes,
+      notBefore: grant.notBefore,
+      expiresAt: grant.expiresAt,
+      revoked: grant.status === 'revoked',
+    })),
+  )
+
 /** The fold's view, with the double's funded jobs marked as the chain would make them. */
 const viewOf = (readings: Readings, funded: ReadonlyMap<string, string>, id: string) =>
   Option.map(
     Option.flatMap(Schema.decodeUnknownOption(EventId)(id), (job) =>
-      foldJob({ job, events: readings.jobEvents, chain: [], walletLinks: [], now: nowSeconds() }),
+      foldJob({
+        job,
+        events: readings.jobEvents,
+        chain: [],
+        walletLinks: [],
+        grants: readings.grants.flatMap(grantFactOf),
+        now: nowSeconds(),
+      }),
     ),
     (view): JobView => {
       const proposal = funded.get(id)
@@ -106,7 +127,7 @@ const viewOf = (readings: Readings, funded: ReadonlyMap<string, string>, id: str
       return {
         ...view,
         stage: 'funded',
-        worker: fundedProposal.author,
+        worker: fundedProposal.operator ?? fundedProposal.author,
         proposals: view.proposals.map((each) => ({ ...each, funded: each.id === proposal })),
       }
     },

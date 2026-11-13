@@ -10,8 +10,21 @@ import { Ingest } from '../src/Index/Ingest.ts'
 import { fundingRefusal } from '../src/Native/FundingRules.ts'
 import { nativeEscrowWith } from '../src/Native/NativeEscrow.ts'
 import type { Standing } from '../src/Native/Standing.ts'
-import { accountOf, alice, bob, carol, indexWorld, linked, pubkeyOf, walletOne, walletTwo } from './IndexWorld.ts'
-import { onArc, proposalBy, requestBy, statementBy, termsFrom } from './JobWorld.ts'
+import {
+  accountOf,
+  alice,
+  bob,
+  carol,
+  grant,
+  indexWorld,
+  keyOf,
+  linked,
+  pubkeyOf,
+  revocation,
+  walletOne,
+  walletTwo,
+} from './IndexWorld.ts'
+import { onArc, proposalBy, requestBy, statementBy, termsFrom, walletOfKey } from './JobWorld.ts'
 import { fakeChain, fundingOf, testChain } from './NativeWorld.ts'
 
 // Funding a Nostr-native job through the server: what the server checks before it relays the buyer's ERC-3009
@@ -183,6 +196,7 @@ describe('the funding rules', () => {
     const holds: Standing = {
       request: Option.some(parsedRequest),
       proposal: Option.some(parsedProposal),
+      bidderGrant: null,
       withdrawn: false,
       superseded: false,
       payerHolder: Option.some(request.pubkey),
@@ -197,6 +211,70 @@ describe('the funding rules', () => {
       expect(fundingRefusal(holds, payTo.toUpperCase().replace('EIP155', 'eip155'), at)).toBeUndefined()
       expect(fundingRefusal(holds, accountOf(walletTwo), at)).toBe('ReceiverNotPayTo')
       expect(fundingRefusal(holds, '', at)).toBe('ReceiverNotPayTo')
+    }),
+  )
+})
+
+// Bob's agent proposes under Bob's grant, paying Bob's wallet, as the gateway does: the rules ask about Bob, the bidder.
+const agent = keyOf('5'.repeat(64))
+const window = { createdAt: at, notBefore: at - 60, expiresAt: at + day }
+const proposing = grant(bob, agent, window, ['propose'])
+const agentProposal = await proposalBy(agent, request, at + 10, terms, walletOfKey(bob), { grant: proposing.id })
+const fundAgents = (extra: ReadonlyArray<NostrEvent>, offer = agentProposal, grants = [proposing]) =>
+  funding({ events: [request, aliceWallet, ...grants, offer, ...extra] }, (escrow) =>
+    escrow.fund(request.id, offer.id, walletOne.address, signature),
+  )
+
+describe('funding a proposal an agent made under its operator’s grant', () => {
+  it.effect('relays a payment to the operator’s wallet, the proposal’s payTo', () =>
+    Effect.gen(function* () {
+      const { result, sent } = yield* fundAgents([])
+      const { payment } = yield* Effect.promise(() => fundingOf(agentProposal, terms, walletOne.address))
+      expect(reasonOf(result)).toBe('relayed')
+      expect(payment.info.receiver.toLowerCase()).toBe(walletOfKey(bob).split(':')[2])
+      expect(sent).toMatchObject([{ id: `fund:${payment.hash}` }])
+    }),
+  )
+
+  it.effect('refuses it once the operator, or their agent, withdrew it; a stranger cannot', () =>
+    Effect.gen(function* () {
+      const byOperator = yield* Effect.promise(() =>
+        statementBy(bob, request.id, 'withdraw_proposal', at + 20, agentProposal.id),
+      )
+      expect(reasonOf((yield* fundAgents([byOperator])).result)).toBe('ProposalWithdrawn')
+      const byAgent = yield* Effect.promise(() =>
+        statementBy(agent, request.id, 'withdraw_proposal', at + 20, agentProposal.id, proposing.id),
+      )
+      expect(reasonOf((yield* fundAgents([byAgent])).result)).toBe('ProposalWithdrawn')
+      const carolsAgent = grant(carol, bob, window, ['propose'])
+      const byStranger = yield* Effect.promise(() =>
+        statementBy(bob, request.id, 'withdraw_proposal', at + 20, agentProposal.id, carolsAgent.id),
+      )
+      expect(reasonOf((yield* fundAgents([carolsAgent, byStranger])).result)).toBe('relayed')
+    }),
+  )
+
+  it.effect('refuses it once the operator revised it with their own key', () =>
+    Effect.gen(function* () {
+      const revised = yield* Effect.promise(() =>
+        proposalBy(bob, request, at + 30, termsFrom(at, '130000000'), undefined, { previous: agentProposal.id }),
+      )
+      expect(reasonOf((yield* fundAgents([revised])).result)).toBe('ProposalSuperseded')
+    }),
+  )
+
+  it.effect('refuses it as withdrawn when its grant does not authorise it, saying why', () =>
+    Effect.gen(function* () {
+      const revoked = yield* fundAgents([revocation(bob, proposing.id, at + 30)])
+      expect(reasonOf(revoked.result)).toBe('ProposalWithdrawn')
+      expect(JSON.stringify(revoked.result)).toContain('revoked')
+      expect(reasonOf((yield* fundAgents([revocation(carol, proposing.id, at + 30)])).result)).toBe('relayed')
+      expect(JSON.stringify((yield* fundAgents([], agentProposal, [])).result)).toContain('unknownGrant')
+      const discussing = grant(bob, agent, window, ['discuss'], 'Talker')
+      const unscoped = yield* Effect.promise(() =>
+        proposalBy(agent, request, at + 10, terms, walletOfKey(bob), { grant: discussing.id }),
+      )
+      expect(JSON.stringify((yield* fundAgents([], unscoped, [discussing])).result)).toContain('scopeMissing')
     }),
   )
 })

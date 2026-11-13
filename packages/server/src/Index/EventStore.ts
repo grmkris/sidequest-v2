@@ -104,6 +104,11 @@ export class EventStore extends Context.Service<
     readonly known: (pubkey: string) => Effect.Effect<Known, Unavailable>
     /** Each of `pubkeys`, once: its profile's name, if it has one, and whether a verified link holds a wallet for it. */
     readonly names: (pubkeys: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<KeyName>, Unavailable>
+    /**
+     * The grants among `ids` (grant event ids) the index holds, each with whether its operator revoked it: the grants a
+     * job's events name, for the fold. Bounded by `ids`, which the caller bounds.
+     */
+    readonly grants: (ids: ReadonlyArray<string>) => Effect.Effect<ReadonlyArray<KnownGrant>, Unavailable>
     /** The key a CAIP-10 account is currently linked to: its winning verified link, if it has one. */
     readonly wallet: (account: string) => Effect.Effect<Option.Option<WalletLinkRow>, Unavailable>
     /** Keys that signed Sidequest events or listings, whose profiles and relay lists the poller asks relays for. */
@@ -293,7 +298,18 @@ const identityReads = (sql: SqlClient.SqlClient) => {
         AND NOT EXISTS (SELECT 1 FROM grant_revocations AS r WHERE r.grant_id = g.event_id AND r.pubkey = g.operator)
       ORDER BY created_at DESC, event_id LIMIT ${knownLimits.grants}`,
   })
-  return { wallets, unverifiedWallets, wallet, names, grantsBy, grantsTo }
+  // The grants named, in one statement whatever their number (a list in one JSON parameter).
+  const grantsNamed = SqlSchema.findAll({
+    Request: Schema.Array(Schema.String),
+    Result: GrantRecord,
+    execute: (ids) => sql`
+      SELECT event_id AS eventId, operator, agent, scopes, not_before AS notBefore, expires_at AS expiresAt, label,
+        created_at AS createdAt,
+        EXISTS (SELECT 1 FROM grant_revocations AS r WHERE r.grant_id = g.event_id AND r.pubkey = g.operator) AS revoked
+      FROM agent_grants AS g WHERE event_id IN (SELECT value FROM json_each(${JSON.stringify(ids)}))
+      ORDER BY event_id`,
+  })
+  return { wallets, unverifiedWallets, wallet, names, grantsBy, grantsTo, grantsNamed }
 }
 
 const rebuildPage = 200
@@ -361,6 +377,13 @@ export const D1EventStore = Layer.effect(
           ),
           Effect.withSpan('Sidequest.Index.names'),
         ),
+      grants: (ids) =>
+        ids.length === 0
+          ? Effect.succeed([])
+          : stored(read.grantsNamed(ids)).pipe(
+              Effect.map((rows) => rows.map(knownGrant)),
+              Effect.withSpan('Sidequest.Index.grants'),
+            ),
       wallet: Effect.fn('Sidequest.Index.wallet')(function* (account) {
         return yield* stored(read.wallet(account))
       }),

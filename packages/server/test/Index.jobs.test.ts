@@ -8,7 +8,7 @@ import { ChainFacts } from '../src/Index/ChainFacts.ts'
 import { Ingest } from '../src/Index/Ingest.ts'
 import { jobReadLimits } from '../src/Index/JobEvents.ts'
 import { Jobs, openJobLimits } from '../src/Index/Jobs.ts'
-import { alice, bob, carol, indexWorld } from './IndexWorld.ts'
+import { alice, bob, carol, grant, indexWorld, keyOf, revocation } from './IndexWorld.ts'
 import { acceptBy, fundedFact, onArc, proposalBy, requestBy, statementBy, termsFrom, walletOfKey } from './JobWorld.ts'
 
 const at = 1_800_000_000
@@ -178,5 +178,61 @@ describe('a job read', () => {
         expect(yield* jobs.job('0'.repeat(64))).toEqual(Option.none())
       }),
     ),
+  )
+})
+
+describe('a job read with agents', () => {
+  const agent = keyOf('5'.repeat(64))
+  const window = { createdAt: at - 60, notBefore: at - 60, expiresAt: at + 86_400 }
+
+  it.effect('counts the buyer’s agent’s accept under their grant whatever the spam, and stops when it is revoked', () =>
+    inIndex(
+      Effect.gen(function* () {
+        const accepting = grant(alice, agent, window, ['accept'])
+        const request = yield* promised(() => requestBy(alice, at))
+        const chosen = yield* promised(() => proposalBy(bob, request, at + 1, termsFrom(at)))
+        const accept = yield* promised(() => acceptBy(agent, chosen, at + 2, accepting.id))
+        const spam = yield* promised(() =>
+          Promise.all(
+            Array.from({ length: jobReadLimits.accepts + 5 }, (_, index) => acceptBy(carol, chosen, at + 10 + index)),
+          ),
+        )
+        yield* ingestAll([accepting, request, chosen, accept, ...spam])
+        const jobs = yield* Jobs
+        const view = Option.getOrThrow(yield* jobs.job(request.id))
+        expect(view.stage).toBe('accepted')
+        expect(view.accepts.find(({ id }) => id === accept.id)).toMatchObject({
+          by: 'agent',
+          operator: request.pubkey,
+          grant: accepting.id,
+          fromBuyer: true,
+        })
+        yield* ingest(revocation(alice, accepting.id, at + 100))
+        expect(yield* stageOf(request.id)).toEqual(Option.some('proposed'))
+      }),
+    ),
+  )
+
+  it.effect(
+    'closes a request its buyer’s agent withdrew under their grant, in the read and in the open list alike',
+    () =>
+      inIndex(
+        Effect.gen(function* () {
+          const accepting = grant(alice, agent, window, ['accept'])
+          const discussing = grant(carol, agent, window, ['discuss'])
+          const closed = yield* promised(() => requestBy(alice, at, undefined, 'Closed by an agent'))
+          const notClosed = yield* promised(() => requestBy(carol, at + 1, undefined, 'An agent without the scope'))
+          const withdrawals = yield* promised(() =>
+            Promise.all([
+              statementBy(agent, closed.id, 'withdraw_request', at + 2, undefined, accepting.id),
+              statementBy(agent, notClosed.id, 'withdraw_request', at + 2, undefined, discussing.id),
+            ]),
+          )
+          yield* ingestAll([accepting, discussing, closed, notClosed, ...withdrawals])
+          expect(yield* stageOf(closed.id)).toEqual(Option.some('closed'))
+          expect(yield* stageOf(notClosed.id)).toEqual(Option.some('open'))
+          expect(yield* allOpen()).toEqual([notClosed.id])
+        }),
+      ),
   )
 })

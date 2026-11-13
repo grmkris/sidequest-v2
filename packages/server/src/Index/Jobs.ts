@@ -1,7 +1,7 @@
 import { type ChainFact, type ChainFunded, foldJob, type JobView, type WalletLinkFact } from '@sidequest/fold'
 import { OpenJob } from '@sidequest/fold/api'
 import { PublicKey } from '@sidequest/nostr'
-import { EvmAccount, JobRequestContent, sidequestKinds } from '@sidequest/nostr/vocabulary'
+import { envelopeTag, EvmAccount, JobRequestContent, sidequestKinds } from '@sidequest/nostr/vocabulary'
 import { type BadCursor, type Cursor, defaultPageSize, type Unavailable } from '@sidequest/protocol'
 import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
@@ -11,6 +11,7 @@ import { stored } from '@sidequest/serving/Stored'
 import { ChainFacts } from './ChainFacts.ts'
 import { EventStore } from './EventStore.ts'
 import { nowSeconds } from './Ingest.ts'
+import { grantsNamedBy } from './JobGrants.ts'
 import { jobEventsOf, jobQueries, jobReadLimits } from './JobEvents.ts'
 
 // An open request is `OpenJob` (`@sidequest/fold/api`); its `proposals` count stops at `openJobLimits.proposalCount`.
@@ -43,8 +44,8 @@ type Candidate = typeof Candidate.Type
 
 /**
  * The newest `openJobLimits.scan` requests after the cursor, each with whether the chain funded it, whether its buyer
- * closed it, and its proposals counted up to the cap. Each flag is an index lookup (`chain_facts_by_job`,
- * `event_tags_by_value`), the same rules the fold applies.
+ * closed it (themselves, or an agent under their grant: the fold's grant rule), and its proposals counted up to the cap.
+ * Each flag is an index lookup (`chain_facts_by_job`, `event_tags_by_value`), the same rules the fold applies.
  */
 const candidates = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
@@ -63,7 +64,14 @@ const candidates = (sql: SqlClient.SqlClient) =>
           EXISTS (
             SELECT 1 FROM events AS s
             WHERE s.id IN (SELECT event_id FROM event_tags WHERE name = 'e' AND value = r.id)
-              AND s.kind = ${sidequestKinds.statement} AND s.pubkey = r.pubkey
+              AND s.kind = ${sidequestKinds.statement} AND (s.pubkey = r.pubkey OR EXISTS (
+                -- An agent's, under the buyer's grant: for its key, with the accept scope, in its window, unrevoked.
+                SELECT 1 FROM event_tags AS t JOIN agent_grants AS g ON g.event_id = t.value
+                WHERE t.event_id = s.id AND t.name = ${envelopeTag.grant} AND g.operator = r.pubkey
+                  AND g.agent = s.pubkey AND s.created_at >= g.not_before AND s.created_at < g.expires_at
+                  AND EXISTS (SELECT 1 FROM json_each(g.scopes) WHERE value = 'accept')
+                  AND NOT EXISTS (SELECT 1 FROM grant_revocations AS v
+                    WHERE v.grant_id = g.event_id AND v.pubkey = g.operator)))
               AND json_extract(s.content, '$.job') = r.id
               AND json_extract(s.content, '$.type') = 'withdraw_request'
               AND (json_extract(s.content, '$.about') IS NULL OR json_extract(s.content, '$.about') = r.id)
@@ -185,7 +193,8 @@ export class Jobs extends Context.Service<
         const about = yield* eventsOf(id, request.value.pubkey, chain)
         const read = yield* jobEventsOf([request.value, ...about])
         const walletLinks = yield* linksOf(events, chain)
-        return foldJob({ job: request.value.id, events: read, chain, walletLinks, now: yield* nowSeconds })
+        const grants = yield* grantsNamedBy(events, about)
+        return foldJob({ job: request.value.id, events: read, chain, walletLinks, grants, now: yield* nowSeconds })
       })
 
       const open = Effect.fn('Sidequest.Index.openJobs')(function* (request: OpenJobsQuery) {
