@@ -177,6 +177,20 @@ const installErc8004 = async (
   await write({ address: reputation, abi: initializeAbi, functionName: 'initialize', args: [identity] })
 }
 
+/** A test wallet's transaction on Anvil, given gas money first, mined; answers its receipt. */
+const sendingOn =
+  (
+    client: PublicClient,
+    transport: ReturnType<typeof http>,
+    anvilCall: (method: string, params: ReadonlyArray<unknown>) => Promise<void>,
+  ): LocalChain['send'] =>
+  async (account, { to, data }) => {
+    if (!isAddress(to) || !isHex(data)) throw new Error('Not a transaction')
+    await anvilCall('anvil_setBalance', [account.address, '0xde0b6b3a7640000'])
+    const sender = createWalletClient({ account, transport })
+    return client.waitForTransactionReceipt({ hash: await sender.sendTransaction({ to, data, chain: null }) })
+  }
+
 /** Start Anvil and deploy the escrow, the collector, the operator and the token, and place the ERC-8004 registries. */
 export const startChain = async (): Promise<LocalChain> => {
   const port = await freePort()
@@ -248,12 +262,7 @@ export const startChain = async (): Promise<LocalChain> => {
         await anvilCall('evm_mine', [])
       },
       now: async () => Number((await client.getBlock()).timestamp),
-      send: async (account, { to, data }) => {
-        if (!isAddress(to) || !isHex(data)) throw new Error('Not a transaction')
-        await anvilCall('anvil_setBalance', [account.address, '0xde0b6b3a7640000'])
-        const sender = createWalletClient({ account, transport })
-        return client.waitForTransactionReceipt({ hash: await sender.sendTransaction({ to, data, chain: null }) })
-      },
+      send: sendingOn(client, transport, anvilCall),
       stop: () => anvil.kill(),
     }
   } catch (cause) {

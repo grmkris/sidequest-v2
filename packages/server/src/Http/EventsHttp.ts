@@ -132,6 +132,22 @@ const receiptsOf = (payPerCall: PayPerCall['Service'], params: { readonly pubkey
  * limits abuse is the rate limiter: per client address before anything is checked, and per key once the signature
  * verified (a forged key spends no one's quota).
  */
+/**
+ * What the index knows of a key, its ERC-8004 identities among it, labelled when the key is hidden; `NotIndexed` when it
+ * knows nothing. Public, for a minute.
+ */
+const personReader =
+  (events: EventStore['Service'], identities: Erc8004Identities['Service'], moderation: Moderation['Service']) =>
+  (pubkey: string) =>
+    Effect.gen(function* () {
+      const known = yield* events.known(pubkey)
+      const erc8004 = yield* identities.of(pubkey)
+      if (nothingKnown(known, erc8004)) return yield* new NotIndexed()
+      yield* labelled(yield* moderation.covers([pubkey]))
+      yield* publicFor(60)
+      return personOf(pubkey, known, yield* nowSeconds, erc8004)
+    })
+
 export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (handlers) =>
   Effect.gen(function* () {
     const ingest = yield* Ingest
@@ -142,7 +158,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const payPerCall = yield* PayPerCall
     const jobs = yield* Jobs
     const moderation = yield* Moderation
-    const identities = yield* Erc8004Identities
+    const readPerson = personReader(events, yield* Erc8004Identities, moderation)
     return handlers
       .handle('publish', ({ payload }) =>
         Effect.gen(function* () {
@@ -166,16 +182,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           return found.value
         }),
       )
-      .handle('person', ({ params }) =>
-        Effect.gen(function* () {
-          const known = yield* events.known(params.pubkey)
-          const erc8004 = yield* identities.of(params.pubkey)
-          if (nothingKnown(known, erc8004)) return yield* new NotIndexed()
-          yield* labelled(yield* moderation.covers([params.pubkey]))
-          yield* publicFor(60)
-          return personOf(params.pubkey, known, yield* nowSeconds, erc8004)
-        }),
-      )
+      .handle('person', ({ params }) => readPerson(params.pubkey))
       .handle('personJobs', ({ params }) =>
         Effect.gen(function* () {
           const items = yield* jobs.ofParty(params.pubkey)
