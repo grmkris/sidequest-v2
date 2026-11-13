@@ -259,6 +259,40 @@ describe('a key’s jobs', () => {
     ),
   )
 
+  it.effect(
+    'include the requests the key’s agents proposed on under its grant, and only under a grant that lets them',
+    () =>
+      inIndex(
+        Effect.gen(function* () {
+          const agent = keyOf('5'.repeat(64))
+          const window = { createdAt: at - 60, notBefore: at - 60, expiresAt: at + 86_400 }
+          const proposing = grant(alice, agent, window, ['propose'])
+          const discussing = grant(alice, agent, window, ['discuss'])
+          const carols = grant(carol, agent, window, ['propose'])
+          const bidOn = yield* promised(() => requestBy(carol, at - 30, undefined, 'Bid on by Alice’s agent'))
+          const notHers = yield* promised(() => requestBy(bob, at - 20, undefined, 'Without the scope'))
+          const lateBid = yield* promised(() => requestBy(bob, at - 15, undefined, 'After the grant expired'))
+          const forCarol = yield* promised(() => requestBy(bob, at - 10, undefined, 'Under Carol’s grant'))
+          const payTo = walletOfKey(alice)
+          const bids = yield* promised(() =>
+            Promise.all([
+              proposalBy(agent, bidOn, at - 5, termsFrom(at), payTo, { grant: proposing.id }),
+              proposalBy(agent, notHers, at - 4, termsFrom(at), payTo, { grant: discussing.id }),
+              proposalBy(agent, lateBid, window.expiresAt, termsFrom(at), payTo, { grant: proposing.id }),
+              proposalBy(agent, forCarol, at - 3, termsFrom(at), walletOfKey(carol), { grant: carols.id }),
+            ]),
+          )
+          yield* ingestAll([proposing, discussing, carols, bidOn, notHers, lateBid, forCarol, ...bids])
+          const jobs = yield* Jobs
+          expect(yield* jobs.ofParty(pubkeyOf(alice))).toEqual([{ job: bidOn.id, role: 'bidder', at: at - 5 }])
+          expect(yield* jobs.ofParty(pubkeyOf(carol))).toEqual([
+            { job: forCarol.id, role: 'bidder', at: at - 3 },
+            { job: bidOn.id, role: 'buyer', at: at - 30 },
+          ])
+        }),
+      ),
+  )
+
   it.effect('stop at the most one read answers, however many the key wrote', () =>
     inIndex(
       Effect.gen(function* () {

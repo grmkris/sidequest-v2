@@ -96,8 +96,11 @@ const candidates = (sql: SqlClient.SqlClient) =>
       FROM flagged ORDER BY created_at DESC, id`,
   })
 
-/** How many of a key's newest proposals a read of its jobs looks through: a bound however many it signed. */
-export const keyJobLimits = { proposals: 200 } as const
+/**
+ * What a read of a key's jobs looks through, however much it signed: its newest `proposals`, and of its newest `grants`
+ * the newest `proposals` its agents signed under them.
+ */
+export const keyJobLimits = { proposals: 200, grants: 50 } as const
 
 const PartyRow = Schema.Struct({ job: Schema.String, at: Schema.Int })
 
@@ -123,17 +126,48 @@ const keyJobQueries = (sql: SqlClient.SqlClient) => ({
       JOIN events AS r ON r.id = json_extract(p.content, '$.job') AND r.kind = ${sidequestKinds.request}
       GROUP BY r.id ORDER BY at DESC, r.id LIMIT ${maxKeyJobs}`,
   }),
+  /**
+   * The requests proposals by the key's agents name: proposals naming one of the key's grants in `sq-grant`, by that
+   * grant's agent, inside its window, with its `propose` scope (the fold's grant rule). A revoked grant still counts
+   * here: the fold keeps a funded proposal its operator's however the revocation arrived, and the inbox folds the job.
+   */
+  proposedByAgents: SqlSchema.findAll({
+    Request: Schema.String,
+    Result: PartyRow,
+    execute: (pubkey) => sql`
+      SELECT r.id AS job, MAX(p.created_at) AS at
+      FROM (
+        SELECT p.content, p.created_at
+        FROM (
+          SELECT event_id, agent, scopes, not_before, expires_at FROM agent_grants WHERE operator = ${pubkey}
+          ORDER BY created_at DESC, event_id LIMIT ${keyJobLimits.grants}
+        ) AS g
+        JOIN event_tags AS t ON t.name = ${envelopeTag.grant} AND t.value = g.event_id
+        JOIN events AS p ON p.id = t.event_id
+        WHERE p.kind = ${sidequestKinds.proposal} AND p.pubkey = g.agent
+          AND p.created_at >= g.not_before AND p.created_at < g.expires_at
+          AND EXISTS (SELECT 1 FROM json_each(g.scopes) WHERE value = 'propose')
+        ORDER BY p.created_at DESC, p.id LIMIT ${keyJobLimits.proposals}
+      ) AS p
+      JOIN events AS r ON r.id = json_extract(p.content, '$.job') AND r.kind = ${sidequestKinds.request}
+      GROUP BY r.id ORDER BY at DESC, r.id LIMIT ${maxKeyJobs}`,
+  }),
 })
 
-/** The two lists as one, newest first, each job once (as its buyer, should a key have bid on its own request). */
+/**
+ * The lists as one, newest first, each job once: as its buyer, should a key have bid on its own request, else as its
+ * bidder at its newest proposal, the key's own or its agents'.
+ */
 const keyJobsOf = (
   requests: ReadonlyArray<typeof PartyRow.Type>,
   proposed: ReadonlyArray<typeof PartyRow.Type>,
 ): ReadonlyArray<KeyJob> => {
   const buyerOf = new Set(requests.map(({ job }) => job))
+  const bids = new Map<string, number>()
+  for (const { job, at } of proposed) if (!buyerOf.has(job)) bids.set(job, Math.max(at, bids.get(job) ?? at))
   return [
     ...requests.map(({ job, at }) => ({ job, at, role: 'buyer' as const })),
-    ...proposed.filter(({ job }) => !buyerOf.has(job)).map(({ job, at }) => ({ job, at, role: 'bidder' as const })),
+    ...[...bids].map(([job, at]) => ({ job, at, role: 'bidder' as const })),
   ]
     .toSorted((left, right) => right.at - left.at || left.job.localeCompare(right.job))
     .slice(0, maxKeyJobs)
@@ -192,7 +226,10 @@ export class Jobs extends Context.Service<
       { readonly items: ReadonlyArray<OpenJob>; readonly next: Cursor | null },
       BadCursor | Unavailable
     >
-    /** The jobs `pubkey` wrote a request or a proposal for, newest first, at most `maxKeyJobs`. */
+    /**
+     * The jobs `pubkey` wrote a request or a proposal for, or one of its agents proposed on under its grant, newest
+     * first, at most `maxKeyJobs`.
+     */
     readonly ofParty: (pubkey: string) => Effect.Effect<ReadonlyArray<KeyJob>, Unavailable>
   }
 >()('Sidequest/Index/Jobs') {
@@ -270,7 +307,8 @@ export class Jobs extends Context.Service<
       const ofParty = Effect.fn('Sidequest.Index.keyJobs')(function* (pubkey: string) {
         const requests = yield* stored(party.requests(pubkey))
         const proposed = yield* stored(party.proposed(pubkey))
-        return keyJobsOf(requests, proposed)
+        const byAgents = yield* stored(party.proposedByAgents(pubkey))
+        return keyJobsOf(requests, [...proposed, ...byAgents])
       })
 
       return Jobs.of({ job, open, ofParty })

@@ -162,8 +162,8 @@ export type PersonName = typeof PersonName.Type
 
 /**
  * A job a key is a party to, as a client's inbox finds it: the job (its request event's id), whether the key wrote the
- * request (`buyer`) or a proposal for it (`bidder`), and when it last did (the request's or its newest proposal's
- * `created_at`).
+ * request (`buyer`) or a proposal for it (`bidder`; its own, or its agent's under its grant), and when it last did (the
+ * request's or its newest proposal's `created_at`).
  */
 export const KeyJob = Schema.Struct({ job: Hex32, role: Schema.Literals(['buyer', 'bidder']), at: Schema.Int })
 export type KeyJob = typeof KeyJob.Type
