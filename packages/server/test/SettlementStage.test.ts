@@ -26,6 +26,12 @@ const fromShell = (env: Record<string, string>) =>
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv({ env })),
   )
 
+/** What the Worker sees of what a stage bound: secrets as text in its environment. */
+const workerSees = (bound: Readonly<Record<string, string | Redacted.Redacted>>) =>
+  Object.fromEntries(
+    Object.entries(bound).map(([name, value]) => [name, Redacted.isRedacted(value) ? Redacted.value(value) : value]),
+  )
+
 describe('settlement from the deploying shell', () => {
   it.effect('binds nothing when nothing is set, so settlement stays disabled', () =>
     Effect.gen(function* () {
@@ -42,13 +48,7 @@ describe('settlement from the deploying shell', () => {
       expect(Redacted.isRedacted(bound['SIDEQUEST_ARBITRATOR_KEY'])).toBe(true)
       expect(bound['SIDEQUEST_OPERATOR_ADDRESS']).toBe(complete.SIDEQUEST_OPERATOR_ADDRESS)
       expect(JSON.stringify(bound)).not.toContain('5a5a')
-      // The Worker sees secrets as text in its environment.
-      const worker = Object.fromEntries(
-        Object.entries(bound).map(([name, value]) => [
-          name,
-          Redacted.isRedacted(value) ? Redacted.value(value) : value,
-        ]),
-      )
+      const worker = workerSees(bound)
       const config = Option.getOrThrow(settlementConfigFrom(worker))
       expect(config.chain).toMatchObject({ chainId: 5042002, confirmations: 1, feeBps: 500 })
       expect(Redacted.value(config.relayerKey)).toBe(relayerKey)
@@ -104,12 +104,7 @@ describe('a stage on a mainnet', () => {
   it.effect('settles on Base mainnet with the phrase, on its USDC and its confirmations', () =>
     Effect.gen(function* () {
       const bound = yield* fromShell({ ...onBase, SIDEQUEST_ALLOW_MAINNET: phrase, SIDEQUEST_CONFIRMATIONS: '12' })
-      const worker = Object.fromEntries(
-        Object.entries(bound).map(([name, value]) => [
-          name,
-          Redacted.isRedacted(value) ? Redacted.value(value) : value,
-        ]),
-      )
+      const worker = workerSees(bound)
       const config = Option.getOrThrow(settlementConfigFrom(worker))
       expect(config.chain).toMatchObject({ chainId: 8453, confirmations: 12, tokenDomain: { name: 'USD Coin' } })
       expect(config.profile.mainnet).toBe(true)
