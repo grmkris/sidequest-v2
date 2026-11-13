@@ -10,13 +10,26 @@ import {
   signEvent,
   verifyEvent,
 } from '@sidequest/nostr'
-import { buildSidequestEvent, profileTemplate, walletLink, walletLinkTypedData } from '@sidequest/nostr/vocabulary'
-import { webCrypto } from '@sidequest/protocol'
+import {
+  type BuildOptions,
+  buildSidequestEvent,
+  jobAccept,
+  jobProposal,
+  jobRequest,
+  type KindSpec,
+  profileTemplate,
+  ServiceListing,
+  serviceListingTemplate,
+  statement,
+  walletLink,
+  walletLinkTypedData,
+} from '@sidequest/nostr/vocabulary'
+import { type NetworkRef, type Terms, termsDigest, webCrypto } from '@sidequest/protocol'
 import { Crypto, Effect, type Option, Schema } from 'effect'
 import type { KitSigner, Nip07Provider, SignerFailure } from './Signer.ts'
 
 // The Nostr code of the browser, loaded as one chunk the first time a signer is used (see `Signer.ts`): the two
-// signers, and the templates the identity page signs. It imports nothing of the website's own modules but types, so
+// signers, and the templates the pages sign. It imports nothing of the website's own modules but types, so
 // the bundler has nothing of the initial bundle to split out and share with it.
 
 /**
@@ -88,6 +101,62 @@ export const openLocalSigner = (ncryptsec: string, password: string) =>
 
 /** A kind-0 profile with the person's name. */
 export const profileOf = (name: string, createdAt: number): EventTemplate => profileTemplate(name, createdAt)
+
+/** The event template for `input` as content of the kind `spec` describes; none when the vocabulary refuses it. */
+const templateOf = <C>(
+  spec: KindSpec<C>,
+  input: unknown,
+  options: BuildOptions,
+): Effect.Effect<Option.Option<EventTemplate>> =>
+  Schema.decodeUnknownEffect(spec.content)(input).pipe(
+    Effect.flatMap((content) => buildSidequestEvent(spec, content, options)),
+    Effect.option,
+  )
+
+/** A buyer's request: what they need and until when it is open. Its event id becomes the job's id. */
+export const requestTemplate = (input: unknown, createdAt: number) => templateOf(jobRequest, input, { createdAt })
+
+/** A bidder's proposal for `job`: the terms, their digest (computed here, as an accept binds it), where to pay and
+ * until when it stands; `previous` names the proposal it revises. */
+export const proposalTemplate = (
+  input: {
+    readonly job: string
+    readonly buyer: string
+    readonly terms: Terms
+    readonly payTo: string
+    readonly validUntil: number
+    readonly previous?: string
+  },
+  createdAt: number,
+) =>
+  Effect.flatMap(termsDigest(input.terms), (digest) =>
+    templateOf(jobProposal, { ...input, termsDigest: digest }, { createdAt }),
+  )
+
+/** The buyer accepts one proposal on its network: a signal that binds nothing until the escrow is funded. */
+export const acceptTemplate = (
+  input: {
+    readonly job: string
+    readonly proposal: string
+    readonly termsDigest: string
+    readonly worker: string
+    readonly network: NetworkRef
+  },
+  createdAt: number,
+) => {
+  const { network, ...content } = input
+  return templateOf(jobAccept, content, { createdAt, network })
+}
+
+/** A statement on the record about a job: withdrawing a request or a proposal. */
+export const statementTemplate = (input: unknown, createdAt: number) => templateOf(statement, input, { createdAt })
+
+/** A seller's NIP-99 listing; publishing it again under the same slug replaces the earlier version. */
+export const listingTemplate = (input: unknown, createdAt: number): Effect.Effect<Option.Option<EventTemplate>> =>
+  Schema.decodeUnknownEffect(ServiceListing)(input).pipe(
+    Effect.map((listing) => serviceListingTemplate(listing, createdAt)),
+    Effect.option,
+  )
 
 /** The EIP-712 typed data a wallet signs to link `pubkey`, as `eth_signTypedData_v4` takes it. */
 export const walletLinkTypedDataJson = (pubkey: string, issuedAt: number, chainId: number): string =>

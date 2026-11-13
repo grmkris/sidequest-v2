@@ -1,8 +1,9 @@
-import { format } from '@sidequest/i18n'
 import { Array, Option } from 'effect'
 import { type Html, Submodel } from 'foldkit'
 import { textError } from '../Forms.ts'
 import type { Language } from '../Language.ts'
+import { refusalText } from '../Publishing.ts'
+import { safeReturn } from '../route.ts'
 import { styled } from '../Styled.ts'
 import { type PlainKey, say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
@@ -14,10 +15,10 @@ import {
   maximumName,
   Message,
   type Model,
+  offersProfile,
   PersonRead,
   type PersonSummary,
   type Publication,
-  PublishRefusal,
 } from './Identity.ts'
 import { setupProblemText, view as setupView } from './SignerSetupView.ts'
 
@@ -25,21 +26,6 @@ const publishedKeys: Readonly<Record<Publication, PlainKey>> = {
   profile: 'identity.published.profile',
   walletLink: 'identity.published.walletLink',
 }
-
-const refusalText = (language: Language, refusal: PublishRefusal): string =>
-  PublishRefusal.match(refusal, {
-    Invalid: ({ reason }) =>
-      say(
-        language,
-        reason === 'malformed' || reason === 'idMismatch' || reason === 'badSignature'
-          ? 'identity.refused.signature'
-          : 'identity.refused.content',
-      ),
-    KindNotIndexed: () => say(language, 'identity.refused.kind'),
-    TooLarge: () => say(language, 'identity.refused.tooLarge'),
-    RateLimited: ({ retryAfterSeconds }) =>
-      format(language, 'identity.refused.rateLimited', { seconds: retryAfterSeconds }),
-  })
 
 /** Where the person's last action stands. */
 const actionNotice = (h: Html.HtmlBuilder<Message>, language: Language, action: Action): Html.Html =>
@@ -56,6 +42,18 @@ const actionNotice = (h: Html.HtmlBuilder<Message>, language: Language, action: 
     Failed: ({ problem }) => Ui.problemNotice(h, language, problem),
   })
 
+/** Why there is no name to publish here: the key has a profile, or its profile is the extension's own. */
+const profileNote = (h: Html.HtmlBuilder<Message>, model: Model) => {
+  const language = model.language
+  if (PersonRead.guards.Read(model.person) && model.person.person.hasProfile) {
+    return h.p(styled(h, s.meta()), [say(language, 'identity.profile.known')])
+  }
+  return Option.exists(identityOf(model), (identity) => identity.signerKind === 'nip07') &&
+    (PersonRead.guards.Unknown(model.person) || PersonRead.guards.Read(model.person))
+    ? h.p(styled(h, s.meta()), [say(language, 'identity.profile.fromExtension')])
+    : h.empty
+}
+
 const profileSection = (h: Html.HtmlBuilder<Message>, model: Model) => {
   const language = model.language
   const publishing = Action.guards.Publishing(model.action) && model.action.publication === 'profile'
@@ -63,32 +61,48 @@ const profileSection = (h: Html.HtmlBuilder<Message>, model: Model) => {
     [h.AriaLabelledBy('identity-profile'), ...styled(h, s.panel())],
     [
       h.h2([h.Id('identity-profile')], [say(language, 'identity.profile.title')]),
-      h.form(
-        [h.OnSubmit(Message.SubmittedProfile()), h.Novalidate(true), ...styled(h, s.form())],
-        [
-          Ui.textField(h, {
-            id: 'identity-name',
-            label: say(language, 'identity.profile.name'),
-            hint: say(language, 'identity.profile.nameHint'),
-            value: model.name,
-            onInput: (value) => Message.UpdatedName({ value }),
-            autocomplete: 'nickname',
-            required: true,
-            error: Action.guards.NameInvalid(model.action)
-              ? textError(model.name, maximumName, language)
-              : Option.none(),
-          }),
-          h.div(styled(h, s.actions()), [
-            Ui.submit(h, {
-              label: say(language, publishing ? 'identity.publishing' : 'identity.profile.submit'),
-              busy: publishing,
-            }),
-          ]),
-        ],
-      ),
+      offersProfile(model) ? profileForm(h, model, publishing) : profileNote(h, model),
     ],
   )
 }
+
+const profileForm = (h: Html.HtmlBuilder<Message>, model: Model, publishing: boolean) => {
+  const language = model.language
+  return h.form(
+    [h.OnSubmit(Message.SubmittedProfile()), h.Novalidate(true), ...styled(h, s.form())],
+    [
+      Ui.textField(h, {
+        id: 'identity-name',
+        label: say(language, 'identity.profile.name'),
+        hint: say(language, 'identity.profile.nameHint'),
+        value: model.name,
+        onInput: (value) => Message.UpdatedName({ value }),
+        autocomplete: 'nickname',
+        required: true,
+        error: Action.guards.NameInvalid(model.action) ? textError(model.name, maximumName, language) : Option.none(),
+      }),
+      h.div(styled(h, s.actions()), [
+        Ui.submit(h, {
+          label: say(language, publishing ? 'identity.publishing' : 'identity.profile.submit'),
+          busy: publishing,
+        }),
+      ]),
+    ],
+  )
+}
+
+/** Back to the page that sent the person here, once they can act there. */
+const continueLink = (h: Html.HtmlBuilder<Message>, model: Model) =>
+  Option.match(model.maybeNext, {
+    onNone: () => h.empty,
+    onSome: (next) =>
+      Ui.notice(h, 'done', [
+        h.p([], [say(model.language, 'identity.ready')]),
+        h.div(styled(h, s.actions()), [
+          Ui.actionLink(h, { label: say(model.language, 'identity.continue'), href: safeReturn(Option.some(next)) }),
+        ]),
+      ]),
+  })
 
 const walletSection = (h: Html.HtmlBuilder<Message>, model: Model) => {
   const language = model.language
@@ -170,6 +184,7 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
     ...Option.match(identityOf(model), {
       onNone: () => [],
       onSome: () => [
+        continueLink(h, model),
         actionNotice(h, model.language, model.action),
         profileSection(h, model),
         walletSection(h, model),

@@ -1,40 +1,35 @@
 import { format } from '@sidequest/i18n'
-import { JobId, WorkRequest } from '@sidequest/protocol'
-import { Clock, Effect, Option, Schema } from 'effect'
+import { Text } from '@sidequest/protocol'
+import { Effect, Option, Schema } from 'effect'
 import { Command, type Html, Submodel, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { modifyFields } from 'foldkit/struct'
-import { SidequestClient } from '../Api.ts'
-import {
-  DayChoice,
-  dayChoiceOf,
-  dayChoices,
-  editedStatus,
-  FormStatus,
-  formProblem,
-  shown,
-  textError,
-} from '../Forms.ts'
-import { signedInOnly } from '../Gate.ts'
+import type { SidequestClient } from '../Api.ts'
+import { DayChoice, dayChoiceOf, dayChoices, editedStatus, FormStatus, shown, textError } from '../Forms.ts'
+import { signerOnly } from '../Gate.ts'
 import { Language } from '../Language.ts'
-import { Problem, problemOf } from '../Problem.ts'
-import { AppRoute } from '../route.ts'
-import type { Session } from '../Session.ts'
+import { Me } from '../Me.ts'
+import { PublishFailure, publishEvent, publishFailureNotice, publishFailureOf } from '../Publishing.ts'
+import { AppRoute, identityHref } from '../route.ts'
+import type { Signers } from '../Signer.ts'
 import { styled } from '../Styled.ts'
 import { say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
 
-// A buyer posts a work request: what they need, and how long it stays open for proposals.
+// A buyer posts a work request: a signed job-request event, whose id becomes the job's id and the job page's address.
+// Anyone with a Nostr signer may post one; a proposal for it, not the request, needs a linked wallet.
 
 // MODEL
 
 export const Model = Schema.Struct({
   language: Language,
+  me: Me,
   title: Schema.String,
   description: Schema.String,
   days: DayChoice,
   status: FormStatus,
+  maybeFailure: Schema.Option(PublishFailure),
 })
 export type Model = typeof Model.Type
 
@@ -45,54 +40,61 @@ export const Message = defineMessageUnion({
   UpdatedDescription: { value: Schema.String },
   SelectedDays: { value: Schema.String },
   SubmittedRequest: {},
-  SucceededPostRequest: { job: JobId },
-  FailedPostRequest: { problem: Problem },
+  SucceededPublishRequest: { job: Schema.String },
+  FailedPublishRequest: { failure: PublishFailure },
 })
 export type Message = typeof Message.Type
 
-export const OutMessage = defineMessageUnion({ Posted: { job: JobId } })
+export const OutMessage = defineMessageUnion({ Posted: { job: Schema.String }, SignerMissing: {} })
 export type OutMessage = typeof OutMessage.Type
 
 // COMMAND
 
 const day = 86_400
+const Title = Text(200)
+const Description = Text(5000)
 
-/** Posts the request, open from now for `days`: the clock is read when the request is sent. */
-export const PostRequest = Command.define('PostRequest', {
-  args: { title: WorkRequest.fields.title, description: WorkRequest.fields.description, days: DayChoice },
-  messages: [Message.SucceededPostRequest, Message.FailedPostRequest],
+/** Publishes the request, open from when it is signed for `days`. */
+export const PublishRequest = Command.define('PublishRequest', {
+  args: { title: Title, description: Description, days: DayChoice },
+  messages: [Message.SucceededPublishRequest, Message.FailedPublishRequest],
   execute: ({ title, description, days }) =>
-    Effect.gen(function* () {
-      const now = Math.floor((yield* Clock.currentTimeMillis) / 1000)
-      const api = yield* (yield* SidequestClient).api
-      const { id } = yield* api.jobs.post({ payload: { title, description, expiresAt: now + Number(days) * day } })
-      return Message.SucceededPostRequest({ job: id })
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedPostRequest({ problem: problemOf(error) })))),
+    publishEvent((kit, createdAt) =>
+      kit.requestTemplate({ title, description, expiresAt: createdAt + Number(days) * day }, createdAt),
+    ).pipe(
+      Effect.map((event) => Message.SucceededPublishRequest({ job: event.id })),
+      Effect.catch((error) => Effect.succeed(Message.FailedPublishRequest({ failure: publishFailureOf(error) }))),
+    ),
 })
 
 // INIT
 
-export const init = (language: Language): Model => ({
+export const init = (language: Language, me: Me): Model => ({
   language,
+  me,
   title: '',
   description: '',
   days: '7',
   status: FormStatus.Editing(),
+  maybeFailure: Option.none(),
 })
 
 // UPDATE
 
-type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, SidequestClient>
+type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Signers | SidequestClient>
 
 const submit = (model: Model): UpdateReturn => {
-  const title = Schema.decodeUnknownOption(WorkRequest.fields.title)(model.title.trim())
-  const description = Schema.decodeUnknownOption(WorkRequest.fields.description)(model.description.trim())
+  if (!Me.guards.Ready(model.me)) {
+    return { model, outMessage: OutMessage.SignerMissing() }
+  }
+  const title = Schema.decodeUnknownOption(Title)(model.title.trim())
+  const description = Schema.decodeUnknownOption(Description)(model.description.trim())
   if (Option.isNone(title) || Option.isNone(description)) {
     return { model: modifyFields(model, { status: () => FormStatus.Invalid() }) }
   }
   return {
-    model: modifyFields(model, { status: () => FormStatus.Submitting() }),
-    commands: [PostRequest({ title: title.value, description: description.value, days: model.days })],
+    model: modifyFields(model, { status: () => FormStatus.Submitting(), maybeFailure: () => Option.none() }),
+    commands: [PublishRequest({ title: title.value, description: description.value, days: model.days })],
   }
 }
 
@@ -108,12 +110,12 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         onSome: (days) => ({ model: modifyFields(model, { days: () => days, status: editedStatus }) }),
       }),
     SubmittedRequest: () => (FormStatus.guards.Submitting(model.status) ? { model } : submit(model)),
-    SucceededPostRequest: ({ job }) => ({
-      model: init(model.language),
+    SucceededPublishRequest: ({ job }) => ({
+      model: init(model.language, model.me),
       outMessage: OutMessage.Posted({ job }),
     }),
-    FailedPostRequest: ({ problem }) => ({
-      model: modifyFields(model, { status: () => FormStatus.Failed({ problem }) }),
+    FailedPublishRequest: ({ failure }) => ({
+      model: modifyFields(model, { status: () => FormStatus.Editing(), maybeFailure: () => Option.some(failure) }),
     }),
   })
 
@@ -153,7 +155,10 @@ const requestForm = (h: Html.HtmlBuilder<Message>, model: Model) => {
         })),
         onChange: (value) => Message.SelectedDays({ value }),
       }),
-      Ui.maybeProblem(h, language, formProblem(model.status)),
+      Option.match(model.maybeFailure, {
+        onNone: () => h.empty,
+        onSome: (failure) => publishFailureNotice(h, language, failure, identityHref(AppRoute.NewRequest())),
+      }),
       h.div(styled(h, s.actions()), [
         Ui.submit(h, {
           label: FormStatus.guards.Submitting(model.status)
@@ -166,11 +171,12 @@ const requestForm = (h: Html.HtmlBuilder<Message>, model: Model) => {
   )
 }
 
-export const view = Submodel.defineView<Model, Message, { readonly session: Session }>((model, { session }, h) =>
-  h.div(styled(h, s.page()), [
-    Ui.pageHead(h, say(model.language, 'request.title'), [say(model.language, 'request.lede')]),
-    signedInOnly(h, { language: model.language, session, route: AppRoute.NewRequest() }, () =>
+export const view = Submodel.defineView<Model, Message>((model, h) => {
+  const { language, me } = model
+  return h.div(styled(h, s.page()), [
+    Ui.pageHead(h, say(language, 'request.title'), [say(language, 'request.lede')]),
+    signerOnly(h, { language, me, route: AppRoute.NewRequest() }, () =>
       h.section(styled(h, s.panel()), [requestForm(h, model)]),
     ),
-  ]),
-)
+  ])
+})

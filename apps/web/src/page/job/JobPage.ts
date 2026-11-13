@@ -1,299 +1,456 @@
 import { format } from '@sidequest/i18n'
-import type {
-  AccountId,
-  BidderJobView,
-  BuyerJobView,
-  JobStage,
-  PublicJobView,
-  Review as ReviewRecord,
-  WorkerFee,
-  WorkRequest,
-} from '@sidequest/protocol'
-import { Array, Option } from 'effect'
+import type { AcceptView, ChainEnding, FundingView, JobView, ProposalView, Stage, StatementView } from '@sidequest/fold'
+import { Array, Option, Predicate } from 'effect'
 import { AsyncData, type Html, Submodel } from 'foldkit'
 import { formatAmount } from '../../Amount.ts'
+import { signerOnly } from '../../Gate.ts'
 import type { Language } from '../../Language.ts'
 import { nameOf } from '../../Names.ts'
-import { AppRoute, signInHref } from '../../route.ts'
-import { Session } from '../../Session.ts'
+import { publishFailureNotice } from '../../Publishing.ts'
+import { AppRoute, identityHref } from '../../route.ts'
 import { styled } from '../../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
-import { byAudience, Decision, Message, type Model } from './Job.ts'
+import { type Act, Action, isBuyer, isMine, Message, type Model, negotiable, payToOf, standing } from './Job.ts'
 import * as js from './Job.styles.ts'
 import * as Propose from './Propose.ts'
-import { agreementView, bidderProposals, buyerProposals, type Reader, reviewsView } from './ProposalsView.ts'
-import * as Review from './Review.ts'
-import * as RoomView from './RoomView.ts'
-import * as SettlementView from './SettlementView.ts'
+import { termsView } from './TermsView.ts'
 
-type ViewInputs = { readonly session: Session; readonly me: Option.Option<AccountId>; readonly timeZone: string }
+// The job as its signed events and the chain's facts fold it: the request, every proposal with its labels, the
+// accepts and statements, and the escrow's progress. Who looks decides what they may do: the buyer accepts or closes,
+// a bidder proposes, revises or withdraws. Accepting is a signal: the copy never says a deal binds before funding.
 
-const stageKeys: Readonly<Record<JobStage, PlainKey>> = {
-  Unposted: 'job.state.unposted',
-  Open: 'job.state.open',
-  Awarded: 'job.state.awarded',
-  Funded: 'job.state.funded',
-  Delivered: 'job.state.delivered',
-  Disputed: 'job.state.disputed',
-  Settled: 'job.state.settled',
-  Cancelled: 'job.state.cancelled',
-  Expired: 'job.state.expired',
+type ViewInputs = { readonly timeZone: string }
+
+type Reader = { readonly model: Model; readonly view: JobView; readonly language: Language; readonly timeZone: string }
+
+const stageKeys: Readonly<Record<Stage, PlainKey>> = {
+  open: 'job.stage.open',
+  proposed: 'job.stage.proposed',
+  accepted: 'job.stage.accepted',
+  closed: 'job.stage.closed',
+  funded: 'job.stage.funded',
+  delivered: 'job.stage.delivered',
+  rejected: 'job.stage.rejected',
+  released: 'job.stage.released',
+  ruled: 'job.stage.ruled',
+  refunded: 'job.stage.refunded',
+  reclaimed: 'job.stage.reclaimed',
 }
 
-const stageChip = (h: Html.HtmlBuilder<Message>, language: Language, stage: JobStage) =>
+const stageChip = (h: Html.HtmlBuilder<Message>, language: Language, stage: Stage) =>
   Ui.chip(
     h,
     say(language, stageKeys[stage]),
-    stage === 'Settled' || stage === 'Funded' ? 'done' : stage === 'Disputed' ? 'danger' : 'neutral',
+    stage === 'released' || stage === 'funded' ? 'done' : stage === 'rejected' ? 'danger' : 'neutral',
   )
 
-const requestPanel = (h: Html.HtmlBuilder<Message>, reader: Reader, request: WorkRequest, stage: JobStage) => {
-  const language = reader.language
-  return h.section(
+const jobRoute = (model: Model) => AppRoute.Job({ job: model.job })
+
+const requestPanel = (h: Html.HtmlBuilder<Message>, { model, view, language, timeZone }: Reader) =>
+  h.section(
     [h.AriaLabel(say(language, 'job.request')), ...styled(h, s.panel())],
     [
-      h.p(styled(h, js.description()), [request.description]),
+      h.p(styled(h, js.description()), [view.request.content.description]),
       Ui.facts(h, [
-        Ui.fact(h, say(language, 'job.stage'), stageChip(h, language, stage)),
-        Ui.fact(h, say(language, 'job.openUntil'), formatInstant(request.expiresAt, language, reader.timeZone)),
-        Ui.fact(h, say(language, 'job.buyer'), nameOf(reader.names, request.buyer, language)),
+        Ui.fact(h, say(language, 'job.stageLabel'), stageChip(h, language, view.stage)),
+        Ui.fact(
+          h,
+          say(language, 'job.openUntil'),
+          view.request.expired
+            ? h.span(
+                [],
+                [
+                  formatInstant(view.request.content.expiresAt, language, timeZone),
+                  ' ',
+                  Ui.chip(h, say(language, 'job.expired')),
+                ],
+              )
+            : formatInstant(view.request.content.expiresAt, language, timeZone),
+        ),
+        Ui.fact(h, say(language, 'job.buyer'), h.span([h.Title(view.buyer)], [nameOf(model.names, view.buyer)])),
       ]),
+      view.request.closedByBuyer ? Ui.notice(h, 'neutral', [h.p([], [say(language, 'job.closedNote')])]) : h.empty,
+    ],
+  )
+
+const publishedKeys: Readonly<Record<Act, PlainKey>> = {
+  proposal: 'job.published.proposal',
+  accept: 'job.published.accept',
+  withdraw: 'job.published.withdraw',
+  close: 'job.published.close',
+}
+
+const actionNotice = (h: Html.HtmlBuilder<Message>, model: Model, language: Language) =>
+  Action.match(model.action, {
+    Idle: () => h.empty,
+    ConfirmingAccept: () => h.empty,
+    ConfirmingClose: () => h.empty,
+    Publishing: () => Ui.waiting(h, say(language, 'job.publishing')),
+    Published: ({ act }) => Ui.notice(h, 'done', [h.p([], [say(language, publishedKeys[act])])]),
+    Failed: ({ failure }) => publishFailureNotice(h, language, failure, identityHref(jobRoute(model))),
+  })
+
+/** The fold's labels of a proposal, in the order they are shown. */
+type ProposalLabel = 'superseded' | 'withdrawn' | 'expired' | 'accepted' | 'funded' | 'otherBuyer'
+
+const labelKeys: ReadonlyArray<readonly [ProposalLabel, PlainKey]> = [
+  ['superseded', 'job.label.superseded'],
+  ['withdrawn', 'job.label.withdrawn'],
+  ['expired', 'job.label.expired'],
+  ['accepted', 'job.label.accepted'],
+  ['funded', 'job.label.funded'],
+  ['otherBuyer', 'job.label.otherBuyer'],
+]
+
+const proposalLabels = (h: Html.HtmlBuilder<Message>, language: Language, proposal: ProposalView) =>
+  h.ul(
+    [h.AriaLabel(say(language, 'job.labels')), ...styled(h, js.labels())],
+    Array.map(
+      Array.filter(labelKeys, ([field]) => proposal[field]),
+      ([field, key]) =>
+        h.keyed('li')(
+          field,
+          [],
+          [Ui.chip(h, say(language, key), field === 'accepted' || field === 'funded' ? 'done' : 'neutral')],
+        ),
+    ),
+  )
+
+const confirmAccept = (h: Html.HtmlBuilder<Message>, { model, language, timeZone }: Reader, proposal: ProposalView) =>
+  h.div(
+    [h.Role('group'), h.AriaLabel(say(language, 'job.confirmAcceptLabel')), ...styled(h, js.slip())],
+    [
+      h.p(
+        [],
+        [
+          format(language, 'job.confirmAccept', {
+            bidder: nameOf(model.names, proposal.author),
+            amount: formatAmount(proposal.content.terms.amount, proposal.content.terms.asset, language),
+            deadline: formatInstant(proposal.content.terms.deliveryDeadline, language, timeZone),
+          }),
+        ],
+      ),
+      h.div(styled(h, s.actions()), [
+        Ui.button(h, { label: say(language, 'job.accept'), onClick: Message.ClickedConfirmAccept(), kind: 'primary' }),
+        Ui.button(h, { label: say(language, 'common.cancel'), onClick: Message.ClickedKeep() }),
+      ]),
+    ],
+  )
+
+const proposalActions = (h: Html.HtmlBuilder<Message>, reader: Reader, proposal: ProposalView) => {
+  const { model, view, language } = reader
+  if (!negotiable(view) || !standing(proposal)) {
+    return h.empty
+  }
+  const busy = Action.guards.Publishing(model.action)
+  if (isBuyer(model, view)) {
+    if (Action.guards.ConfirmingAccept(model.action) && model.action.proposal === proposal.id) {
+      return confirmAccept(h, reader, proposal)
+    }
+    return proposal.accepted
+      ? h.empty
+      : h.div(styled(h, s.actions()), [
+          Ui.button(h, {
+            label: say(language, 'job.accept'),
+            onClick: Message.ClickedAccept({ proposal: proposal.id }),
+            kind: 'primary',
+            busy,
+          }),
+        ])
+  }
+  return isMine(model, proposal.author)
+    ? h.div(styled(h, s.actions()), [
+        Ui.button(h, { label: say(language, 'job.revise'), onClick: Message.ClickedRevise({ proposal: proposal.id }) }),
+        Ui.button(h, {
+          label: say(language, 'job.withdraw'),
+          onClick: Message.ClickedWithdraw({ proposal: proposal.id }),
+          kind: 'destructive',
+          busy,
+        }),
+      ])
+    : h.empty
+}
+
+const proposalCard = (h: Html.HtmlBuilder<Message>, reader: Reader, proposal: ProposalView) => {
+  const { model, language, timeZone } = reader
+  return h.keyed('article')(proposal.id, styled(h, s.panel()), [
+    h.header(styled(h, s.sectionHead()), [
+      h.h3([], [format(language, 'job.fromBidder', { bidder: nameOf(model.names, proposal.author) })]),
+      proposalLabels(h, language, proposal),
+    ]),
+    h.h4(styled(h, js.versionTitle()), [proposal.content.terms.title]),
+    termsView(h, language, timeZone, proposal.content.terms),
+    h.p(styled(h, s.meta()), [
+      format(language, 'job.validUntil', { date: formatInstant(proposal.content.validUntil, language, timeZone) }),
+    ]),
+    h.p(styled(h, s.meta()), [say(language, 'job.payTo'), ' ', Ui.dataText(h, proposal.content.payTo)]),
+    h.p(styled(h, s.meta()), [say(language, 'job.digest'), ' ', Ui.dataText(h, proposal.content.termsDigest)]),
+    proposalActions(h, reader, proposal),
+  ])
+}
+
+const proposalsSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
+  const language = reader.language
+  return h.section(
+    [h.AriaLabelledBy('job-proposals'), ...styled(h, s.section())],
+    [
+      h.h2([h.Id('job-proposals')], [say(language, 'job.proposals')]),
+      Array.match(reader.view.proposals, {
+        onEmpty: () => h.p(styled(h, s.meta()), [say(language, 'job.noProposals')]),
+        onNonEmpty: (proposals) =>
+          h.div(
+            styled(h, s.section()),
+            Array.map(Array.reverse(proposals), (proposal) => proposalCard(h, reader, proposal)),
+          ),
+      }),
     ],
   )
 }
 
-const proposeSection = (h: Html.HtmlBuilder<Message>, model: Model, session: Session) =>
-  Option.match(model.maybePropose, {
-    onNone: () => h.empty,
-    onSome: (propose) =>
-      h.section(
-        [h.AriaLabelledBy('job-propose'), ...styled(h, s.panel())],
+/** Where a bidder makes a proposal: with a signer and a linked wallet, the form; otherwise what they need first. */
+const proposeSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
+  const { model, view, language } = reader
+  if (!negotiable(view) || view.request.closedByBuyer || isBuyer(model, view)) {
+    return h.empty
+  }
+  const route = jobRoute(model)
+  return h.section(
+    [h.AriaLabelledBy('job-propose'), ...styled(h, s.panel())],
+    [
+      h.h2(
+        [h.Id('job-propose')],
         [
-          h.h2(
-            [h.Id('job-propose')],
-            [
-              Option.isSome(propose.maybePrevious)
-                ? say(model.language, 'job.revise')
-                : say(model.language, 'job.propose'),
-            ],
+          say(
+            language,
+            Option.exists(model.maybePropose, (propose) => Option.isSome(propose.maybePrevious))
+              ? 'job.reviseTitle'
+              : 'job.propose',
           ),
-          Session.guards.SignedIn(session)
-            ? h.submodel({
-                slotId: 'propose',
-                model: propose,
-                view: Propose.view,
-                toParentMessage: (message) => Message.GotProposeMessage({ message }),
-              })
+        ],
+      ),
+      signerOnly(h, { language, me: model.me, route }, () =>
+        Option.match(payToOf(model), {
+          onNone: () =>
+            Ui.notice(h, 'neutral', [
+              h.p([], [say(language, 'job.needsWallet')]),
+              h.p([], [h.a([h.Href(identityHref(route))], [say(language, 'job.linkWallet')])]),
+            ]),
+          onSome: (payTo) =>
+            Option.match(model.maybePropose, {
+              onNone: () =>
+                h.div(styled(h, s.actions()), [
+                  Ui.button(h, {
+                    label: say(language, 'job.propose'),
+                    onClick: Message.ClickedPropose(),
+                    kind: 'primary',
+                  }),
+                ]),
+              onSome: (propose) =>
+                h.div(styled(h, s.section()), [
+                  h.p(styled(h, s.meta()), [say(language, 'job.paidTo'), ' ', Ui.dataText(h, payTo)]),
+                  h.submodel({
+                    slotId: 'propose',
+                    model: propose,
+                    view: Propose.view,
+                    toParentMessage: (message) => Message.GotProposeMessage({ message }),
+                  }),
+                  h.div(styled(h, s.actions()), [
+                    Ui.button(h, { label: say(language, 'common.cancel'), onClick: Message.ClickedCancelPropose() }),
+                  ]),
+                ]),
+            }),
+        }),
+      ),
+    ],
+  )
+}
+
+const acceptRow = (h: Html.HtmlBuilder<Message>, { model, language, timeZone }: Reader, accept: AcceptView) =>
+  h.keyed('li')(accept.id, styled(h, s.row()), [
+    h.p(
+      [],
+      [
+        format(language, 'job.acceptedBy', {
+          author: nameOf(model.names, accept.author),
+          worker: nameOf(model.names, accept.worker),
+          date: formatInstant(accept.createdAt, language, timeZone),
+        }),
+      ],
+    ),
+    h.div(styled(h, js.labels()), [
+      accept.fromBuyer ? h.empty : Ui.chip(h, say(language, 'job.acceptLabel.notBuyer'), 'danger'),
+      accept.matchesProposal ? h.empty : Ui.chip(h, say(language, 'job.acceptLabel.noMatch'), 'danger'),
+      accept.conflicting ? Ui.chip(h, say(language, 'job.acceptLabel.conflicting')) : h.empty,
+    ]),
+  ])
+
+const statementKeys: Readonly<Record<StatementView['content']['type'], PlainKey>> = {
+  withdraw_request: 'job.statement.withdrawRequest',
+  withdraw_proposal: 'job.statement.withdrawProposal',
+  rejection_reason: 'job.statement.rejectionReason',
+}
+
+const statementRow = (h: Html.HtmlBuilder<Message>, { model, language }: Reader, statement: StatementView) =>
+  h.keyed('li')(statement.id, styled(h, s.row()), [
+    h.p(styled(h, s.rowTitle()), [
+      format(language, 'job.statementBy', { author: nameOf(model.names, statement.author) }),
+      ' ',
+      Ui.chip(h, say(language, statementKeys[statement.content.type])),
+      statement.effective ? h.empty : Ui.chip(h, say(language, 'job.statement.notEffective'), 'danger'),
+    ]),
+    h.p(styled(h, js.description()), [statement.content.text]),
+  ])
+
+/** The accepts and the statements: what was said about the job, on the record. */
+const recordSection = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
+  Array.isReadonlyArrayEmpty(reader.view.accepts) && Array.isReadonlyArrayEmpty(reader.view.statements)
+    ? h.empty
+    : h.section(
+        [h.AriaLabelledBy('job-record'), ...styled(h, s.section())],
+        [
+          h.h2([h.Id('job-record')], [say(reader.language, 'job.record')]),
+          h.p(styled(h, s.meta()), [say(reader.language, 'job.recordNote')]),
+          h.ul(styled(h, s.rows()), [
+            ...Array.map(reader.view.accepts, (accept) => acceptRow(h, reader, accept)),
+            ...Array.map(reader.view.statements, (statement) => statementRow(h, reader, statement)),
+          ]),
+        ],
+      )
+
+const fundingFacts = (h: Html.HtmlBuilder<Message>, { language, timeZone }: Reader, funding: FundingView) =>
+  Ui.facts(h, [
+    Ui.fact(h, say(language, 'job.chain.amount'), formatAmount(funding.fact.amount, funding.fact.asset, language)),
+    Ui.fact(h, say(language, 'job.chain.deadline'), formatInstant(funding.fact.deliveryDeadline, language, timeZone)),
+    Ui.fact(
+      h,
+      say(language, 'job.chain.terms'),
+      say(
+        language,
+        funding.terms === 'unknown'
+          ? 'job.chain.termsUnknown'
+          : funding.termsMatchChain
+            ? 'job.chain.termsMatch'
+            : 'job.chain.termsDiffer',
+      ),
+    ),
+    Ui.fact(h, say(language, 'job.chain.payment'), Ui.dataText(h, funding.fact.paymentHash)),
+  ])
+
+const endingText = (language: Language, asset: FundingView['fact']['asset'], ending: ChainEnding): string =>
+  Predicate.isTagged(ending, 'Settled')
+    ? format(language, 'job.chain.settled', {
+        captured: formatAmount(ending.capturedAmount, asset, language),
+        refunded: formatAmount(ending.refundedAmount, asset, language),
+      })
+    : format(language, 'job.chain.reclaimed', { amount: formatAmount(ending.amount, asset, language) })
+
+/** What the chain recorded of the escrow, read-only. */
+const chainSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
+  const { view, language, timeZone } = reader
+  return Option.match(Option.fromNullishOr(view.funding), {
+    onNone: () => h.empty,
+    onSome: (funding) =>
+      h.section(
+        [h.AriaLabelledBy('job-chain'), ...styled(h, s.panel())],
+        [
+          h.h2([h.Id('job-chain')], [say(language, 'job.chain.title')]),
+          fundingFacts(h, reader, funding),
+          view.delivery === null
+            ? h.empty
             : h.p(
                 [],
                 [
-                  h.a(
-                    [h.Href(signInHref(AppRoute.Job({ job: model.job })))],
-                    [say(model.language, 'job.signInToPropose')],
-                  ),
+                  format(language, 'job.chain.delivered', {
+                    date: formatInstant(view.delivery.deliveredAt, language, timeZone),
+                    until: formatInstant(view.delivery.reviewEndsAt, language, timeZone),
+                  }),
                 ],
               ),
+          view.rejection === null
+            ? h.empty
+            : h.p(
+                [],
+                [
+                  format(language, 'job.chain.rejected', {
+                    date: formatInstant(view.rejection.rejectedAt, language, timeZone),
+                    until: formatInstant(view.rejection.arbitrationEndsAt, language, timeZone),
+                  }),
+                ],
+              ),
+          view.ending === null ? h.empty : h.p([], [endingText(language, funding.fact.asset, view.ending)]),
         ],
       ),
   })
-
-const settlementSection = (h: Html.HtmlBuilder<Message>, model: Model, timeZone: string) =>
-  Option.match(model.maybeSettlement, {
-    onNone: () => h.empty,
-    onSome: (settlement) =>
-      h.submodel({
-        slotId: 'settlement',
-        model: settlement,
-        view: SettlementView.view,
-        viewInputs: { timeZone },
-        toParentMessage: (message) => Message.GotSettlementMessage({ message }),
-      }),
-  })
-
-const reviewSection = (h: Html.HtmlBuilder<Message>, model: Model, show: boolean) =>
-  show
-    ? h.submodel({
-        slotId: 'review',
-        model: model.review,
-        view: Review.view,
-        toParentMessage: (message) => Message.GotReviewMessage({ message }),
-      })
-    : h.empty
-
-const decisionProblem = (h: Html.HtmlBuilder<Message>, model: Model) =>
-  Decision.guards.Failed(model.decision) ? Ui.problemNotice(h, model.language, model.decision.problem) : h.empty
-
-const cancelControls = (h: Html.HtmlBuilder<Message>, model: Model) =>
-  Decision.match(model.decision, {
-    ConfirmingCancel: () =>
-      Ui.notice(h, 'neutral', [
-        h.p([], [say(model.language, 'job.cancelConfirm')]),
-        h.div(styled(h, s.actions()), [
-          Ui.button(h, {
-            label: say(model.language, 'job.cancel'),
-            onClick: Message.ClickedConfirmCancel(),
-            kind: 'destructive',
-          }),
-          Ui.button(h, { label: say(model.language, 'job.keep'), onClick: Message.ClickedKeep() }),
-        ]),
-      ]),
-    Cancelling: () =>
-      Ui.button(h, { label: say(model.language, 'job.cancelling'), onClick: Message.ClickedKeep(), busy: true }),
-    Idle: () =>
-      Ui.button(h, {
-        label: say(model.language, 'job.cancel'),
-        onClick: Message.ClickedCancelRequest(),
-        kind: 'destructive',
-      }),
-    ConfirmingAccept: () => h.empty,
-    Accepting: () => h.empty,
-    RequestingChange: () => h.empty,
-    Failed: () => h.empty,
-  })
-
-const reviewedBy = (reviews: ReadonlyArray<ReviewRecord>, account: Option.Option<AccountId>) =>
-  Array.some(reviews, (review) => Option.contains(account, review.author))
-
-const buyerView = (
-  h: Html.HtmlBuilder<Message>,
-  model: Model,
-  reader: Reader,
-  buyer: BuyerJobView,
-  me: Option.Option<AccountId>,
-) => [
-  ...(buyer.request === null ? [] : [requestPanel(h, reader, buyer.request, buyer.state)]),
-  buyer.agreement === null
-    ? buyerProposals(h, reader, buyer, model.decision)
-    : agreementView(h, reader, buyer.agreement),
-  decisionProblem(h, model),
-  settlementSection(h, model, reader.timeZone),
-  reviewSection(h, model, buyer.state === 'Settled' && !reviewedBy(buyer.reviews, me)),
-  reviewsView(h, reader, buyer.reviews),
-  buyer.state === 'Open' ? h.div(styled(h, s.actions()), [cancelControls(h, model)]) : h.empty,
-]
-
-const percentOf = (bps: number): string => `${bps / 100}%`
-
-/** What the escrow keeps from the worker's pay, and what reaches them, on the version they won. */
-const feeNotice = (h: Html.HtmlBuilder<Message>, language: Language, bidder: BidderJobView, fee: WorkerFee) =>
-  Option.match(Array.last(bidder.proposals), {
-    onNone: () => h.empty,
-    onSome: ({ terms }) =>
-      Ui.notice(h, 'neutral', [
-        h.p(
-          [],
-          [
-            format(language, 'job.fee', {
-              percent: percentOf(fee.bps),
-              amount: formatAmount(terms.amount, terms.asset, language),
-              fee: formatAmount(fee.amount, terms.asset, language),
-              worker: formatAmount((BigInt(terms.amount) - BigInt(fee.amount)).toString(), terms.asset, language),
-            }),
-          ],
-        ),
-      ]),
-  })
-
-/** For the worker of a settled job: whether the buyer reviewed them, and whether they reviewed the buyer. */
-const reviewState = (h: Html.HtmlBuilder<Message>, language: Language, bidder: BidderJobView) =>
-  h.ul(styled(h, s.rows()), [
-    h.li(styled(h, s.row()), [
-      say(
-        language,
-        reviewedBy(bidder.reviews, Option.fromNullishOr(bidder.request?.buyer))
-          ? 'job.buyerReviewed'
-          : 'job.buyerNotReviewed',
-      ),
-    ]),
-    reviewedBy(bidder.reviews, Option.fromNullishOr(bidder.bidder))
-      ? h.li(styled(h, s.row()), [say(language, 'job.youReviewed')])
-      : h.empty,
-  ])
-
-const bidderView = (
-  h: Html.HtmlBuilder<Message>,
-  model: Model,
-  reader: Reader,
-  bidder: BidderJobView,
-  session: Session,
-) => {
-  const worker = bidder.outcome === 'won'
-  const settled = worker && bidder.state === 'Settled'
-  return [
-    ...(bidder.request === null ? [] : [requestPanel(h, reader, bidder.request, bidder.state)]),
-    bidderProposals(h, reader, bidder),
-    worker && bidder.fee !== null ? feeNotice(h, reader.language, bidder, bidder.fee) : h.empty,
-    proposeSection(h, model, session),
-    settlementSection(h, model, reader.timeZone),
-    settled ? reviewState(h, reader.language, bidder) : h.empty,
-    reviewSection(h, model, settled && !reviewedBy(bidder.reviews, Option.fromNullishOr(bidder.bidder))),
-    reviewsView(h, reader, bidder.reviews),
-  ]
 }
 
-const publicView = (
-  h: Html.HtmlBuilder<Message>,
-  model: Model,
-  reader: Reader,
-  anyone: PublicJobView,
-  session: Session,
-) => [
-  ...(anyone.request === null ? [] : [requestPanel(h, reader, anyone.request, anyone.state)]),
-  proposeSection(h, model, session),
-]
+/** Where phase 1 had money buttons: for the job's parties, a plain note that they arrive in the next release. */
+const moneyNote = (h: Html.HtmlBuilder<Message>, { model, view, language }: Reader) => {
+  const party =
+    isBuyer(model, view) || Option.exists(Option.fromNullishOr(view.worker), (worker) => isMine(model, worker))
+  const accepted = Array.some(view.proposals, (proposal) => proposal.accepted && isMine(model, proposal.author))
+  return (party || accepted) && view.stage !== 'open' && view.stage !== 'proposed' && view.stage !== 'closed'
+    ? Ui.notice(h, 'neutral', [h.p([], [say(language, 'job.moneyNext')])])
+    : h.empty
+}
 
-const titleOf = (model: Model): string =>
-  Option.match(AsyncData.getData(model.view), {
-    onNone: () => say(model.language, 'job.loading'),
-    onSome: (view) =>
-      byAudience(view, {
-        buyer: (buyer) => buyer.request?.title ?? say(model.language, 'job.untitled'),
-        bidder: (bidder) =>
-          bidder.request?.title ??
-          Option.match(Array.last(bidder.proposals), {
-            onNone: () => say(model.language, 'job.untitled'),
-            onSome: (proposal) => format(model.language, 'job.bidderTitle', { title: proposal.terms.title }),
+const closeControls = (h: Html.HtmlBuilder<Message>, { model, view, language }: Reader) => {
+  if (!isBuyer(model, view) || !negotiable(view) || view.request.closedByBuyer) {
+    return h.empty
+  }
+  return Action.guards.ConfirmingClose(model.action)
+    ? Ui.notice(h, 'neutral', [
+        h.p([], [say(language, 'job.closeConfirm')]),
+        h.div(styled(h, s.actions()), [
+          Ui.button(h, {
+            label: say(language, 'job.close'),
+            onClick: Message.ClickedConfirmClose(),
+            kind: 'destructive',
           }),
-        public: (anyone) => anyone.request?.title ?? say(model.language, 'job.untitled'),
-      }),
-  })
+          Ui.button(h, { label: say(language, 'job.keep'), onClick: Message.ClickedKeep() }),
+        ]),
+      ])
+    : h.div(styled(h, s.actions()), [
+        Ui.button(h, {
+          label: say(language, 'job.close'),
+          onClick: Message.ClickedClose(),
+          kind: 'destructive',
+          busy: Action.guards.Publishing(model.action) && model.action.act === 'close',
+        }),
+      ])
+}
 
 /** The page's title, for the document. */
-export const documentTitle = titleOf
+export const documentTitle = (model: Model): string =>
+  Option.match(AsyncData.getData(model.view), {
+    onNone: () => say(model.language, 'job.loading'),
+    onSome: (view) => view.request.content.title,
+  })
 
-export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { session, me, timeZone }, h) => {
-  const reader: Reader = { language: model.language, timeZone, names: model.names }
-  return AsyncData.matchData(model.view, {
+export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { timeZone }, h) =>
+  AsyncData.matchData(model.view, {
     onEmpty: () => h.div(styled(h, s.page()), [Ui.pageHead(h, say(model.language, 'job.loading'))]),
     onFailure: (problem) =>
       h.div(styled(h, s.page()), [
         Ui.pageHead(h, say(model.language, 'job.unavailable')),
         Ui.problemNotice(h, model.language, problem),
       ]),
-    onData: (jobView) =>
-      h.div(styled(h, s.page()), [
-        Ui.pageHead(h, titleOf(model)),
-        h.div(styled(h, js.layout()), [
-          h.div(
-            styled(h, js.main()),
-            byAudience(jobView, {
-              buyer: (buyer) => buyerView(h, model, reader, buyer, me),
-              bidder: (bidder) => bidderView(h, model, reader, bidder, session),
-              public: (anyone) => publicView(h, model, reader, anyone, session),
-            }),
-          ),
-          h.div(styled(h, js.aside()), [
-            h.submodel({
-              slotId: 'room',
-              model: model.room,
-              view: RoomView.view,
-              viewInputs: { me, names: model.names },
-              toParentMessage: (message) => Message.GotRoomMessage({ message }),
-            }),
-          ]),
+    onData: (jobView) => {
+      const reader: Reader = { model, view: jobView, language: model.language, timeZone }
+      return h.div(styled(h, s.page()), [
+        Ui.pageHead(h, jobView.request.content.title),
+        h.div(styled(h, js.main()), [
+          requestPanel(h, reader),
+          actionNotice(h, model, model.language),
+          moneyNote(h, reader),
+          chainSection(h, reader),
+          proposalsSection(h, reader),
+          proposeSection(h, reader),
+          recordSection(h, reader),
+          closeControls(h, reader),
         ]),
-      ]),
-  })
-})
+      ])
+    },
+  }),
+)

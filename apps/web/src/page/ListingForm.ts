@@ -1,27 +1,39 @@
 import { format } from '@sidequest/i18n'
-import { type Listing, ListingDetails, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { type IndexListingDetail, PriceHint, Text, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Array, Option, Schema } from 'effect'
 import { type Html, Submodel, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { modifyFields } from 'foldkit/struct'
 import { editableUnits, formatUnits, parseUnits } from '../Amount.ts'
-import { editedStatus, FormStatus, formProblem, shown, textError } from '../Forms.ts'
+import { editedStatus, FormStatus, shown, textError } from '../Forms.ts'
 import { Language } from '../Language.ts'
-import type { Problem } from '../Problem.ts'
 import { styled } from '../Styled.ts'
 import { say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
 
-// The fields of a listing, shared by publishing a new one and editing your own: checked here, sent by the page.
+// The fields of a NIP-99 listing, shared by publishing a new one and publishing a new version of your own: checked
+// here, signed and sent by the page.
 
 // MODEL
+
+/** What a seller writes about a listing: everything but its slug, status and first publication, which the page keeps. The
+ * price is a hint; topics are lowercase, as `#t` filters match them. */
+export const ListingDraft = Schema.Struct({
+  title: Text(200),
+  summary: Text(500),
+  description: Text(5000),
+  topics: Schema.Array(Text(40).check(Schema.isLowercased())).check(Schema.isMaxLength(10), Schema.isUnique()),
+  price: Schema.optionalKey(PriceHint),
+})
+export type ListingDraft = typeof ListingDraft.Type
 
 export const Model = Schema.Struct({
   language: Language,
   title: Schema.String,
+  summary: Schema.String,
   description: Schema.String,
-  tags: Schema.String,
+  topics: Schema.String,
   price: Schema.String,
   status: FormStatus,
 })
@@ -31,15 +43,16 @@ export type Model = typeof Model.Type
 
 export const Message = defineMessageUnion({
   UpdatedTitle: { value: Schema.String },
+  UpdatedSummary: { value: Schema.String },
   UpdatedDescription: { value: Schema.String },
-  UpdatedTags: { value: Schema.String },
+  UpdatedTopics: { value: Schema.String },
   UpdatedPrice: { value: Schema.String },
   SubmittedListing: {},
 })
 export type Message = typeof Message.Type
 
-/** The fields passed their checks: the page sends them. */
-export const OutMessage = defineMessageUnion({ Submitted: { details: ListingDetails } })
+/** The fields passed their checks: the page signs and publishes them. */
+export const OutMessage = defineMessageUnion({ Submitted: { draft: ListingDraft } })
 export type OutMessage = typeof OutMessage.Type
 
 // INIT
@@ -47,45 +60,46 @@ export type OutMessage = typeof OutMessage.Type
 export const init = (language: Language): Model => ({
   language,
   title: '',
+  summary: '',
   description: '',
-  tags: '',
+  topics: '',
   price: '',
   status: FormStatus.Editing(),
 })
 
-/** The form filled in with a listing, to edit it. */
-export const fromListing = (language: Language, listing: Listing): Model => ({
+/** The form filled in with a listing, for its next version. */
+export const fromListing = (language: Language, listing: IndexListingDetail): Model => ({
   language,
   title: listing.title,
+  summary: listing.summary,
   description: listing.description,
-  tags: listing.tags.join(', '),
-  price: Option.match(Option.fromNullishOr(listing.priceHint), {
+  topics: listing.topics.join(', '),
+  price: Option.match(Option.fromNullishOr(listing.price), {
     onNone: () => '',
     onSome: (hint) => editableUnits(hint.amount, UsdcOnArcTestnet.decimals, language),
   }),
   status: FormStatus.Editing(),
 })
 
-/** The server refused what the page sent. */
-export const refused = (model: Model, problem: Problem): Model =>
-  modifyFields(model, { status: () => FormStatus.Failed({ problem }) })
+/** The page is done with the submission, published or not: the form can be sent again. */
+export const settled = (model: Model): Model => modifyFields(model, { status: () => FormStatus.Editing() })
 
 // CHECKS
 
-const tagsOf = (text: string): ReadonlyArray<string> =>
+const topicsOf = (text: string): ReadonlyArray<string> =>
   Array.dedupe(
     Array.filter(
-      Array.map(text.split(','), (tag) => tag.trim()),
-      (tag) => tag.length > 0,
+      Array.map(text.split(','), (topic) => topic.trim().toLowerCase()),
+      (topic) => topic.length > 0,
     ),
   )
 
-const tagsError = (text: string, language: Language): Option.Option<string> => {
-  const tags = tagsOf(text)
-  if (tags.length > 10) {
+const topicsError = (text: string, language: Language): Option.Option<string> => {
+  const topics = topicsOf(text)
+  if (topics.length > 10) {
     return Option.some(say(language, 'listingForm.tooManyTags'))
   }
-  return Array.some(tags, (tag) => tag.length > 40)
+  return Array.some(topics, (topic) => topic.length > 40)
     ? Option.some(format(language, 'listingForm.tagTooLong', { max: 40 }))
     : Option.none()
 }
@@ -109,13 +123,14 @@ const priceError = (model: Model): Option.Option<string> =>
       )
 
 /** The listing the fields describe, if every one of them passes. */
-const detailsOf = (model: Model): Option.Option<ListingDetails> =>
+const draftOf = (model: Model): Option.Option<ListingDraft> =>
   Option.flatMap(priceOf(model), (maybePrice) =>
-    Schema.decodeUnknownOption(ListingDetails)({
+    Schema.decodeUnknownOption(ListingDraft)({
       title: model.title.trim(),
+      summary: model.summary.trim(),
       description: model.description.trim(),
-      tags: tagsOf(model.tags),
-      ...Option.match(maybePrice, { onNone: () => ({}), onSome: (priceHint) => ({ priceHint }) }),
+      topics: topicsOf(model.topics),
+      ...Option.match(maybePrice, { onNone: () => ({}), onSome: (price) => ({ price }) }),
     }),
   )
 
@@ -126,20 +141,21 @@ type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     UpdatedTitle: ({ value }) => ({ model: modifyFields(model, { title: () => value, status: editedStatus }) }),
+    UpdatedSummary: ({ value }) => ({ model: modifyFields(model, { summary: () => value, status: editedStatus }) }),
     UpdatedDescription: ({ value }) => ({
       model: modifyFields(model, { description: () => value, status: editedStatus }),
     }),
-    UpdatedTags: ({ value }) => ({ model: modifyFields(model, { tags: () => value, status: editedStatus }) }),
+    UpdatedTopics: ({ value }) => ({ model: modifyFields(model, { topics: () => value, status: editedStatus }) }),
     UpdatedPrice: ({ value }) => ({ model: modifyFields(model, { price: () => value, status: editedStatus }) }),
     SubmittedListing: () => {
       if (FormStatus.guards.Submitting(model.status)) {
         return { model }
       }
-      return Option.match(detailsOf(model), {
+      return Option.match(draftOf(model), {
         onNone: () => ({ model: modifyFields(model, { status: () => FormStatus.Invalid() }) }),
-        onSome: (details) => ({
+        onSome: (draft) => ({
           model: modifyFields(model, { status: () => FormStatus.Submitting() }),
-          outMessage: OutMessage.Submitted({ details }),
+          outMessage: OutMessage.Submitted({ draft }),
         }),
       })
     },
@@ -161,6 +177,15 @@ const fields = (h: Html.HtmlBuilder<Message>, model: Model) => {
       error: shown(model.status, textError(model.title, 200, language)),
       required: true,
     }),
+    Ui.textField(h, {
+      id: 'listing-summary',
+      label: say(language, 'listingForm.summaryLabel'),
+      hint: say(language, 'listingForm.summaryHint'),
+      value: model.summary,
+      onInput: (value) => Message.UpdatedSummary({ value }),
+      error: shown(model.status, textError(model.summary, 500, language)),
+      required: true,
+    }),
     Ui.textArea(h, {
       id: 'listing-description',
       label: say(language, 'listingForm.descriptionLabel'),
@@ -173,9 +198,9 @@ const fields = (h: Html.HtmlBuilder<Message>, model: Model) => {
       id: 'listing-tags',
       label: say(language, 'listingForm.tagsLabel'),
       hint: say(language, 'listingForm.tagsHint'),
-      value: model.tags,
-      onInput: (value) => Message.UpdatedTags({ value }),
-      error: shown(model.status, tagsError(model.tags, language)),
+      value: model.topics,
+      onInput: (value) => Message.UpdatedTopics({ value }),
+      error: shown(model.status, topicsError(model.topics, language)),
     }),
     Ui.textField(h, {
       id: 'listing-price',
@@ -194,7 +219,6 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { su
     [h.OnSubmit(Message.SubmittedListing()), h.Novalidate(true), ...styled(h, s.form())],
     [
       ...fields(h, model),
-      Ui.maybeProblem(h, model.language, formProblem(model.status)),
       h.div(styled(h, s.actions()), [
         Ui.submit(h, {
           label: FormStatus.guards.Submitting(model.status) ? submittingLabel : submitLabel,

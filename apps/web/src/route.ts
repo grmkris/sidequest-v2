@@ -1,4 +1,4 @@
-import { ConnectRequestId, JobId, ListingId } from '@sidequest/protocol'
+import { ConnectRequestId, Hex32, IndexListingSlug } from '@sidequest/protocol'
 import { Option, pipe, Schema } from 'effect'
 import { Route } from 'foldkit'
 import { defineRouteUnion, literal, schemaSegment, slash } from 'foldkit/route'
@@ -8,14 +8,14 @@ export const AppRoute = defineRouteUnion({
   Home: { q: Schema.Option(Schema.String) },
   SignIn: { next: Schema.Option(Schema.String) },
   NewListing: {},
-  Listing: { listing: ListingId },
+  Listing: { pubkey: Hex32, slug: IndexListingSlug },
   NewRequest: {},
-  Job: { job: JobId },
+  Job: { job: Hex32 },
   Inbox: {},
   Agents: {},
   Connect: { request: ConnectRequestId },
   Connections: {},
-  Identity: {},
+  Identity: { next: Schema.Option(Schema.String) },
   NotFound: { path: Schema.String },
 })
 export type AppRoute = typeof AppRoute.Type
@@ -31,14 +31,16 @@ const signInRouter = pipe(
   Route.mapTo(AppRoute.SignIn),
 )
 export const newListingRouter = pipe(literal('listings'), slash(literal('new')), Route.mapTo(AppRoute.NewListing))
+/** A seller's listing, by their key and the listing's slug: the same page for every version they publish. */
 export const listingRouter = pipe(
   literal('listings'),
-  slash(schemaSegment('listing', ListingId)),
+  slash(schemaSegment('pubkey', Hex32)),
+  slash(schemaSegment('slug', IndexListingSlug)),
   Route.mapTo(AppRoute.Listing),
 )
 export const newRequestRouter = pipe(literal('requests'), slash(literal('new')), Route.mapTo(AppRoute.NewRequest))
-/** The job page. MCP tools link here (`/jobs/<jobId>`), so the path is part of the contract with agents. */
-export const jobRouter = pipe(literal('jobs'), slash(schemaSegment('job', JobId)), Route.mapTo(AppRoute.Job))
+/** The job page, at its request event's id, which is the job's id (ADR-0003, decision 3). */
+export const jobRouter = pipe(literal('jobs'), slash(schemaSegment('job', Hex32)), Route.mapTo(AppRoute.Job))
 export const inboxRouter = pipe(literal('inbox'), Route.mapTo(AppRoute.Inbox))
 export const agentsRouter = pipe(literal('agents'), Route.mapTo(AppRoute.Agents))
 /** The apps a person connected to their agents over OAuth. */
@@ -54,8 +56,12 @@ export const connectRouter = pipe(
   Route.mapTo(AppRoute.Connect),
 )
 
-/** The person's Nostr identity: their signer, their profile and their wallet's link. */
-export const identityRouter = pipe(literal('identity'), Route.mapTo(AppRoute.Identity))
+/** The person's Nostr identity: their signer, their profile and their wallet's link; `next` is where they came from. */
+export const identityRouter = pipe(
+  literal('identity'),
+  Route.query(Schema.Struct({ next: Schema.OptionFromOptional(Schema.String) })),
+  Route.mapTo(AppRoute.Identity),
+)
 
 const routeParser = Route.oneOf(
   newListingRouter,
@@ -79,21 +85,24 @@ const pathOf = (route: AppRoute): string =>
     Home: (home) => homeRouter(home),
     SignIn: () => homeRouter({ q: Option.none() }),
     NewListing: () => newListingRouter(),
-    Listing: ({ listing }) => listingRouter({ listing }),
+    Listing: (listing) => listingRouter(listing),
     NewRequest: () => newRequestRouter(),
     Job: ({ job }) => jobRouter({ job }),
     Inbox: () => inboxRouter(),
     Agents: () => agentsRouter(),
     Connect: ({ request }) => connectRouter({ request }),
     Connections: () => connectionsRouter(),
-    Identity: () => identityRouter(),
+    Identity: (identity) => identityRouter(identity),
     NotFound: ({ path }) => path,
   })
 
 /** Sign in, then come back to `route`. */
 export const signInHref = (route: AppRoute): string => signInRouter({ next: Option.some(pathOf(route)) })
 
-/** A path a sign-in may return to: one of this site's own, never another origin. */
+/** Set up a Nostr signer (or link a wallet), then come back to `route`. */
+export const identityHref = (route: AppRoute): string => identityRouter({ next: Option.some(pathOf(route)) })
+
+/** A path a sign-in or the identity page may return to: one of this site's own, never another origin. */
 export const safeReturn = (next: Option.Option<string>): string =>
   Option.match(
     Option.filter(next, (path) => path.startsWith('/') && !path.startsWith('//')),

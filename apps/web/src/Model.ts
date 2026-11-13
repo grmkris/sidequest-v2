@@ -1,6 +1,7 @@
 import { Schema } from 'effect'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { Language } from './Language.ts'
+import { Me } from './Me.ts'
 import { Preload, SessionRead } from './Preload.ts'
 import { Problem } from './Problem.ts'
 import { AppRoute } from './route.ts'
@@ -44,6 +45,8 @@ export const Model = Schema.Struct({
   flags: Flags,
   route: AppRoute,
   session: Session,
+  /** Who the person is on the marketplace pages: their Nostr signer, once the browser found one. */
+  me: Me,
   /** A sign-out that failed, shown under the header until the next page. */
   maybeShellProblem: Schema.Option(Problem),
   page: Page,

@@ -1,16 +1,19 @@
-import { type AccountId, sessionCookieName } from '@sidequest/protocol'
+import { maxPeoplePerLookup, sessionCookieName } from '@sidequest/protocol'
 import { Array, Duration, Effect, Option, Predicate } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { fromString } from 'foldkit/url'
 import { makeApi } from '../ApiClient.ts'
 import type { SidequestApiClient } from '../Api.ts'
 import { Preload, SessionRead } from '../Preload.ts'
-import { accountsIn } from '../page/job/Job.ts'
+import { buyersOf, searchOf } from '../page/Home.ts'
+import { keysIn } from '../page/job/Job.ts'
 import { AppRoute, routeFromUrl } from '../route.ts'
 
 // What the website Worker reads from the API Worker, over its service binding, before it renders a page: the session
-// when the request carries its cookie, and the page's data. Only the session cookie is forwarded, never the rest of
-// the request. A read that fails or is slow leaves the page as the browser would build it without the server's help.
+// when the request carries its cookie, and the page's data. The session cookie goes only with the phase 1 session and
+// the pages still on it (inbox, agents); the index's reads (requests, listings, jobs, names) are public and go without
+// it. Nothing else of the request is forwarded. A read that fails or is slow leaves the page as the browser would build
+// it without the server's help.
 
 /** A Worker's service binding: requests to it reach the API Worker in process, without leaving Cloudflare. */
 type ServiceBinding = { readonly fetch: (request: Request) => Promise<Response> }
@@ -56,47 +59,48 @@ const clientOver = (binding: ServiceBinding, origin: string, cookie: Option.Opti
     ),
   )
 
-const named = (api: SidequestApiClient, ids: ReadonlyArray<AccountId>) =>
-  Array.match(Array.dedupe(ids), {
+/** The names of the keys a page shows, in one lookup. */
+const named = (index: SidequestApiClient, pubkeys: ReadonlyArray<string>) =>
+  Array.match(Array.take(Array.dedupe(pubkeys), maxPeoplePerLookup), {
     onEmpty: () => Effect.succeed([]),
-    onNonEmpty: (unique) => Effect.map(api.account.names({ query: { ids: unique } }), ({ names }) => names),
+    onNonEmpty: (unique) => Effect.map(index.events.people({ query: { pubkeys: unique } }), ({ people }) => people),
   })
 
-/** The data the page at `route` shows, read as the visitor; nothing for a page that reads none. */
-const preloadFor = (api: SidequestApiClient, route: AppRoute, signedIn: boolean): Effect.Effect<Preload, unknown> =>
+/** The clients a page reads with: the public index's, which carries nothing of the visitor, and the session's. */
+interface Readers {
+  readonly index: SidequestApiClient
+  readonly session: SidequestApiClient
+}
+
+/** The data the page at `route` shows; nothing for a page that reads none. */
+const preloadFor = ({ index, session }: Readers, route: AppRoute, signedIn: boolean): Effect.Effect<Preload, unknown> =>
   AppRoute.match<Effect.Effect<Preload, unknown>>(route, {
     Home: ({ q }) =>
       Effect.gen(function* () {
         const [requests, listings] = yield* Effect.all(
           [
-            api.jobs.open({ query: {} }),
-            api.listings.search({ query: { q: Option.getOrUndefined(Option.map(q, (text) => text.trim())) } }),
+            index.indexJobs.openJobs({ query: { stage: 'open', expired: 'exclude' } }),
+            index.events.listings({ query: { q: Option.getOrUndefined(searchOf(q)) } }),
           ],
           { concurrency: 'unbounded' },
         )
-        const names = yield* named(api, [
-          ...Array.map(requests.items, (request) => request.buyer),
-          ...Array.map(listings.items, (listing) => listing.owner),
-        ])
+        const names = yield* named(index, buyersOf(requests.items))
         return Preload.Home({ requests, listings, names })
       }),
-    Listing: ({ listing }) =>
-      Effect.gen(function* () {
-        const read = yield* api.listings.get({ params: { listing } })
-        return Preload.Listing({ listing: read, names: yield* named(api, [read.owner]) })
-      }),
+    Listing: ({ pubkey, slug }) =>
+      Effect.map(index.events.listing({ params: { pubkey, slug } }), (listing) => Preload.Listing({ listing })),
     Job: ({ job }) =>
       Effect.gen(function* () {
-        const view = yield* api.jobs.get({ params: { job } })
-        return Preload.Job({ view, names: yield* named(api, accountsIn(view)) })
+        const view = yield* index.indexJobs.job({ params: { id: job } })
+        return Preload.Job({ view, names: yield* named(index, keysIn(view)) })
       }),
     Inbox: () =>
       signedIn
-        ? Effect.map(api.inbox.recent({ query: {} }), (recent) => Preload.Inbox({ recent }))
+        ? Effect.map(session.inbox.recent({ query: {} }), (recent) => Preload.Inbox({ recent }))
         : Effect.succeed(Preload.Nothing()),
     Agents: () =>
       signedIn
-        ? Effect.map(api.agents.list({ query: { limit: 50 } }), (agents) => Preload.Agents({ agents }))
+        ? Effect.map(session.agents.list({ query: { limit: 50 } }), (agents) => Preload.Agents({ agents }))
         : Effect.succeed(Preload.Nothing()),
     SignIn: () => Effect.succeed(Preload.Nothing()),
     NewListing: () => Effect.succeed(Preload.Nothing()),
@@ -138,9 +142,10 @@ export const pageData = (request: Request): Effect.Effect<PageData> =>
       onSome: routeFromUrl,
     })
     const cookie = sessionCookieOf(request.headers.get('cookie'))
-    const api = yield* clientOver(binding.value, url.origin, cookie)
-    const sessionRead = yield* sessionFor(api, cookie)
-    const preload = yield* preloadFor(api, route, SessionRead.guards.SignedIn(sessionRead)).pipe(
+    const session = yield* clientOver(binding.value, url.origin, cookie)
+    const index = yield* clientOver(binding.value, url.origin, Option.none())
+    const sessionRead = yield* sessionFor(session, cookie)
+    const preload = yield* preloadFor({ index, session }, route, SessionRead.guards.SignedIn(sessionRead)).pipe(
       Effect.orElseSucceed(() => Preload.Nothing()),
     )
     return { sessionRead, preload }

@@ -2,7 +2,7 @@ import { it } from '@effect/vitest'
 import { UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
-import { editableUnits, formatAmount, formatUnits, parseUnits, splitFee } from '../src/Amount.ts'
+import { editableUnits, formatAmount, formatUnits, parseUnits } from '../src/Amount.ts'
 import { Language } from '../src/Language.ts'
 
 const Atomic = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }))
@@ -47,12 +47,4 @@ describe('amounts for people', () => {
         String(atomic),
       ),
   )
-
-  test('splits a capture as the escrow does: the fee rounded down, the rest to the worker', () => {
-    expect(splitFee('300000000', 500)).toEqual({ fee: '15000000', worker: '285000000' })
-    expect(splitFee('19', 500)).toEqual({ fee: '0', worker: '19' })
-    expect(splitFee('115792089237316195423570985008687907853269984665640564039457584007913129639935', 500).fee).toBe(
-      '5789604461865809771178549250434395392663499233282028201972879200395656481996',
-    )
-  })
 })

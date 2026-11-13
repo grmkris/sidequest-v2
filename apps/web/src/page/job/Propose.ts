@@ -1,38 +1,20 @@
 import { format } from '@sidequest/i18n'
-import {
-  Amount,
-  JobId,
-  type Proposal,
-  ProposalId,
-  ProposalVersion,
-  Terms,
-  Text as TextSchema,
-  UsdcOnArcTestnet,
-} from '@sidequest/protocol'
-import { Array, Clock, Effect, Option, Schema } from 'effect'
-import { Command, type Html, Submodel, type Update } from 'foldkit'
+import type { ProposalView } from '@sidequest/fold'
+import { Amount, Terms, Text as TextSchema, UsdcOnArcTestnet } from '@sidequest/protocol'
+import { Array, Option, Schema } from 'effect'
+import { type Html, Submodel, type Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { modifyFields } from 'foldkit/struct'
 import { editableUnits, formatUnits, parseUnits } from '../../Amount.ts'
-import { SidequestClient } from '../../Api.ts'
-import {
-  DayChoice,
-  dayChoiceOf,
-  dayChoices,
-  editedStatus,
-  FormStatus,
-  formProblem,
-  shown,
-  textError,
-} from '../../Forms.ts'
+import { DayChoice, dayChoiceOf, dayChoices, editedStatus, FormStatus, shown, textError } from '../../Forms.ts'
 import { Language } from '../../Language.ts'
-import { Problem, problemOf } from '../../Problem.ts'
 import { styled } from '../../Styled.ts'
 import { say } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
 
-// A bidder's proposal on an open request, or a new version of their own: the terms they offer, in USDC on Arc testnet.
+// A bidder's proposal on an open request, or a revision of their own: the terms they offer, in USDC on Arc testnet, and
+// how long the offer stands. Checked here; the job page signs and publishes it.
 
 // MODEL
 
@@ -44,8 +26,8 @@ const windowChoices: ReadonlyArray<WindowChoice> = ['1', '2', '3', '7', '14']
 
 export const Model = Schema.Struct({
   language: Language,
-  job: JobId,
-  maybePrevious: Schema.Option(ProposalVersion),
+  /** The proposal this one revises, by its event id. */
+  maybePrevious: Schema.Option(Schema.String),
   title: Schema.String,
   deliverables: Schema.String,
   amount: Schema.String,
@@ -53,9 +35,23 @@ export const Model = Schema.Struct({
   reviewDays: WindowChoice,
   disputeDays: WindowChoice,
   arbitrationDays: WindowChoice,
+  validDays: DayChoice,
   status: FormStatus,
 })
 export type Model = typeof Model.Type
+
+/** What the bidder offers, before the clock turns its days into instants. */
+export const Offer = Schema.Struct({
+  title: TextSchema(200),
+  deliverables: Schema.NonEmptyArray(TextSchema(2000)),
+  amount: Amount,
+  deliveryDays: DayChoice,
+  reviewDays: WindowChoice,
+  disputeDays: WindowChoice,
+  arbitrationDays: WindowChoice,
+  validDays: DayChoice,
+})
+export type Offer = typeof Offer.Type
 
 // MESSAGE
 
@@ -67,66 +63,46 @@ export const Message = defineMessageUnion({
   SelectedReviewDays: { value: Schema.String },
   SelectedDisputeDays: { value: Schema.String },
   SelectedArbitrationDays: { value: Schema.String },
+  SelectedValidDays: { value: Schema.String },
   SubmittedProposal: {},
-  SucceededSubmitProposal: { proposal: ProposalId },
-  FailedSubmitProposal: { problem: Problem },
 })
 export type Message = typeof Message.Type
 
-export const OutMessage = defineMessageUnion({ Proposed: {} })
+/** The offer passed its checks: the job page signs and publishes it. */
+export const OutMessage = defineMessageUnion({
+  Submitted: { offer: Offer, maybePrevious: Schema.Option(Schema.String) },
+})
 export type OutMessage = typeof OutMessage.Type
 
-// COMMAND
-
-const Offer = Schema.Struct({
-  title: TextSchema(200),
-  deliverables: Schema.NonEmptyArray(TextSchema(2000)),
-  amount: Amount,
-  deliveryDays: DayChoice,
-  reviewDays: WindowChoice,
-  disputeDays: WindowChoice,
-  arbitrationDays: WindowChoice,
-})
-type Offer = typeof Offer.Type
+// TERMS
 
 const day = 86_400
 
-/** Sends the offer as terms, its delivery deadline counted from when it is sent. */
-export const SubmitProposal = Command.define('SubmitProposal', {
-  args: { job: JobId, maybePrevious: Schema.Option(ProposalVersion), offer: Offer },
-  messages: [Message.SucceededSubmitProposal, Message.FailedSubmitProposal],
-  execute: ({ job, maybePrevious, offer }) =>
-    Effect.gen(function* () {
-      const now = Math.floor((yield* Clock.currentTimeMillis) / 1000)
-      const terms = yield* Schema.decodeUnknownEffect(Terms)({
-        title: offer.title,
-        deliverables: offer.deliverables,
-        amount: offer.amount,
-        asset: UsdcOnArcTestnet.id,
-        network: UsdcOnArcTestnet.network,
-        deliveryDeadline: now + Number(offer.deliveryDays) * day,
-        reviewWindowSeconds: Number(offer.reviewDays) * day,
-        disputeWindowSeconds: Number(offer.disputeDays) * day,
-        arbitrationWindowSeconds: Number(offer.arbitrationDays) * day,
-        rail: 'escrow',
-      })
-      const api = yield* (yield* SidequestClient).api
-      const { id } = yield* api.jobs.propose({
-        params: { job },
-        payload: Option.match(maybePrevious, {
-          onNone: () => ({ terms }),
-          onSome: (previous) => ({ previous, terms }),
-        }),
-      })
-      return Message.SucceededSubmitProposal({ proposal: id })
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedSubmitProposal({ problem: problemOf(error) })))),
-})
+/** The offer as the protocol's terms, its delivery deadline counted from `now`. */
+export const termsOf = (offer: Offer, now: number) =>
+  Schema.decodeUnknownEffect(Terms)({
+    title: offer.title,
+    deliverables: offer.deliverables,
+    amount: offer.amount,
+    asset: UsdcOnArcTestnet.id,
+    network: UsdcOnArcTestnet.network,
+    deliveryDeadline: now + Number(offer.deliveryDays) * day,
+    reviewWindowSeconds: Number(offer.reviewDays) * day,
+    disputeWindowSeconds: Number(offer.disputeDays) * day,
+    arbitrationWindowSeconds: Number(offer.arbitrationDays) * day,
+    rail: 'escrow',
+  })
+
+/** Until when the offer stands, from `now`. */
+export const validUntilOf = (offer: Offer, now: number): number => now + Number(offer.validDays) * day
+
+/** The network every proposal from this site is paid on: where its asset lives. */
+export const proposalNetwork = UsdcOnArcTestnet.network
 
 // INIT
 
-export const init = (language: Language, job: JobId): Model => ({
+export const init = (language: Language): Model => ({
   language,
-  job,
   maybePrevious: Option.none(),
   title: '',
   deliverables: '',
@@ -135,24 +111,29 @@ export const init = (language: Language, job: JobId): Model => ({
   reviewDays: '3',
   disputeDays: '2',
   arbitrationDays: '7',
+  validDays: '7',
   status: FormStatus.Editing(),
 })
 
 const windowDays = (seconds: number): WindowChoice =>
   Option.getOrElse(Schema.decodeUnknownOption(WindowChoice)(String(Math.round(seconds / day))), () => '3')
 
-/** The form for a new version of `head`, filled in with its terms. */
-export const revising = (model: Model, head: Proposal): Model =>
-  modifyFields(model, {
-    maybePrevious: () => Option.some(head.version),
-    title: () => head.terms.title,
-    deliverables: () => head.terms.deliverables.join('\n'),
-    amount: () => editableUnits(head.terms.amount, UsdcOnArcTestnet.decimals, model.language),
-    reviewDays: () => windowDays(head.terms.reviewWindowSeconds),
-    disputeDays: () => windowDays(head.terms.disputeWindowSeconds),
-    arbitrationDays: () => windowDays(head.terms.arbitrationWindowSeconds),
-    status: () => FormStatus.Editing(),
+/** The form for a revision of `proposal`, filled in with its terms. */
+export const revising = (language: Language, proposal: ProposalView): Model => {
+  const terms = proposal.content.terms
+  return modifyFields(init(language), {
+    maybePrevious: () => Option.some(proposal.id),
+    title: () => terms.title,
+    deliverables: () => terms.deliverables.join('\n'),
+    amount: () => editableUnits(terms.amount, UsdcOnArcTestnet.decimals, language),
+    reviewDays: () => windowDays(terms.reviewWindowSeconds),
+    disputeDays: () => windowDays(terms.disputeWindowSeconds),
+    arbitrationDays: () => windowDays(terms.arbitrationWindowSeconds),
   })
+}
+
+/** The job page is done with the submission, published or not: the form can be sent again. */
+export const settled = (model: Model): Model => modifyFields(model, { status: () => FormStatus.Editing() })
 
 // CHECKS
 
@@ -174,6 +155,7 @@ const offerOf = (model: Model): Option.Option<Offer> =>
     reviewDays: model.reviewDays,
     disputeDays: model.disputeDays,
     arbitrationDays: model.arbitrationDays,
+    validDays: model.validDays,
   })
 
 const deliverablesError = (model: Model): Option.Option<string> => {
@@ -198,7 +180,7 @@ const amountError = (model: Model): Option.Option<string> =>
 
 // UPDATE
 
-type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, SidequestClient>
+type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage>
 
 const selected = <A>(
   model: Model,
@@ -225,6 +207,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       selected(model, value, windowOf, (days) => modifyFields(model, { disputeDays: () => days })),
     SelectedArbitrationDays: ({ value }) =>
       selected(model, value, windowOf, (days) => modifyFields(model, { arbitrationDays: () => days })),
+    SelectedValidDays: ({ value }) =>
+      selected(model, value, dayChoiceOf, (days) => modifyFields(model, { validDays: () => days })),
     SubmittedProposal: () =>
       FormStatus.guards.Submitting(model.status)
         ? { model }
@@ -232,16 +216,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             onNone: () => ({ model: modifyFields(model, { status: () => FormStatus.Invalid() }) }),
             onSome: (offer) => ({
               model: modifyFields(model, { status: () => FormStatus.Submitting() }),
-              commands: [SubmitProposal({ job: model.job, maybePrevious: model.maybePrevious, offer })],
+              outMessage: OutMessage.Submitted({ offer, maybePrevious: model.maybePrevious }),
             }),
           }),
-    SucceededSubmitProposal: () => ({
-      model: modifyFields(model, { status: () => FormStatus.Editing() }),
-      outMessage: OutMessage.Proposed(),
-    }),
-    FailedSubmitProposal: ({ problem }) => ({
-      model: modifyFields(model, { status: () => FormStatus.Failed({ problem }) }),
-    }),
   })
 
 // VIEW
@@ -315,13 +292,17 @@ export const view = Submodel.defineView<Model, Message>((model, h) => {
       }),
       windows(h, model),
       h.p(styled(h, s.hint()), [say(language, 'propose.windowsHint')]),
-      Ui.maybeProblem(h, language, formProblem(model.status)),
+      Ui.selectField(h, {
+        id: 'proposal-valid',
+        label: say(language, 'propose.validFor'),
+        hint: say(language, 'propose.validForHint'),
+        value: model.validDays,
+        options: dayOptions(language, dayChoices),
+        onChange: (value) => Message.SelectedValidDays({ value }),
+      }),
       h.div(styled(h, s.actions()), [
         Ui.submit(h, {
-          label: Option.match(model.maybePrevious, {
-            onNone: () => say(language, 'propose.submit'),
-            onSome: (previous) => format(language, 'propose.submitVersion', { version: previous + 1 }),
-          }),
+          label: say(language, Option.isSome(model.maybePrevious) ? 'propose.submitRevision' : 'propose.submit'),
           busy: FormStatus.guards.Submitting(model.status),
         }),
       ]),

@@ -1,17 +1,20 @@
+import { OpenJob } from '@sidequest/fold/api'
 import { SignInChallenge } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
 import { Command, click, expect, given, role, scene, text } from 'foldkit/scene'
 import { fromString } from 'foldkit/url'
 import { describe, expect as assert, test } from 'vitest'
 import { init, Message, type Model, SignOut, update } from '../src/App.ts'
-import type { Flags } from '../src/Model.ts'
+import { type Flags, Page } from '../src/Model.ts'
 import { Preload, SessionRead } from '../src/Preload.ts'
 import { FocusTitle, NavigateInternal, ReplaceInternal } from '../src/Navigation.ts'
+import { DetectMe, Me, Message as MeMessage, ReadMe, Standing } from '../src/Me.ts'
 import * as Home from '../src/page/Home.ts'
+import * as Job from '../src/page/job/Job.ts'
 import * as SignIn from '../src/page/SignIn.ts'
 import { Problem } from '../src/Problem.ts'
 import { view } from '../src/View.ts'
-import { ada, adaSession, job, signature, wallet } from './Fixtures.ts'
+import { adaSession, bidderKey, buyerKey, foldedJob, now, requestId, signature, wallet } from './Fixtures.ts'
 
 const flags = (
   hasSessionCookie: boolean,
@@ -36,25 +39,40 @@ const commandsOf = (stamped: Flags) => init(stamped, urlOf('/sign-in')).commands
 
 describe('the app', () => {
   test('reads the session only when the request carried a session cookie the server did not read', () => {
-    assert(commandsOf(flags(true))).toEqual(['ReadTimeZone', 'ReadSession'])
-    assert(commandsOf(flags(false))).toEqual(['ReadTimeZone'])
-    assert(commandsOf(flags(true, SessionRead.SignedIn({ session: adaSession })))).toEqual(['ReadTimeZone'])
-    assert(commandsOf(flags(true, SessionRead.SignedOut()))).toEqual(['ReadTimeZone'])
+    assert(commandsOf(flags(true))).toEqual(['ReadTimeZone', 'ReadSession', DetectMe.name])
+    assert(commandsOf(flags(false))).toEqual(['ReadTimeZone', DetectMe.name])
+    assert(commandsOf(flags(true, SessionRead.SignedIn({ session: adaSession })))).toEqual([
+      'ReadTimeZone',
+      DetectMe.name,
+    ])
+    assert(commandsOf(flags(true, SessionRead.SignedOut()))).toEqual(['ReadTimeZone', DetectMe.name])
   })
 
   test('hydrates the page the server rendered from its data and session, reading neither again', () => {
     const preload = Preload.Home({
-      requests: { items: [{ id: job, buyer: ada, title: 'A logo for my café', expiresAt: 1_800_600_000 }], next: null },
+      requests: {
+        items: [
+          Schema.decodeSync(OpenJob)({
+            job: requestId,
+            buyer: buyerKey,
+            createdAt: now,
+            request: { title: 'A logo for my café', description: 'Warm colours.', expiresAt: 1_800_600_000 },
+            expired: false,
+            proposals: 0,
+          }),
+        ],
+        next: null,
+      },
       listings: { items: [], next: null },
-      names: [{ account: ada, displayName: 'Ada Lovelace' }],
+      names: [{ pubkey: buyerKey, name: 'Ada Lovelace', walletVerified: true }],
     })
     const hydrated = init(flags(true, SessionRead.SignedIn({ session: adaSession }), preload), urlOf('/'))
-    assert(hydrated.commands?.map((command) => command.name)).toEqual(['ReadTimeZone'])
+    assert(hydrated.commands?.map((command) => command.name)).toEqual(['ReadTimeZone', DetectMe.name])
     scene(
       { update, view },
       given(hydrated.model),
       expect(text('Wallet 0x1111…1111')).toExist(),
-      expect(role('link', { name: 'A logo for my café' })).toHaveAttr('href', `/jobs/${job}`),
+      expect(role('link', { name: 'A logo for my café' })).toHaveAttr('href', `/jobs/${requestId}`),
       expect(text('Ada Lovelace · open until Jan 22, 2027, 6:40 AM')).toExist(),
     )
     // The browser then reads its own time zone and draws dates in it.
@@ -72,8 +90,49 @@ describe('the app', () => {
       names: [],
     })
     const model = init(flags(false, SessionRead.Unread(), preload), urlOf('/')).model
-    const changed = update(model, Message.ChangedUrl({ url: urlOf(`/jobs/${job}`) }))
+    const changed = update(model, Message.ChangedUrl({ url: urlOf(`/jobs/${requestId}`) }))
     assert(changed.commands?.map((command) => command.name)).toEqual(['ReadJob', FocusTitle.name])
+  })
+
+  test('the browser’s signer is who the marketplace pages act as: shown in the header and told to the open page', () => {
+    const identity = { signerKind: 'nip07', pubkey: bidderKey } as const
+    const onJob = init(
+      flags(false, SessionRead.Unread(), Preload.Job({ view: foldedJob(), names: [] })),
+      urlOf(`/jobs/${requestId}`),
+    ).model
+    const detected = update(
+      onJob,
+      Message.GotMeMessage({ message: MeMessage.CompletedDetectMe({ maybeIdentity: Option.some(identity) }) }),
+    )
+    assert(detected.commands?.map((command) => [command.name, command.args])).toEqual([
+      [ReadMe.name, { pubkey: bidderKey }],
+    ])
+    const known = update(
+      detected.model,
+      Message.GotMeMessage({
+        message: MeMessage.SucceededReadMe({ pubkey: bidderKey, maybeName: Option.some('Ben'), wallets: [] }),
+      }),
+    ).model
+    assert(known.me).toEqual(
+      Me.Ready({ identity, standing: Standing.Known({ maybeName: Option.some('Ben'), wallets: [] }) }),
+    )
+    assert(Page.guards.Job(known.page) && known.page.job.me).toEqual(known.me)
+    scene({ update, view }, given(known), expect(role('link', { name: 'Identity' })).toHaveText('Ben'))
+  })
+
+  test('an action without a signer goes to the identity page, which comes back to the page', () => {
+    const onJob = init(
+      flags(false, SessionRead.Unread(), Preload.Job({ view: foldedJob(), names: [] })),
+      urlOf(`/jobs/${requestId}`),
+    ).model
+    const noSigner = update(
+      onJob,
+      Message.GotMeMessage({ message: MeMessage.CompletedDetectMe({ maybeIdentity: Option.none() }) }),
+    ).model
+    const clicked = update(noSigner, Message.GotJobMessage({ message: Job.Message.ClickedPropose() }))
+    assert(clicked.commands?.map((command) => [command.name, command.args])).toEqual([
+      [NavigateInternal.name, { href: `/identity?next=${encodeURIComponent(`/jobs/${requestId}`)}` }],
+    ])
   })
 
   test('signing in on the sign-in page puts the wallet in the header and returns to the page it was asked from', () => {

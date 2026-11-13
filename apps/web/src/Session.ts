@@ -1,5 +1,4 @@
-import { type AccountId, SessionView } from '@sidequest/protocol'
-import { Option } from 'effect'
+import { SessionView } from '@sidequest/protocol'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { Problem } from './Problem.ts'
 
@@ -12,16 +11,6 @@ export const Session = defineTaggedUnion({
   Unknown: { problem: Problem },
 })
 export type Session = typeof Session.Type
-
-/** The signed-in account, if the session is known to have one. */
-export const accountOf = (session: Session): Option.Option<AccountId> =>
-  Session.match(session, {
-    Checking: () => Option.none(),
-    SignedOut: () => Option.none(),
-    SignedIn: ({ session: view }) => Option.some(view.account),
-    SigningOut: ({ session: view }) => Option.some(view.account),
-    Unknown: () => Option.none(),
-  })
 
 /** The wallet address of a signed-in session: the CAIP-10 account's last part. */
 export const addressOf = (view: SessionView): string => view.wallet.slice(view.wallet.lastIndexOf(':') + 1)

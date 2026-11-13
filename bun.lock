@@ -43,6 +43,7 @@
       "name": "@sidequest/web",
       "dependencies": {
         "@effect/platform-browser": "catalog:",
+        "@sidequest/fold": "workspace:*",
         "@sidequest/i18n": "workspace:*",
         "@sidequest/nostr": "workspace:*",
         "@sidequest/protocol": "workspace:*",

@@ -33,7 +33,7 @@ describe('the inbox', () => {
           .model,
       ),
       expect(role('list', { name: 'Inbox' })).toHaveText(/^A new message.*The escrow was funded/su),
-      expect(role('link', { name: 'The escrow was funded' })).toHaveAttr('href', `/jobs/${job}`),
+      expect(role('link', { name: 'The escrow was funded' })).not.toExist(),
       click(role('button', { name: 'Show more' })),
       Command.resolve(
         ReadInbox({ maybeCursor: Option.some(before) }),
@@ -43,7 +43,7 @@ describe('the inbox', () => {
       expect(role('button', { name: 'Show more' })).not.toExist(),
       click(role('button', { name: 'Check for new items' })),
       expect(role('button', { name: 'Check for new items' })).toBeDisabled(),
-      expect(role('link', { name: 'A new message' })).toExist(),
+      expect(text('A new message')).toExist(),
       Command.resolve(ReadInbox({ maybeCursor: Option.none() }), Message.SucceededReadInbox({ items: [], next: null })),
       expect(text(/Nothing yet\./u)).toExist(),
     )

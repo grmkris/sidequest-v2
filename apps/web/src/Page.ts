@@ -1,8 +1,9 @@
 import { Option } from 'effect'
-import { Update } from 'foldkit'
+import { Command, Update } from 'foldkit'
 import { modifyFields } from 'foldkit/struct'
 import type { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
+import * as Me from './Me.ts'
 import { type Flags, type Model, Page } from './Model.ts'
 import { Preload } from './Preload.ts'
 import { NavigateInternal, ReplaceInternal } from './Navigation.ts'
@@ -17,8 +18,8 @@ import * as ListingPage from './page/ListingPage.ts'
 import * as NewListing from './page/NewListing.ts'
 import * as NewRequest from './page/NewRequest.ts'
 import * as SignIn from './page/SignIn.ts'
-import { AppRoute, jobRouter, listingRouter } from './route.ts'
-import { addressOf, Session } from './Session.ts'
+import { AppRoute, identityHref, jobRouter, listingRouter } from './route.ts'
+import { Session } from './Session.ts'
 import type { Signers } from './Signer.ts'
 import type { Wallet } from './Wallet.ts'
 
@@ -31,22 +32,23 @@ type Step = Update.Step<Model, Message, Services>
  * would only earn a 401. */
 const mayRead = (session: Session): boolean => !Session.guards.SignedOut(session)
 
-/** The wallet of the signed-in person, which signs their steps on a job. */
-const signerOf = (session: Session): Option.Option<string> =>
-  Session.guards.SignedIn(session) ? Option.some(addressOf(session.session)) : Option.none()
-
 /** The identity page, which reads nothing from the server: the signer lives in the browser. */
-const openIdentity = (flags: Flags): Update.Return<Page, Message, Services> =>
-  Update.foldChildInit(Identity.init(flags.language), {
+const openIdentity = (flags: Flags, maybeNext: Option.Option<string>): Update.Return<Page, Message, Services> =>
+  Update.foldChildInit(Identity.init(flags.language, maybeNext), {
     toParentModel: (identity) => Page.Identity({ identity }),
     toParentMessage: (message) => Message.GotIdentityMessage({ message }),
   })
 
-/** The page a route opens: from the data the server read for it, or with the Commands that read its data. */
+/** Send the person to set up a signer, and back to where they are. */
+const toIdentity: Step = (model) => ({ model, commands: [NavigateInternal({ href: identityHref(model.route) })] })
+
+/** The page a route opens: from the data the server read for it, or with the Commands that read its data. The pages
+ * that act as the person's key start from who the site knows them to be. */
 export const openPage = (
   flags: Flags,
   route: AppRoute,
   session: Session,
+  me: Me.Me,
   preload: Preload,
 ): Update.Return<Page, Message, Services> =>
   AppRoute.match(route, {
@@ -56,12 +58,13 @@ export const openPage = (
         toParentMessage: (message) => Message.GotHomeMessage({ message }),
       }),
     SignIn: ({ next }) => ({ model: Page.SignIn({ signIn: SignIn.init(next) }) }),
-    NewListing: () => ({ model: Page.NewListing({ newListing: NewListing.init(flags.language) }) }),
-    Listing: ({ listing }) =>
+    NewListing: () => ({ model: Page.NewListing({ newListing: NewListing.init(flags.language, me) }) }),
+    Listing: ({ pubkey, slug }) =>
       Update.foldChildInit(
         ListingPage.init(
           flags.language,
-          listing,
+          { pubkey, slug },
+          me,
           Preload.guards.Listing(preload) ? Option.some(preload) : Option.none(),
         ),
         {
@@ -69,16 +72,10 @@ export const openPage = (
           toParentMessage: (message) => Message.GotListingMessage({ message }),
         },
       ),
-    NewRequest: () => ({ model: Page.NewRequest({ newRequest: NewRequest.init(flags.language) }) }),
+    NewRequest: () => ({ model: Page.NewRequest({ newRequest: NewRequest.init(flags.language, me) }) }),
     Job: ({ job }) =>
       Update.foldChildInit(
-        Job.init(
-          flags.language,
-          job,
-          signerOf(session),
-          mayRead(session),
-          Preload.guards.Job(preload) ? Option.some(preload) : Option.none(),
-        ),
+        Job.init(flags.language, job, me, Preload.guards.Job(preload) ? Option.some(preload) : Option.none()),
         {
           toParentModel: (jobModel) => Page.Job({ job: jobModel }),
           toParentMessage: (message) => Message.GotJobMessage({ message }),
@@ -118,7 +115,7 @@ export const openPage = (
         toParentModel: (connections) => Page.Connections({ connections }),
         toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
       }),
-    Identity: () => openIdentity(flags),
+    Identity: ({ next }) => openIdentity(flags, next),
     NotFound: () => ({ model: Page.NotFound() }),
   })
 
@@ -163,8 +160,9 @@ export const foldNewListing = Update.foldChild({
   toParentMessage: (message) => Message.GotNewListingMessage({ message }),
   foldOutMessage: NewListing.OutMessage.match<Step>({
     Published:
-      ({ listing }) =>
-      (model) => ({ model, commands: [NavigateInternal({ href: listingRouter({ listing }) })] }),
+      ({ pubkey, slug }) =>
+      (model) => ({ model, commands: [NavigateInternal({ href: listingRouter({ pubkey, slug }) })] }),
+    SignerMissing: () => toIdentity,
   }),
 })
 
@@ -173,6 +171,7 @@ export const foldListing = Update.foldChild({
   read: (model: Model) => (Page.guards.Listing(model.page) ? Option.some(model.page.listing) : Option.none()),
   write: (model: Model, nextListing: ListingPage.Model) => writePage(model, Page.Listing({ listing: nextListing })),
   toParentMessage: (message) => Message.GotListingMessage({ message }),
+  foldOutMessage: ListingPage.OutMessage.match<Step>({ SignerMissing: () => toIdentity }),
 })
 
 export const foldNewRequest = Update.foldChild({
@@ -185,6 +184,7 @@ export const foldNewRequest = Update.foldChild({
     Posted:
       ({ job }) =>
       (model) => ({ model, commands: [NavigateInternal({ href: jobRouter({ job }) })] }),
+    SignerMissing: () => toIdentity,
   }),
 })
 
@@ -196,14 +196,39 @@ export const foldJob = Update.foldChild({
   read: readJob,
   write: (model: Model, nextJob: Job.Model) => writePage(model, Page.Job({ job: nextJob })),
   toParentMessage: (message) => Message.GotJobMessage({ message }),
+  foldOutMessage: Job.OutMessage.match<Step>({ SignerMissing: () => toIdentity }),
 })
 
-/** The job page learns whose wallet signs, once the session is known. */
-export const informJobSigner = (model: Model): Model =>
-  Option.match(readJob(model), {
-    onNone: () => model,
-    onSome: (job) => writePage(model, Page.Job({ job: Job.informSigner(job, signerOf(model.session)) })),
-  })
+/** The pages that act as the person's key learn who the site now knows them to be. */
+export const informMe = (model: Model): Model =>
+  writePage(
+    model,
+    Page.match(model.page, {
+      NewListing: ({ newListing }) => Page.NewListing({ newListing: modifyFields(newListing, { me: () => model.me }) }),
+      Listing: ({ listing }) => Page.Listing({ listing: modifyFields(listing, { me: () => model.me }) }),
+      NewRequest: ({ newRequest }) => Page.NewRequest({ newRequest: modifyFields(newRequest, { me: () => model.me }) }),
+      Job: ({ job }) => Page.Job({ job: modifyFields(job, { me: () => model.me }) }),
+      Home: () => model.page,
+      SignIn: () => model.page,
+      Inbox: () => model.page,
+      Agents: () => model.page,
+      Connect: () => model.page,
+      Connections: () => model.page,
+      Identity: () => model.page,
+      NotFound: () => model.page,
+    }),
+  )
+
+/** Who the person is changed: the site's record of it, the page that acts as it, and any Commands that follow. */
+const withMe = (
+  model: Model,
+  next: Update.Return<Me.Me, Me.Message, Services>,
+): Update.Return<Model, Message, Services> => ({
+  model: informMe(modifyFields(model, { me: () => next.model })),
+  commands: Command.mapMessages(next.commands, (message) => Message.GotMeMessage({ message })),
+})
+
+export const foldMe = (model: Model, message: Me.Message) => withMe(model, Me.update(model.me, message))
 
 export const foldInbox = Update.foldChild({
   update: Inbox.update,
@@ -238,4 +263,16 @@ export const foldIdentity = Update.foldChild({
   read: (model: Model) => (Page.guards.Identity(model.page) ? Option.some(model.page.identity) : Option.none()),
   write: (model: Model, nextIdentity: Identity.Model) => writePage(model, Page.Identity({ identity: nextIdentity })),
   toParentMessage: (message) => Message.GotIdentityMessage({ message }),
+  foldOutMessage: Identity.OutMessage.match<Step>({
+    // The identity page reads what the index knows of the key itself, and says so with `StandingRead`.
+    SignerReady:
+      ({ identity }) =>
+      (model) =>
+        withMe(model, { model: Me.Me.Ready({ identity, standing: Me.Standing.Reading() }) }),
+    SignerForgotten: () => (model) => withMe(model, { model: Me.Me.NoSigner() }),
+    StandingRead:
+      ({ pubkey, standing }) =>
+      (model) =>
+        withMe(model, { model: Me.standingRead(model.me, pubkey, standing) }),
+  }),
 })

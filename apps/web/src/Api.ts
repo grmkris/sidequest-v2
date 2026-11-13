@@ -1,4 +1,4 @@
-import type { SidequestApi } from '@sidequest/protocol'
+import type { ServedApi } from '@sidequest/fold/api'
 import { Context, Effect, Exit, Layer, Schema } from 'effect'
 import * as HttpClient from 'effect/http/HttpClient'
 import type * as HttpApiClient from 'effect/http-api/HttpApiClient'
@@ -6,13 +6,13 @@ import type * as HttpApiClient from 'effect/http-api/HttpApiClient'
 /** The browser could not load the code of its API client; the next request tries again. */
 export class ClientNotLoaded extends Schema.TaggedError<ClientNotLoaded>()('ClientNotLoaded', {}) {}
 
-/** Sidequest's typed API, called from the browser on the site's own origin. The session travels as the `__Host-`
- * cookie the browser sends with every same-origin request. */
+/** Sidequest's typed API and the index's job reads (`ServedApi`), called from the browser on the site's own origin.
+ * The phase 1 session travels as the `__Host-` cookie the browser sends with every same-origin request. */
 export class SidequestClient extends Context.Service<
   SidequestClient,
   {
-    /** The client derived from `SidequestApi`; its code loads the first time a page asks for it. */
-    readonly api: Effect.Effect<HttpApiClient.ForApi<typeof SidequestApi>, ClientNotLoaded>
+    /** The client derived from `ServedApi`; its code loads the first time a page asks for it. */
+    readonly api: Effect.Effect<HttpApiClient.ForApi<typeof ServedApi>, ClientNotLoaded>
   }
 >()('@sidequest/web/SidequestClient') {}
 
@@ -33,4 +33,4 @@ export const sidequestClientLayer = (origin: string) =>
   )
 
 /** The typed client's own type. */
-export type SidequestApiClient = HttpApiClient.ForApi<typeof SidequestApi>
+export type SidequestApiClient = HttpApiClient.ForApi<typeof ServedApi>

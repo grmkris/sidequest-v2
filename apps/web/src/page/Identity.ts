@@ -1,6 +1,6 @@
 import type { NostrEvent } from '@sidequest/nostr'
-import { EventInvalidReason, WalletAddress, WalletSignature } from '@sidequest/protocol'
-import { Clock, Effect, Option, Schema } from 'effect'
+import { WalletAddress, WalletSignature } from '@sidequest/protocol'
+import { Array, Effect, Option, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { Command, Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
@@ -8,29 +8,26 @@ import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../Api.ts'
 import { Language } from '../Language.ts'
+import { Standing } from '../Me.ts'
 import { failedWith, Problem } from '../Problem.ts'
-import { PubkeyHex, type SignerFailed, SignerFailure, type SignerIdentity, Signers } from '../Signer.ts'
+import { nowSeconds, PublishFailure, publishFailureOf, PublishRefusal } from '../Publishing.ts'
+import { PubkeyHex, type SignerFailed, SignerFailure, SignerIdentity, Signers } from '../Signer.ts'
 import { Connection, Wallet } from '../Wallet.ts'
 import * as SignerSetup from './SignerSetup.ts'
 
 // A person's Nostr identity (ADR-0003, decision 3): their signer, the kind-0 profile with their name, and the link of
 // their wallet, which the wallet signs (EIP-712 `LinkNostrKey`) and the key signs as a wallet-link event. Both events go
 // to the index through `POST /api/events`, and the page shows what the index then knows of the key.
+//
+// A profile is replaceable: publishing one with only a name would replace an existing Nostr user's whole profile (about,
+// picture, nip05) wherever the outbox delivers it. So the page offers to publish a name only for a key made in this
+// browser that the index knows no profile of; a key from an extension brings its own profile.
 
 // MODEL
 
 /** Which event the person published. */
 export const Publication = Schema.Literals(['profile', 'walletLink'])
 export type Publication = typeof Publication.Type
-
-/** The index's typed refusal of an event. */
-export const PublishRefusal = defineTaggedUnion({
-  Invalid: { reason: EventInvalidReason },
-  KindNotIndexed: {},
-  TooLarge: {},
-  RateLimited: { retryAfterSeconds: Schema.Int },
-})
-export type PublishRefusal = typeof PublishRefusal.Type
 
 /** What the person last asked for, and where it stands. */
 export const Action = defineTaggedUnion({
@@ -54,8 +51,10 @@ export const LinkedAccount = Schema.Struct({
 })
 export type LinkedAccount = typeof LinkedAccount.Type
 
-/** What the page shows of what the index knows of the key: the profile's name and the wallets it links. */
+/** What the page shows of what the index knows of the key: whether it has a profile, its name, and the wallets it
+ * links. */
 export const PersonSummary = Schema.Struct({
+  hasProfile: Schema.Boolean,
   maybeName: Schema.Option(Schema.String),
   wallets: Schema.Array(LinkedAccount),
 })
@@ -76,6 +75,8 @@ export const maximumName = 100
 
 export const Model = Schema.Struct({
   language: Language,
+  /** Where the person came from, to go back to once their signer is ready. */
+  maybeNext: Schema.Option(Schema.String),
   setup: SignerSetup.Model,
   name: Schema.String,
   person: PersonRead,
@@ -104,11 +105,17 @@ export const Message = defineMessageUnion({
 })
 export type Message = typeof Message.Type
 
+/** The site learns which key signs, and what the index knows of it, for the pages that act as it. */
+export const OutMessage = defineMessageUnion({
+  SignerReady: { identity: SignerIdentity },
+  SignerForgotten: {},
+  StandingRead: { pubkey: Schema.String, standing: Standing },
+})
+export type OutMessage = typeof OutMessage.Type
+
 // COMMAND
 
 type Services = SidequestClient | Wallet | Signers
-
-const nowSeconds = Effect.map(Clock.currentTimeMillis, (millis) => Math.floor(millis / 1000))
 
 /** The wallet's answer does not make a wallet link the vocabulary accepts (an account or signature of another shape). */
 class WalletLinkUnbuildable extends Schema.TaggedError<WalletLinkUnbuildable>()('WalletLinkUnbuildable', {}) {}
@@ -124,18 +131,18 @@ const publish = <R>(
     yield* api.events.publish({ payload: event })
     return Message.SucceededPublish({ publication })
   }).pipe(
-    Effect.catchTags({
-      SignerFailed: ({ reason }) => Effect.succeed(Message.FailedSign({ reason })),
-      WalletLinkUnbuildable: () =>
-        Effect.succeed(Message.FailedPublish({ problem: Problem.WalletFailed({ code: Option.none() }) })),
-      EventInvalid: ({ reason }) =>
-        Effect.succeed(Message.RefusedPublish({ refusal: PublishRefusal.Invalid({ reason }) })),
-      KindNotIndexed: () => Effect.succeed(Message.RefusedPublish({ refusal: PublishRefusal.KindNotIndexed() })),
-      EventTooLarge: () => Effect.succeed(Message.RefusedPublish({ refusal: PublishRefusal.TooLarge() })),
-      RateLimited: ({ retryAfterSeconds }) =>
-        Effect.succeed(Message.RefusedPublish({ refusal: PublishRefusal.RateLimited({ retryAfterSeconds }) })),
-    }),
-    Effect.catch(failedWith(Message.FailedPublish)),
+    Effect.catchTag('WalletLinkUnbuildable', () =>
+      Effect.succeed(Message.FailedPublish({ problem: Problem.WalletFailed({ code: Option.none() }) })),
+    ),
+    Effect.catch((error) =>
+      Effect.succeed(
+        PublishFailure.match(publishFailureOf(error), {
+          Refused: ({ refusal }) => Message.RefusedPublish({ refusal }),
+          SignerFailed: ({ reason }) => Message.FailedSign({ reason }),
+          Failed: ({ problem }) => Message.FailedPublish({ problem }),
+        }),
+      ),
+    ),
   )
 
 export const PublishProfile = Command.define('PublishProfile', {
@@ -214,6 +221,7 @@ export const ReadPerson = Command.define('ReadPerson', {
         .pipe(Effect.provideService(FetchHttpClient.RequestInit, { cache: 'no-cache' }))
       return Message.SucceededReadPerson({
         person: {
+          hasProfile: person.profile !== null,
           maybeName: Option.fromNullishOr(person.profile?.name),
           wallets: [...person.wallets, ...person.unverifiedWallets].map(({ account, verification }) => ({
             account,
@@ -229,14 +237,21 @@ export const ReadPerson = Command.define('ReadPerson', {
 
 // INIT
 
-type UpdateReturn = Update.Return<Model, Message, Services>
+type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>
 
 const toSetupMessage = (message: SignerSetup.Message) => Message.GotSetupMessage({ message })
 
-export const init = (language: Language): UpdateReturn => {
+export const init = (language: Language, maybeNext: Option.Option<string>): Update.Return<Model, Message, Services> => {
   const setupInit = SignerSetup.init(language)
   return {
-    model: { language, setup: setupInit.model, name: '', person: PersonRead.Unread(), action: Action.Idle() },
+    model: {
+      language,
+      maybeNext,
+      setup: setupInit.model,
+      name: '',
+      person: PersonRead.Unread(),
+      action: Action.Idle(),
+    },
     commands: Command.mapMessages(setupInit.commands, toSetupMessage),
   }
 }
@@ -253,7 +268,7 @@ const busy = (action: Action): boolean =>
 
 const withAction = (model: Model, action: Action): Model => modifyFields(model, { action: () => action })
 
-type Step = Update.Step<Model, Message, Services>
+type Step = Update.StepWithOutMessage<Model, Message, OutMessage, Services>
 
 const foldSetup = Update.foldChild({
   update: SignerSetup.update,
@@ -266,9 +281,11 @@ const foldSetup = Update.foldChild({
       (model) => ({
         model: modifyFields(model, { person: () => PersonRead.Reading(), action: () => Action.Idle() }),
         commands: [ReadPerson({ pubkey: identity.pubkey })],
+        outMessage: OutMessage.SignerReady({ identity }),
       }),
     SignerForgotten: () => (model) => ({
       model: modifyFields(model, { person: () => PersonRead.Unread(), action: () => Action.Idle() }),
+      outMessage: OutMessage.SignerForgotten(),
     }),
   }),
 })
@@ -277,8 +294,18 @@ const foldSetup = Update.foldChild({
 const whenReady = (model: Model, next: (identity: SignerIdentity) => UpdateReturn): UpdateReturn =>
   busy(model.action) ? { model } : Option.match(identityOf(model), { onNone: () => ({ model }), onSome: next })
 
+/** Whether the page may publish a name for the key: one made in this browser, which the index knows no profile of. A
+ * profile replaces the whole of an earlier one, so a key that has one, or comes from an extension (whose profile lives
+ * on the person's relays, which the index has not read yet), never gets a name-only profile from here. */
+export const offersProfile = (model: Model): boolean =>
+  Option.exists(identityOf(model), (identity) => identity.signerKind === 'local') &&
+  (PersonRead.guards.Unknown(model.person) || (PersonRead.guards.Read(model.person) && !model.person.person.hasProfile))
+
 const submittedProfile = (model: Model): UpdateReturn =>
   whenReady(model, () => {
+    if (!offersProfile(model)) {
+      return { model }
+    }
     const name = model.name.trim()
     return name.length === 0 || name.length > maximumName
       ? { model: withAction(model, Action.NameInvalid()) }
@@ -295,6 +322,13 @@ const walletFailed = (model: Model, problem: Problem): UpdateReturn => ({
     Problem.guards.WalletRejected(problem) ? Action.WalletDeclined() : Action.Failed({ problem }),
   ),
 })
+
+/** What the index knows of the ready key, for the pages that act as it. */
+const withStanding = (model: Model, standing: Standing): UpdateReturn =>
+  Option.match(identityOf(model), {
+    onNone: () => ({ model }),
+    onSome: ({ pubkey }) => ({ model, outMessage: OutMessage.StandingRead({ pubkey, standing }) }),
+  })
 
 const readAgain = (model: Model) =>
   Option.match(identityOf(model), {
@@ -338,13 +372,25 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     RefusedPublish: ({ refusal }) => ({ model: withAction(model, Action.Refused({ refusal })) }),
     FailedPublish: ({ problem }) => ({ model: withAction(model, Action.Failed({ problem })) }),
     FailedSign: ({ reason }) => ({ model: withAction(model, Action.SignerFailed({ reason })) }),
-    SucceededReadPerson: ({ person }) => ({
-      model: modifyFields(model, {
-        person: () => PersonRead.Read({ person }),
-        name: (name) => (name === '' ? Option.getOrElse(person.maybeName, () => '') : name),
-      }),
-    }),
-    CompletedReadUnknownPerson: () => ({ model: modifyFields(model, { person: () => PersonRead.Unknown() }) }),
+    SucceededReadPerson: ({ person }) =>
+      withStanding(
+        modifyFields(model, {
+          person: () => PersonRead.Read({ person }),
+          name: (name) => (name === '' ? Option.getOrElse(person.maybeName, () => '') : name),
+        }),
+        Standing.Known({
+          maybeName: person.maybeName,
+          wallets: Array.map(
+            Array.filter(person.wallets, ({ verification }) => verification === 'verified'),
+            ({ account }) => account,
+          ),
+        }),
+      ),
+    CompletedReadUnknownPerson: () =>
+      withStanding(
+        modifyFields(model, { person: () => PersonRead.Unknown() }),
+        Standing.Known({ maybeName: Option.none(), wallets: [] }),
+      ),
     FailedReadPerson: ({ problem }) => ({
       model: modifyFields(model, { person: () => PersonRead.Failed({ problem }) }),
     }),

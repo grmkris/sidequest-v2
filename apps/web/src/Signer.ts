@@ -105,6 +105,10 @@ export class Signers extends Context.Service<
     readonly forget: Effect.Effect<void>
     /** The signer unlocked in this tab. */
     readonly active: Effect.Effect<Signer, SignerFailed>
+    /** What a page signs with: the signer unlocked in this tab, or else the remembered extension, connected again (an
+     * extension keeps its own key, so a page asks it again after a reload). A local key stays locked: only its
+     * password opens it, on the identity page. */
+    readonly resume: Effect.Effect<Signer, SignerFailed>
     /** The Nostr code itself, for the templates a page signs. */
     readonly kit: Effect.Effect<typeof NostrKit, SignerFailed>
   }
@@ -135,6 +139,22 @@ const identityOf = (signer: Signer): SignerIdentity => ({ signerKind: signer.kin
 const required = <A>(found: Option.Option<A>, reason: SignerFailure) =>
   Option.match(found, { onNone: () => Effect.fail(new SignerFailed({ reason })), onSome: Effect.succeed })
 
+/** The signer unlocked in this tab, or else the remembered extension, connected again. */
+const resumed = (
+  active: Effect.Effect<Signer, SignerFailed>,
+  remembered: Effect.Effect<Option.Option<SignerIdentity>>,
+  reconnect: Effect.Effect<SignerIdentity, SignerFailed>,
+) =>
+  active.pipe(
+    Effect.catch((locked) =>
+      Effect.flatMap(remembered, (identity) =>
+        Option.exists(identity, ({ signerKind }) => signerKind === 'nip07')
+          ? Effect.andThen(reconnect, active)
+          : Effect.fail(locked),
+      ),
+    ),
+  )
+
 /** The signers over a way to find the extension, the browser's storage and the Nostr code. */
 export const makeSigners = (config: {
   readonly findExtension: Effect.Effect<Option.Option<Nip07Provider>>
@@ -157,20 +177,23 @@ export const makeSigners = (config: {
         })
         return identityOf(signer)
       })
+    const connectExtension = Effect.gen(function* () {
+      const kit = yield* config.kit
+      const provider = yield* Effect.flatMap(config.findExtension, (found) => required(found, 'noExtension'))
+      const signer = yield* Effect.mapError(kit.nip07Signer(provider), failed)
+      return yield* use(signerOf(signer), Option.none())
+    })
+    const activeSigner = Effect.flatMap(Ref.get(active), (found) => required(found, 'locked'))
+    const remembered = Effect.map(store.read(storageKeys.identity), Option.flatMap(decodeIdentity))
     return Signers.of({
       detect: Effect.gen(function* () {
         return {
           extension: Option.isSome(yield* config.findExtension),
-          maybeRemembered: Option.flatMap(yield* store.read(storageKeys.identity), decodeIdentity),
+          maybeRemembered: yield* remembered,
           maybeUnlocked: Option.map(yield* Ref.get(active), identityOf),
         }
       }),
-      connectExtension: Effect.gen(function* () {
-        const kit = yield* config.kit
-        const provider = yield* Effect.flatMap(config.findExtension, (found) => required(found, 'noExtension'))
-        const signer = yield* Effect.mapError(kit.nip07Signer(provider), failed)
-        return yield* use(signerOf(signer), Option.none())
-      }),
+      connectExtension,
       createLocal: (password) =>
         Effect.gen(function* () {
           const kit = yield* config.kit
@@ -203,7 +226,8 @@ export const makeSigners = (config: {
         yield* store.remove(storageKeys.identity)
         yield* store.remove(storageKeys.ncryptsec)
       }),
-      active: Effect.flatMap(Ref.get(active), (found) => required(found, 'locked')),
+      active: activeSigner,
+      resume: resumed(activeSigner, remembered, connectExtension),
       kit: config.kit,
     })
   })

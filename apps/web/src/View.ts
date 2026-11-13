@@ -26,7 +26,9 @@ import {
   newRequestRouter,
   signInHref,
 } from './route.ts'
-import { accountOf, addressOf, Session } from './Session.ts'
+import { Me, Standing } from './Me.ts'
+import { shortNpub } from './Names.ts'
+import { addressOf, Session } from './Session.ts'
 import { styled } from './Styled.ts'
 import { say, shortHex } from './Text.ts'
 import * as Ui from './Ui.ts'
@@ -38,10 +40,36 @@ import * as vs from './View.styles.ts'
 const navLink = (h: Html.HtmlBuilder<Message>, href: string, label: string, current: boolean) =>
   h.a([h.Href(href), ...(current ? [h.AriaCurrent('page')] : []), ...styled(h, vs.navLink())], [label])
 
+/** Who the person is on the marketplace: their Nostr key, by its name or short npub, or the way to set one up. */
+const identityLink = (h: Html.HtmlBuilder<Message>, model: Model) => {
+  const language = model.flags.language
+  const href = identityRouter({ next: Option.none() })
+  const current = AppRoute.guards.Identity(model.route)
+  return Me.match(model.me, {
+    Detecting: () => navLink(h, href, say(language, 'shell.identity'), current),
+    NoSigner: () => navLink(h, href, say(language, 'shell.identity'), current),
+    Ready: ({ identity, standing }) =>
+      h.a(
+        [
+          h.Href(href),
+          h.Title(identity.pubkey),
+          h.AriaLabel(say(language, 'shell.identity')),
+          ...(current ? [h.AriaCurrent('page')] : []),
+          ...styled(h, vs.navLink()),
+        ],
+        [
+          Option.getOrElse(Standing.guards.Known(standing) ? standing.maybeName : Option.none(), () =>
+            shortNpub(identity.pubkey),
+          ),
+        ],
+      ),
+  })
+}
+
 const sessionArea = (h: Html.HtmlBuilder<Message>, model: Model) => {
   const language = model.flags.language
   return h.div(styled(h, vs.session()), [
-    navLink(h, identityRouter(), say(language, 'shell.identity'), AppRoute.guards.Identity(model.route)),
+    identityLink(h, model),
     Session.match(model.session, {
       Checking: () => h.span(styled(h, vs.sessionNote()), [say(language, 'shell.checking')]),
       SignedOut: () =>
@@ -149,7 +177,6 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'new-listing',
         model: newListing,
         view: NewListing.view,
-        viewInputs: { session },
         toParentMessage: (message) => Message.GotNewListingMessage({ message }),
       }),
     Listing: ({ listing }) =>
@@ -157,7 +184,6 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'listing',
         model: listing,
         view: ListingPage.view,
-        viewInputs: { maybeAccount: accountOf(session) },
         toParentMessage: (message) => Message.GotListingMessage({ message }),
       }),
     NewRequest: ({ newRequest }) =>
@@ -165,7 +191,6 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'new-request',
         model: newRequest,
         view: NewRequest.view,
-        viewInputs: { session },
         toParentMessage: (message) => Message.GotNewRequestMessage({ message }),
       }),
     Job: ({ job }) =>
@@ -173,7 +198,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'job',
         model: job,
         view: JobPage.view,
-        viewInputs: { session, me: accountOf(session), timeZone },
+        viewInputs: { timeZone },
         toParentMessage: (message) => Message.GotJobMessage({ message }),
       }),
     Inbox: ({ inbox }) =>

@@ -1,65 +1,55 @@
-import {
-  AccountId,
-  type BidderJobView,
-  type BuyerJobView,
-  JobId,
-  JobView,
-  type Proposal,
-  ProposalRef,
-  type PublicJobView,
-  WalletAddress,
-} from '@sidequest/protocol'
-import { Array, Effect, Option, Order, Schema } from 'effect'
-import { AsyncData, Command, Subscription, Update } from 'foldkit'
+import { JobView, type ProposalView } from '@sidequest/fold'
+import { NetworkRef } from '@sidequest/protocol'
+import { Array, Effect, Option, Schema } from 'effect'
+import * as FetchHttpClient from 'effect/http/FetchHttpClient'
+import { AsyncData, Command, Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
 import { SidequestClient } from '../../Api.ts'
 import { Language } from '../../Language.ts'
+import { Me, pubkeyOf, walletOn } from '../../Me.ts'
 import { defineReadNames, Names, unnamed, withNames } from '../../Names.ts'
 import type { Preload } from '../../Preload.ts'
-import { Problem, problemOf } from '../../Problem.ts'
-import type { Wallet } from '../../Wallet.ts'
-
-type WalletAddress = typeof WalletAddress.Type
+import { failedWith, Problem } from '../../Problem.ts'
+import { PublishFailure, publishEvent, publishFailureOf } from '../../Publishing.ts'
+import type { Signers } from '../../Signer.ts'
+import { say } from '../../Text.ts'
 import * as Propose from './Propose.ts'
-import * as Review from './Review.ts'
-import * as Room from './Room.ts'
-import * as Settlement from './Settlement.ts'
 
-// The job page: the request and, for whoever is looking, their part of it. The buyer sees every proposal, accepts one
-// exact version or asks for a change, then funds, approves or rejects; a bidder sees the request and its stage, sees and
-// revises their own proposals and, once they win, the escrow's fee, delivers, and reviews; anyone else sees the request
-// and may propose. The rooms sit beside it for its members. Every account shown goes by its name.
+// The job page: a request and everything signed about it, as the index folds it (`@sidequest/fold`'s `JobView`). Before
+// funding nothing binds: a bidder with a linked wallet proposes, revises and withdraws; the buyer accepts one proposal
+// or closes the request. Each is a signed event the person's signer makes; the page then reads the job again. Funding
+// and what follows are shown as the chain recorded them; the money steps arrive in a later release.
 
 // MODEL
 
 const ViewData = AsyncData.Schema(JobView, Problem)
 
-/** The buyer deciding on a proposal or on the request itself. */
-export const Decision = defineTaggedUnion({
+/** What the person publishes about the job. */
+export const Act = Schema.Literals(['proposal', 'accept', 'withdraw', 'close'])
+export type Act = typeof Act.Type
+
+/** What the person is doing, one thing at a time. */
+export const Action = defineTaggedUnion({
   Idle: {},
-  ConfirmingAccept: { ref: ProposalRef },
-  Accepting: { ref: ProposalRef },
-  RequestingChange: { ref: ProposalRef },
-  ConfirmingCancel: {},
-  Cancelling: {},
-  Failed: { problem: Problem },
+  ConfirmingAccept: { proposal: Schema.String },
+  ConfirmingClose: {},
+  Publishing: { act: Act },
+  Published: { act: Act },
+  Failed: { failure: PublishFailure },
 })
-export type Decision = typeof Decision.Type
+export type Action = typeof Action.Type
 
 export const Model = Schema.Struct({
   language: Language,
-  job: JobId,
-  maybeSigner: Schema.Option(WalletAddress),
+  job: Schema.String,
+  me: Me,
   view: ViewData.schema,
-  decision: Decision,
+  action: Action,
   maybePropose: Schema.Option(Propose.Model),
-  room: Room.Model,
-  maybeSettlement: Schema.Option(Settlement.Model),
-  review: Review.Model,
   names: Names,
-  askedNames: Schema.Array(AccountId),
+  askedNames: Schema.Array(Schema.String),
 })
 export type Model = typeof Model.Type
 
@@ -68,164 +58,218 @@ export type Model = typeof Model.Type
 export const Message = defineMessageUnion({
   SucceededReadJob: { view: JobView },
   FailedReadJob: { problem: Problem },
-  ClickedAccept: { ref: ProposalRef },
-  ClickedConfirmAccept: {},
-  ClickedRequestChange: { ref: ProposalRef },
-  ClickedCancelRequest: {},
-  ClickedConfirmCancel: {},
-  ClickedKeep: {},
-  SucceededDecide: {},
-  FailedDecide: { problem: Problem },
+  ClickedPropose: {},
+  ClickedRevise: { proposal: Schema.String },
+  ClickedCancelPropose: {},
   GotProposeMessage: { message: Propose.Message },
-  GotRoomMessage: { message: Room.Message },
-  GotSettlementMessage: { message: Settlement.Message },
-  GotReviewMessage: { message: Review.Message },
+  ClickedWithdraw: { proposal: Schema.String },
+  ClickedAccept: { proposal: Schema.String },
+  ClickedConfirmAccept: {},
+  ClickedClose: {},
+  ClickedConfirmClose: {},
+  ClickedKeep: {},
+  SucceededPublish: { act: Act },
+  FailedPublish: { failure: PublishFailure },
   SucceededReadNames: { names: Names },
   FailedReadNames: { problem: Problem },
 })
 export type Message = typeof Message.Type
 
+/** The person acted without a signer ready: the site sends them to set one up, and back. */
+export const OutMessage = defineMessageUnion({ SignerMissing: {} })
+export type OutMessage = typeof OutMessage.Type
+
 // COMMAND
 
+/** The job as the index folds it; `fresh` right after the person published about it, past what the browser's cache
+ * kept (the index lets caches keep a job for seconds). */
 export const ReadJob = Command.define('ReadJob', {
-  args: { job: JobId },
+  args: { job: Schema.String, fresh: Schema.Boolean },
   messages: [Message.SucceededReadJob, Message.FailedReadJob],
-  execute: ({ job }) =>
+  execute: ({ job, fresh }) =>
     Effect.gen(function* () {
       const api = yield* (yield* SidequestClient).api
-      const view = yield* api.jobs.get({ params: { job } })
+      const view = yield* api.indexJobs
+        .job({ params: { id: job } })
+        .pipe(Effect.provideService(FetchHttpClient.RequestInit, fresh ? { cache: 'no-cache' } : {}))
       return Message.SucceededReadJob({ view })
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedReadJob({ problem: problemOf(error) })))),
+    }).pipe(Effect.catch(failedWith(Message.FailedReadJob))),
 })
 
-/** The buyer's decision on one exact proposal version: accept it, or ask its bidder for a change. */
-export const Decide = Command.define('Decide', {
-  args: { job: JobId, ref: ProposalRef, accept: Schema.Boolean },
-  messages: [Message.SucceededDecide, Message.FailedDecide],
-  execute: ({ job, ref, accept }) =>
-    Effect.gen(function* () {
-      const api = yield* (yield* SidequestClient).api
-      yield* accept
-        ? api.jobs.accept({ params: { job }, payload: ref })
-        : api.jobs.requestChange({ params: { job }, payload: ref })
-      return Message.SucceededDecide()
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedDecide({ problem: problemOf(error) })))),
+const published = (act: Act) =>
+  Effect.matchEffect({
+    onSuccess: () => Effect.succeed(Message.SucceededPublish({ act })),
+    onFailure: (error: unknown) => Effect.succeed(Message.FailedPublish({ failure: publishFailureOf(error) })),
+  })
+
+/** A bidder's proposal for the job, paid to their linked wallet: the terms as of signing, standing for the days they
+ * chose; `previous` names the proposal it revises. */
+export const PublishProposal = Command.define('PublishProposal', {
+  args: {
+    job: Schema.String,
+    buyer: Schema.String,
+    payTo: Schema.String,
+    offer: Propose.Offer,
+    maybePrevious: Schema.Option(Schema.String),
+  },
+  messages: [Message.SucceededPublish, Message.FailedPublish],
+  execute: ({ job, buyer, payTo, offer, maybePrevious }) =>
+    publishEvent((kit, createdAt) =>
+      Propose.termsOf(offer, createdAt).pipe(
+        Effect.flatMap((terms) =>
+          kit.proposalTemplate(
+            {
+              job,
+              buyer,
+              terms,
+              payTo,
+              validUntil: Propose.validUntilOf(offer, createdAt),
+              ...Option.match(maybePrevious, { onNone: () => ({}), onSome: (previous) => ({ previous }) }),
+            },
+            createdAt,
+          ),
+        ),
+        Effect.orElseSucceed(() => Option.none()),
+      ),
+    ).pipe(published('proposal')),
 })
 
-export const CancelRequest = Command.define('CancelRequest', {
-  args: { job: JobId },
-  messages: [Message.SucceededDecide, Message.FailedDecide],
-  execute: ({ job }) =>
-    Effect.gen(function* () {
-      const api = yield* (yield* SidequestClient).api
-      yield* api.jobs.cancel({ params: { job } })
-      return Message.SucceededDecide()
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedDecide({ problem: problemOf(error) })))),
+/** The buyer accepts one proposal: its exact terms by digest, on its network. A signal; only funding binds. */
+export const PublishAccept = Command.define('PublishAccept', {
+  args: {
+    job: Schema.String,
+    proposal: Schema.String,
+    termsDigest: Schema.String,
+    worker: Schema.String,
+    network: NetworkRef,
+  },
+  messages: [Message.SucceededPublish, Message.FailedPublish],
+  execute: (accept) =>
+    publishEvent((kit, createdAt) => kit.acceptTemplate(accept, createdAt)).pipe(published('accept')),
+})
+
+/** A statement on the record: a bidder withdrawing their proposal, or the buyer closing the request. */
+export const PublishStatement = Command.define('PublishStatement', {
+  args: {
+    job: Schema.String,
+    maybeAbout: Schema.Option(Schema.String),
+    type: Schema.Literals(['withdraw_request', 'withdraw_proposal']),
+    text: Schema.String,
+  },
+  messages: [Message.SucceededPublish, Message.FailedPublish],
+  execute: ({ job, maybeAbout, type, text }) =>
+    publishEvent((kit, createdAt) =>
+      kit.statementTemplate(
+        {
+          job,
+          type,
+          text,
+          ...Option.match(maybeAbout, { onNone: () => ({}), onSome: (about) => ({ about }) }),
+        },
+        createdAt,
+      ),
+    ).pipe(published(type === 'withdraw_request' ? 'close' : 'withdraw')),
 })
 
 export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
 
 // INIT
 
-type Services = SidequestClient | Wallet
-type UpdateReturn = Update.Return<Model, Message, Services>
+type Services = SidequestClient | Signers
+type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>
+type Step = Update.StepWithOutMessage<Model, Message, OutMessage, Services>
 
 type JobPreload = Extract<Preload, { readonly _tag: 'Job' }>
 
-/** The job as the server read it, or a read of it; the rooms are read in the browser either way. */
+/** Every key the job shows: its buyer, the bidders and whoever signed an accept or a statement. */
+export const keysIn = (view: JobView): ReadonlyArray<string> => [
+  view.buyer,
+  ...Array.map(view.proposals, (proposal) => proposal.author),
+  ...Array.map(view.accepts, (accept) => accept.author),
+  ...Array.map(view.statements, (statement) => statement.author),
+]
+
+/** The job as the server read it, or a read of it. */
 export const init = (
   language: Language,
-  job: JobId,
-  maybeSigner: Option.Option<string>,
-  mayReadRooms: boolean,
+  job: string,
+  me: Me,
   maybePreload: Option.Option<JobPreload>,
-): UpdateReturn => {
-  const roomInit = Update.foldChildInit(Room.init(language, job, mayReadRooms), {
-    toParentModel: (room): Model => ({
-      language,
-      job,
-      maybeSigner: Option.flatMap(maybeSigner, Schema.decodeUnknownOption(WalletAddress)),
-      view: AsyncData.Loading(),
-      decision: Decision.Idle(),
-      maybePropose: Option.none(),
-      room,
-      maybeSettlement: Option.none(),
-      review: Review.init(language, job),
-      names: Option.match(maybePreload, { onNone: () => [], onSome: (preload) => preload.names }),
-      // The server asked for every name its view shows; one it did not find is not asked for again.
-      askedNames: Option.match(maybePreload, { onNone: () => [], onSome: (preload) => accountsIn(preload.view) }),
-    }),
-    toParentMessage: (message) => Message.GotRoomMessage({ message }),
-  })
-  return Option.match(maybePreload, {
-    onNone: () => ({ model: roomInit.model, commands: [ReadJob({ job }), ...(roomInit.commands ?? [])] }),
-    onSome: ({ view }) => {
-      const shown = shownJob(roomInit.model, view)
-      return { model: shown.model, commands: [...(roomInit.commands ?? []), ...(shown.commands ?? [])] }
+): Update.Return<Model, Message, Services> => {
+  const base = { language, job, me, action: Action.Idle(), maybePropose: Option.none() }
+  return Option.match(
+    Option.filter(maybePreload, (preload) => preload.view.job === job),
+    {
+      onSome: ({ view, names }) => ({
+        // The server asked for every name its view shows; one it did not find is not asked for again.
+        model: { ...base, view: ViewData.Success({ data: view }), names, askedNames: keysIn(view) },
+      }),
+      onNone: () => ({
+        model: { ...base, view: AsyncData.Loading(), names: [], askedNames: [] },
+        commands: [ReadJob({ job, fresh: false })],
+      }),
     },
-  })
+  )
 }
 
 // DERIVED
 
-/** A bidder's proposals, newest version last. */
-export const versionsOf = (proposals: ReadonlyArray<Proposal>, bidder: AccountId): ReadonlyArray<Proposal> =>
-  Array.sort(
-    Array.filter(proposals, (proposal) => proposal.bidder === bidder),
-    Order.mapInput(Order.Number, (proposal: Proposal) => proposal.version),
+/** Before funding, the job still takes proposals, accepts and statements. */
+export const negotiable = (view: JobView): boolean =>
+  view.stage === 'open' || view.stage === 'proposed' || view.stage === 'accepted'
+
+/** A proposal that still stands: not revised, withdrawn, expired or addressed to someone else. */
+export const standing = (proposal: ProposalView): boolean =>
+  !proposal.superseded && !proposal.withdrawn && !proposal.expired && !proposal.otherBuyer
+
+/** Whether the person is the job's buyer: their signer's key wrote the request. */
+export const isBuyer = (model: Model, view: JobView): boolean => isMine(model, view.buyer)
+
+/** Whether `pubkey` is the person's own key. */
+export const isMine = (model: Model, pubkey: string): boolean => Option.contains(pubkeyOf(model.me), pubkey)
+
+/** The person's verified wallet on the network proposals are paid on, which their proposal names. */
+export const payToOf = (model: Model): Option.Option<string> => walletOn(model.me, Propose.proposalNetwork)
+
+const proposalOf = (model: Model, id: string): Option.Option<ProposalView> =>
+  Option.flatMap(AsyncData.getData(model.view), (view) =>
+    Array.findFirst(view.proposals, (proposal) => proposal.id === id),
   )
-
-/** The newest version of a bidder's proposal. */
-export const headOf = (proposals: ReadonlyArray<Proposal>, bidder: AccountId): Option.Option<Proposal> =>
-  Array.last(versionsOf(proposals, bidder))
-
-const settlingStates: ReadonlyArray<string> = ['Awarded', 'Funded', 'Delivered', 'Disputed', 'Settled']
-
-/** A job as its audience sees it, one handler each. */
-export const byAudience = <A>(
-  view: JobView,
-  cases: {
-    readonly buyer: (buyer: BuyerJobView) => A
-    readonly bidder: (bidder: BidderJobView) => A
-    readonly public: (anyone: PublicJobView) => A
-  },
-): A =>
-  view.audience === 'buyer'
-    ? cases.buyer(view.view)
-    : view.audience === 'bidder'
-      ? cases.bidder(view.view)
-      : cases.public(view.view)
-
-const buyerSetup = (buyer: BuyerJobView, maybeSigner: Option.Option<WalletAddress>): Settlement.Setup => ({
-  role: 'buyer',
-  maybeSigner,
-  maybeTerms: Option.map(Option.fromNullishOr(buyer.agreement), (agreement) => agreement.terms),
-  maybeDeliveryUrl: Option.map(Option.fromNullishOr(buyer.delivery), (delivery) => delivery.url),
-  maybeDisputeReason: Option.flatMap(Option.fromNullishOr(buyer.dispute), (dispute) =>
-    Option.fromNullishOr(dispute.reason),
-  ),
-})
-
-const workerSetup = (bidder: BidderJobView, maybeSigner: Option.Option<WalletAddress>): Settlement.Setup => ({
-  role: 'worker',
-  maybeSigner,
-  maybeTerms: Option.map(Array.last(bidder.proposals), (proposal) => proposal.terms),
-  maybeDeliveryUrl: Option.none(),
-  maybeDisputeReason: Option.none(),
-})
-
-/** What the settlement panel needs from the job, for its buyer or its winning bidder; nothing for anyone else. */
-const settlementSetup = (view: JobView, maybeSigner: Option.Option<WalletAddress>): Option.Option<Settlement.Setup> =>
-  byAudience(view, {
-    buyer: (buyer) =>
-      settlingStates.includes(buyer.state) ? Option.some(buyerSetup(buyer, maybeSigner)) : Option.none(),
-    bidder: (bidder) => (bidder.outcome === 'won' ? Option.some(workerSetup(bidder, maybeSigner)) : Option.none()),
-    public: () => Option.none(),
-  })
 
 // UPDATE
 
-type Step = Update.Step<Model, Message, Services>
+const withAction = (model: Model, action: Action): Model => modifyFields(model, { action: () => action })
+
+const busy = (model: Model): boolean => Action.guards.Publishing(model.action)
+
+/** Only a person whose signer is ready acts, one thing at a time; without a signer the site sends them to set one up. */
+const asSigner = (model: Model, act: (pubkey: string) => UpdateReturn): UpdateReturn => {
+  if (busy(model)) {
+    return { model }
+  }
+  return Option.match(pubkeyOf(model.me), {
+    onNone: () => ({ model, outMessage: OutMessage.SignerMissing() }),
+    onSome: act,
+  })
+}
+
+const publishing = (model: Model, act: Act, command: Command.Command<Message, never, Services>): UpdateReturn => ({
+  model: withAction(model, Action.Publishing({ act })),
+  commands: [command],
+})
+
+const submittedProposal = (model: Model, offer: Propose.Offer, maybePrevious: Option.Option<string>): UpdateReturn =>
+  asSigner(model, () =>
+    Option.match(Option.all({ view: AsyncData.getData(model.view), payTo: payToOf(model) }), {
+      onNone: () => ({ model: modifyFields(model, { maybePropose: Option.map(Propose.settled) }) }),
+      onSome: ({ view, payTo }) =>
+        publishing(
+          model,
+          'proposal',
+          PublishProposal({ job: model.job, buyer: view.buyer, payTo, offer, maybePrevious }),
+        ),
+    }),
+  )
 
 const foldPropose = Update.foldChild({
   update: Propose.update,
@@ -234,189 +278,119 @@ const foldPropose = Update.foldChild({
     modifyFields(model, { maybePropose: () => Option.some(nextPropose) }),
   toParentMessage: (message) => Message.GotProposeMessage({ message }),
   foldOutMessage: Propose.OutMessage.match<Step>({
-    Proposed: () => (model) => reread(modifyFields(model, { maybePropose: () => Option.none() })),
+    Submitted:
+      ({ offer, maybePrevious }) =>
+      (model) =>
+        submittedProposal(model, offer, maybePrevious),
   }),
 })
 
-const roomFold = {
-  read: (model: Model) => Option.some(model.room),
-  write: (model: Model, nextRoom: Room.Model) => modifyFields(model, { room: () => nextRoom }),
-  toParentMessage: (message: Room.Message) => Message.GotRoomMessage({ message }),
-}
-const foldRoom = Update.foldChild({ update: Room.update, ...roomFold })
-const refreshRooms = Update.foldChildStep({ update: Room.refresh, ...roomFold })
-
-const foldSettlement = Update.foldChild({
-  update: Settlement.update,
-  read: (model: Model) => model.maybeSettlement,
-  write: (model: Model, nextSettlement: Settlement.Model) =>
-    modifyFields(model, { maybeSettlement: () => Option.some(nextSettlement) }),
-  toParentMessage: (message) => Message.GotSettlementMessage({ message }),
-  foldOutMessage: Settlement.OutMessage.match<Step>({ ChainMoved: () => (model) => readAgain(model) }),
-})
-
-const foldReview = Update.foldChild({
-  update: Review.update,
-  read: (model: Model) => Option.some(model.review),
-  write: (model: Model, nextReview: Review.Model) => modifyFields(model, { review: () => nextReview }),
-  toParentMessage: (message) => Message.GotReviewMessage({ message }),
-  foldOutMessage: Review.OutMessage.match<Step>({ Reviewed: () => (model) => readAgain(model) }),
-})
-
-/** Read the job again, keeping it on screen meanwhile. */
-const readAgain: Step = (model) => ({
+/** Read the job again past the cache, keeping it on screen meanwhile. */
+const readAgain = (model: Model): UpdateReturn => ({
   model: modifyFields(model, { view: (view) => Option.getOrElse(AsyncData.revalidate(view), () => view) }),
-  commands: [ReadJob({ job: model.job })],
+  commands: [ReadJob({ job: model.job, fresh: true })],
 })
 
-/** After a change that may open a room (a proposal, an award): read the job and the rooms again. */
-const reread: Step = (model) => Update.combine(model, [readAgain, refreshRooms])
-
-/** Whether the person may propose: anyone on an open request who is not its buyer, or a bidder whose bid stands. */
-const proposing = (view: JobView): boolean =>
-  byAudience(view, {
-    buyer: () => false,
-    bidder: (bidder) => bidder.outcome === 'pending' && bidder.state === 'Open',
-    public: (anyone) => anyone.state === 'Open',
+/** After the job was read, ask for the names of the keys not known or asked for yet. */
+const askNames = (model: Model, view: JobView): UpdateReturn =>
+  Array.match(unnamed(keysIn(view), model.names, model.askedNames), {
+    onEmpty: () => ({ model }),
+    onNonEmpty: (pubkeys) => ({
+      model: modifyFields(model, { askedNames: Array.appendAll(pubkeys) }),
+      commands: [ReadNames({ pubkeys })],
+    }),
   })
 
-/** Every account the job shows: its buyer, and for the buyer every bidder and the worker; the reviews' authors. */
-export const accountsIn = (view: JobView): ReadonlyArray<AccountId> =>
-  byAudience(view, {
-    buyer: (buyer) => [
-      ...(buyer.request === null ? [] : [buyer.request.buyer]),
-      ...Array.map(buyer.proposals, (proposal) => proposal.bidder),
-      ...Array.map(buyer.reviews, (review) => review.author),
-    ],
-    bidder: (bidder) => [
-      ...(bidder.request === null ? [] : [bidder.request.buyer]),
-      ...Array.map(bidder.reviews, (review) => review.author),
-    ],
-    public: (anyone) => (anyone.request === null ? [] : [anyone.request.buyer]),
-  })
-
-/** Every account the rooms show: the bidders they are with and the authors of the messages read. */
-const accountsInRooms = (room: Room.Model): ReadonlyArray<AccountId> => [
-  ...Option.match(AsyncData.getData(room.rooms), {
-    onNone: () => [],
-    onSome: (rooms) => Array.flatMap(rooms, (ref) => (ref.kind === 'negotiation' ? [ref.bidder] : [])),
-  }),
-  ...Option.match(room.maybeOpen, {
-    onNone: () => [],
-    onSome: (open) => Array.map(open.messages, (message) => message.author),
-  }),
-]
-
-/** After a step that may show new accounts, ask for the names not known or asked for yet. */
-const askNames: Step = (model) =>
-  Array.match(
-    unnamed(
-      [
-        ...Option.match(AsyncData.getData(model.view), { onNone: () => [], onSome: accountsIn }),
-        ...accountsInRooms(model.room),
-      ],
-      model.names,
-      model.askedNames,
-    ),
-    {
-      onEmpty: () => ({ model }),
-      onNonEmpty: (ids) => ({
-        model: modifyFields(model, { askedNames: Array.appendAll(ids) }),
-        commands: [ReadNames({ ids })],
-      }),
-    },
-  )
-
-const withPropose = (model: Model, view: JobView): Model => {
-  if (!proposing(view)) {
-    return modifyFields(model, { maybePropose: () => Option.none() })
+const confirmedAccept = (model: Model): UpdateReturn => {
+  const action = model.action
+  if (!Action.guards.ConfirmingAccept(action)) {
+    return { model }
   }
-  if (Option.isSome(model.maybePropose)) {
-    return model
-  }
-  const fresh = Propose.init(model.language, model.job)
-  const head = view.audience === 'bidder' ? Array.last(view.view.proposals) : Option.none()
-  return modifyFields(model, {
-    maybePropose: () =>
-      Option.some(Option.match(head, { onNone: () => fresh, onSome: (proposal) => Propose.revising(fresh, proposal) })),
-  })
-}
-
-const withSettlement = (model: Model, view: JobView): UpdateReturn =>
-  Option.match(settlementSetup(view, model.maybeSigner), {
-    onNone: () => ({ model: modifyFields(model, { maybeSettlement: () => Option.none() }) }),
-    onSome: (setup) =>
-      Option.match(model.maybeSettlement, {
-        onSome: (settlement) => ({
-          model: modifyFields(model, { maybeSettlement: () => Option.some(Settlement.informSetup(settlement, setup)) }),
-        }),
-        onNone: () =>
-          Update.foldChildInit(Settlement.init(model.language, model.job, setup), {
-            toParentModel: (settlement) => modifyFields(model, { maybeSettlement: () => Option.some(settlement) }),
-            toParentMessage: (message) => Message.GotSettlementMessage({ message }),
+  return asSigner(model, () =>
+    Option.match(proposalOf(model, action.proposal), {
+      onNone: () => ({ model: withAction(model, Action.Idle()) }),
+      onSome: (proposal) =>
+        publishing(
+          model,
+          'accept',
+          PublishAccept({
+            job: model.job,
+            proposal: proposal.id,
+            termsDigest: proposal.content.termsDigest,
+            worker: proposal.author,
+            network: proposal.content.terms.network,
           }),
-      }),
-  })
-
-const decide = (model: Model, decision: Decision, command: Command.Command<Message, never, SidequestClient>) => ({
-  model: modifyFields(model, { decision: () => decision }),
-  commands: [command],
-})
-
-/** The job as read: what the person may do with it, the settlement panel for its parties, and the names it shows. */
-const shownJob = (model: Model, view: JobView): UpdateReturn =>
-  Update.combine(withPropose(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view), [
-    (stepModel) => withSettlement(stepModel, view),
-    askNames,
-  ])
+        ),
+    }),
+  )
+}
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    SucceededReadJob: ({ view }) => shownJob(model, view),
+    SucceededReadJob: ({ view }) =>
+      askNames(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view),
     FailedReadJob: ({ problem }) => ({
       model: modifyFields(model, { view: () => ViewData.Failure({ error: problem }) }),
     }),
-    ClickedAccept: ({ ref }) => ({
-      model: modifyFields(model, { decision: () => Decision.ConfirmingAccept({ ref }) }),
-    }),
-    ClickedConfirmAccept: () =>
-      Decision.guards.ConfirmingAccept(model.decision)
-        ? decide(
-            model,
-            Decision.Accepting({ ref: model.decision.ref }),
-            Decide({ job: model.job, ref: model.decision.ref, accept: true }),
+    ClickedPropose: () =>
+      asSigner(model, () => ({
+        model: modifyFields(model, { maybePropose: () => Option.some(Propose.init(model.language)) }),
+      })),
+    ClickedRevise: ({ proposal }) =>
+      asSigner(model, () => ({
+        model: modifyFields(model, {
+          maybePropose: () =>
+            Option.map(proposalOf(model, proposal), (shown) => Propose.revising(model.language, shown)),
+        }),
+      })),
+    ClickedCancelPropose: () => ({ model: modifyFields(model, { maybePropose: () => Option.none() }) }),
+    GotProposeMessage: ({ message: proposeMessage }) => foldPropose(model, proposeMessage),
+    ClickedWithdraw: ({ proposal }) =>
+      asSigner(model, () =>
+        publishing(
+          model,
+          'withdraw',
+          PublishStatement({
+            job: model.job,
+            maybeAbout: Option.some(proposal),
+            type: 'withdraw_proposal',
+            text: say(model.language, 'job.withdrawStatement'),
+          }),
+        ),
+      ),
+    ClickedAccept: ({ proposal }) =>
+      asSigner(model, () => ({ model: withAction(model, Action.ConfirmingAccept({ proposal })) })),
+    ClickedConfirmAccept: () => confirmedAccept(model),
+    ClickedClose: () => asSigner(model, () => ({ model: withAction(model, Action.ConfirmingClose()) })),
+    ClickedConfirmClose: () =>
+      Action.guards.ConfirmingClose(model.action)
+        ? asSigner(model, () =>
+            publishing(
+              model,
+              'close',
+              PublishStatement({
+                job: model.job,
+                maybeAbout: Option.none(),
+                type: 'withdraw_request',
+                text: say(model.language, 'job.closeStatement'),
+              }),
+            ),
           )
         : { model },
-    ClickedRequestChange: ({ ref }) =>
-      decide(model, Decision.RequestingChange({ ref }), Decide({ job: model.job, ref, accept: false })),
-    ClickedCancelRequest: () => ({ model: modifyFields(model, { decision: () => Decision.ConfirmingCancel() }) }),
-    ClickedConfirmCancel: () => decide(model, Decision.Cancelling(), CancelRequest({ job: model.job })),
-    ClickedKeep: () => ({ model: modifyFields(model, { decision: () => Decision.Idle() }) }),
-    SucceededDecide: () => reread(modifyFields(model, { decision: () => Decision.Idle() })),
-    FailedDecide: ({ problem }) => ({ model: modifyFields(model, { decision: () => Decision.Failed({ problem }) }) }),
-    GotProposeMessage: ({ message: proposeMessage }) => foldPropose(model, proposeMessage),
-    GotRoomMessage: ({ message: roomMessage }) =>
-      Update.combine(model, [(stepModel) => foldRoom(stepModel, roomMessage), askNames]),
-    GotSettlementMessage: ({ message: settlementMessage }) => foldSettlement(model, settlementMessage),
-    GotReviewMessage: ({ message: reviewMessage }) => foldReview(model, reviewMessage),
+    ClickedKeep: () => ({ model: withAction(model, Action.Idle()) }),
+    SucceededPublish: ({ act }) =>
+      readAgain(
+        modifyFields(model, {
+          action: () => Action.Published({ act }),
+          maybePropose: (maybePropose) => (act === 'proposal' ? Option.none() : maybePropose),
+        }),
+      ),
+    FailedPublish: ({ failure }) => ({
+      model: modifyFields(model, {
+        action: () => Action.Failed({ failure }),
+        maybePropose: Option.map(Propose.settled),
+      }),
+    }),
     SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
     FailedReadNames: () => ({ model }),
   })
-
-/** The session became known or changed: the wallet that signs this person's steps. */
-export const informSigner = (model: Model, maybeSigner: Option.Option<string>): Model => {
-  const signer = Option.flatMap(maybeSigner, Schema.decodeUnknownOption(WalletAddress))
-  return modifyFields(model, {
-    maybeSigner: () => signer,
-    maybeSettlement: Option.map((settlement) =>
-      Settlement.informSetup(settlement, modifyFields(settlement.setup, { maybeSigner: () => signer })),
-    ),
-  })
-}
-
-// SUBSCRIPTION
-
-export const subscriptions = Subscription.lift(Room.subscriptions)<Model, Message>({
-  read: (model) => Option.some(model.room),
-  toParentMessage: (message) => Message.GotRoomMessage({ message }),
-})

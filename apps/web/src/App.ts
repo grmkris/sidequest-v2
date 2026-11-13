@@ -1,13 +1,13 @@
 import { Effect, Option } from 'effect'
-import { Command, type Runtime, Subscription, type Update } from 'foldkit'
+import { Command, type Runtime, type Update } from 'foldkit'
 import { modifyFields } from 'foldkit/struct'
 import type { Url } from 'foldkit/url'
 import { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
 import { Flags, Model } from './Model.ts'
 import { FocusTitle, followLink, NavigateInternal } from './Navigation.ts'
+import { DetectMe, Me } from './Me.ts'
 import { Preload, SessionRead } from './Preload.ts'
-import * as Job from './page/job/Job.ts'
 import {
   foldAgents,
   foldConnect,
@@ -18,12 +18,11 @@ import {
   foldInbox,
   foldJob,
   foldListing,
+  foldMe,
   foldNewListing,
   foldNewRequest,
   foldSignIn,
-  informJobSigner,
   openPage,
-  readJob,
   type Services,
 } from './Page.ts'
 import { Problem, problemOf } from './Problem.ts'
@@ -74,16 +73,19 @@ const sessionFrom = (flags: Flags): Session =>
 
 /** The page the address names with the data the server read for it, and the session. The server renders from the same
  * Flags, so hydration adopts its HTML as it is and reads only what the server did not: the browser's time zone, the
- * session when the server could not read it, and the page's data when the server's read failed. */
+ * session when the server could not read it, and the page's data when the server's read failed. The Nostr signer lives
+ * in the browser alone, so the server renders it as being looked for and the browser then looks. */
 export const init: Runtime.RoutingApplicationInit<Model, Message, Flags, Services> = (flags: Flags, url: Url) => {
   const route = routeFromUrl(url)
   const session = sessionFrom(flags)
-  const opened = openPage(flags, route, session, flags.preload)
+  const me = Me.Detecting()
+  const opened = openPage(flags, route, session, me, flags.preload)
   return {
-    model: { flags, route, session, maybeShellProblem: Option.none(), page: opened.model },
+    model: { flags, route, session, me, maybeShellProblem: Option.none(), page: opened.model },
     commands: [
       ReadTimeZone(),
       ...(Session.guards.Checking(session) ? [ReadSession()] : []),
+      Command.mapMessage(DetectMe(), (message) => Message.GotMeMessage({ message })),
       ...(opened.commands ?? []),
     ],
   }
@@ -106,7 +108,7 @@ const changedUrl = (model: Model, url: Url): UpdateReturn => {
   if (AppRoute.guards.Home(model.route) && AppRoute.guards.Home(route)) {
     return foldHomeSearch(modifyFields(model, { route: () => route }), route.q)
   }
-  const opened = openPage(model.flags, route, model.session, Preload.Nothing())
+  const opened = openPage(model.flags, route, model.session, model.me, Preload.Nothing())
   return {
     model: modifyFields(model, {
       route: () => route,
@@ -118,7 +120,7 @@ const changedUrl = (model: Model, url: Url): UpdateReturn => {
 }
 
 const sessionRead = (model: Model, session: Session): UpdateReturn => ({
-  model: informJobSigner(modifyFields(model, { session: () => session })),
+  model: modifyFields(model, { session: () => session }),
 })
 
 export const update = (model: Model, message: Message): UpdateReturn =>
@@ -135,7 +137,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       sessionRead(model, Problem.guards.NotSignedIn(problem) ? Session.SignedOut() : Session.Unknown({ problem })),
     ClickedSignOut: () => signOut(model),
     SucceededSignOut: () => ({
-      model: informJobSigner(modifyFields(model, { session: () => Session.SignedOut() })),
+      model: modifyFields(model, { session: () => Session.SignedOut() }),
       commands: [NavigateInternal({ href: homeRouter({ q: Option.none() }) })],
     }),
     FailedSignOut: ({ problem }) => ({
@@ -145,6 +147,7 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         maybeShellProblem: () => Option.some(problem),
       }),
     }),
+    GotMeMessage: ({ message: meMessage }) => foldMe(model, meMessage),
     GotHomeMessage: ({ message: homeMessage }) => foldHome(model, homeMessage),
     GotSignInMessage: ({ message: signInMessage }) => foldSignIn(signOut)(model, signInMessage),
     GotNewListingMessage: ({ message: newListingMessage }) => foldNewListing(model, newListingMessage),
@@ -157,11 +160,3 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotConnectionsMessage: ({ message: connectionsMessage }) => foldConnections(model, connectionsMessage),
     GotIdentityMessage: ({ message: identityMessage }) => foldIdentity(model, identityMessage),
   })
-
-// SUBSCRIPTION
-
-/** The job page's room follows new messages while the job page is open. */
-export const subscriptions = Subscription.lift(Job.subscriptions)<Model, Message>({
-  read: readJob,
-  toParentMessage: (message) => Message.GotJobMessage({ message }),
-})

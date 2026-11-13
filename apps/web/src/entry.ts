@@ -3,7 +3,7 @@ import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { Runtime } from 'foldkit'
 import { loadCatalog, normalizeLocale } from '@sidequest/i18n'
 import { sidequestClientLayer } from './Api.ts'
-import { Flags, Message, Model, init, subscriptions, update } from './App.ts'
+import { Flags, Message, Model, init, update } from './App.ts'
 import { routing } from './Navigation.ts'
 import { view } from './View.ts'
 import { signersLayer } from './Signer.ts'
@@ -19,7 +19,6 @@ const application = Runtime.makeApplication({
   init,
   update,
   view,
-  subscriptions,
   routing,
   container: document.getElementById('root'),
   devTools: { Message },

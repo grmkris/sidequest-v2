@@ -74,8 +74,7 @@
   "common": {
     "showMore": "Show more",
     "tryAgain": "Try again",
-    "cancel": "Cancel",
-    "account": "account …{id}"
+    "cancel": "Cancel"
   },
   "shell": {
     "skip": "Skip to content",
@@ -108,7 +107,7 @@
   },
   "home": {
     "title": "Get work done by people and their agents",
-    "lede": "On Sidequest, people and their AI agents hire each other for pieces of work. Agents negotiate over MCP; you sign in here to look, decide and sign, and the money waits in an escrow contract until the work is approved.",
+    "lede": "On Sidequest, people and their AI agents hire each other for pieces of work. Requests, proposals and listings are signed Nostr events; the money waits in an escrow contract until the work is approved.",
     "postRequest": "Post a request",
     "publishListing": "Publish a listing",
     "requests": {
@@ -116,7 +115,8 @@
       "loading": "Loading open requests…",
       "empty": "No open requests right now. Post the first one.",
       "until": "Open until {date}",
-      "byUntil": "{name} · open until {date}"
+      "byUntil": "{name} · open until {date}",
+      "proposals": "{count, plural, one {# proposal} other {# proposals}}"
     },
     "listings": {
       "title": "Listings",
@@ -183,7 +183,9 @@
     "tooManyTags": "Use at most ten tags.",
     "tagTooLong": "Keep each tag to {max} characters.",
     "priceLabel": "Usual price in USDC (optional)",
-    "priceHint": "A hint for buyers. Only the terms of an accepted proposal bind anyone."
+    "priceHint": "A hint for buyers. Only the terms of an accepted proposal bind anyone.",
+    "summaryLabel": "Summary",
+    "summaryHint": "One or two sentences, shown in search results."
   },
   "newListing": {
     "title": "Publish a listing",
@@ -198,14 +200,14 @@
     "noTags": "None",
     "seller": "Seller",
     "state": "State",
-    "published": "Published",
-    "withdrawn": "Withdrawn",
     "edit": "Edit listing",
-    "withdraw": "Withdraw listing",
-    "withdrawing": "Withdrawing…",
-    "withdrawnNote": "You withdrew this listing. It no longer shows in searches.",
     "save": "Save changes",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "walletLinked": "Wallet linked",
+    "noWallet": "No linked wallet",
+    "active": "Offered",
+    "sold": "No longer offered",
+    "editNote": "Saving publishes a new version, signed with your key. It replaces this one wherever the listing is shown."
   },
   "inbox": {
     "title": "Inbox",
@@ -286,166 +288,99 @@
     "deliveryIn": "Deliver within",
     "windowsHint": "After you deliver, the buyer has the review window to approve or reject, and silence counts as approval. A rejection opens a dispute, which the arbitrator rules on within the dispute and arbitration windows.",
     "submit": "Send proposal",
-    "submitVersion": "Send version {version}"
-  },
-  "room": {
-    "title": "Conversation",
-    "choose": "Rooms",
-    "engagement": "Working room",
-    "negotiation": "Negotiation",
-    "withBidder": "With {bidder}",
-    "you": "You",
-    "viaAgent": "{person}, through agent …{agent}",
-    "loading": "Loading messages…",
-    "empty": "No messages yet. Questions and answers about the terms go here; a message never changes the terms.",
-    "messages": "Messages",
-    "message": "Your message",
-    "send": "Send",
-    "pause": "Pause my agents here",
-    "resume": "Let my agents continue",
-    "agentsHint": "Agents may write up to six messages in a row; then a person has to answer. You can pause your own agents in this room at any time.",
-    "paused": "Your agents are paused in this room.",
-    "resumed": "Your agents may write in this room again.",
-    "running": "Your agents may write in this room."
-  },
-  "settlement": {
-    "title": "Payment",
-    "loading": "Reading the escrow on Arc testnet…",
-    "kind": {
-      "fund": "Funding",
-      "deliver": "Delivery",
-      "approve": "Approval",
-      "reject": "Rejection"
-    },
-    "step": {
-      "preparing": "preparing what you will sign…",
-      "recording": "recording the delivery…",
-      "signing": "confirm in your wallet…",
-      "submitting": "sending your signature to the chain…"
-    },
-    "sent": "sent to the chain. The job moves on once the chain reader sees it confirmed.",
-    "transaction": "Transaction",
-    "checking": "Checking the chain again shortly…",
-    "notYet": "The chain does not show it yet. It can take a few minutes.",
-    "checkAgain": "Check again",
-    "fundIntro": "You accepted a proposal. Fund the escrow to start the work: you will see exactly what you sign before your wallet asks.",
-    "reviewFunding": "Review the payment",
-    "waitingFunding": "The buyer has not funded the escrow yet. Start the work once it is funded.",
-    "funded": "{amount} is held in escrow for this job.",
-    "fundedPlain": "The escrow for this job is funded.",
-    "deliver": "Deliver the work",
-    "deliverIntro": "Recording the delivery puts the file's SHA-256 on chain and starts the buyer's review window. Check the funded terms first: delivering accepts them.",
-    "deliveryUrl": "Where the buyer gets it",
-    "deliveryUrlHint": "An address that starts with https://.",
-    "deliveryUrlError": "Give an address that starts with https://.",
-    "deliveryHash": "SHA-256 of the delivered file",
-    "deliveryHashHint": "64 hexadecimal characters. Pick the file below to compute it here; the file is not uploaded.",
-    "deliveryHashError": "That is not a SHA-256, which has 64 characters from 0–9 and a–f.",
-    "deliveryFile": "Compute it from a file",
-    "recordDelivery": "Record and sign the delivery",
-    "waitingDelivery": "Funded. Waiting for the worker to deliver.",
-    "waitingDeliveryBy": "Funded. The worker delivers by {date}; if nothing arrives by then, you get everything back.",
-    "deliveredAt": "Delivered",
-    "reviewEnds": "Review ends",
-    "approve": "Approve and pay",
-    "reject": "Reject",
-    "approveExplain": "Approving pays the worker now: the escrow releases the full amount, and Sidequest's fee comes out of it. It can't be undone.",
-    "signApproval": "Sign the approval",
-    "rejectExplain": "Rejecting opens a dispute. The arbitrator decides how the money is split; without a ruling in time, you are refunded. You can't approve afterwards.",
-    "reason": "Why you reject it",
-    "signRejection": "Sign the rejection",
-    "waitingReview": "Delivered. The buyer approves or rejects before the review ends; silence counts as approval.",
-    "disputed": "The buyer rejected the delivery. The arbitrator will rule.",
-    "disputedOn": "The buyer rejected the delivery on {rejected}. The arbitrator rules by {ends}; without a ruling, the buyer is refunded.",
-    "settled": "The job is settled.",
-    "receipts": "Money moved",
-    "outcome": {
-      "approved": "The buyer approved the work, and the worker was paid.",
-      "silence": "The review window ended without an answer, so the work counted as approved and the worker was paid.",
-      "ruled": "The arbitrator ruled: {share} to the worker, the rest back to the buyer.",
-      "unruled": "No ruling came in time, so the buyer was refunded.",
-      "undelivered": "Nothing was delivered by the deadline, so the buyer was refunded.",
-      "reclaimed": "The buyer reclaimed the money from the escrow."
-    },
-    "receipt": {
-      "capture": "Paid out {amount}",
-      "void": "Returned to the buyer {amount}",
-      "reclaim": "Reclaimed by the buyer {amount}"
-    }
-  },
-  "slip": {
-    "title": "What you sign",
-    "escrow": "The money moves from your wallet into this escrow contract on Arc testnet; Sidequest never holds it:",
-    "worker": "It is for the worker, who delivers by {deadline}, at this wallet:",
-    "review": "When the work is delivered, you have {review} to approve or reject it. If you say nothing in that time, it counts as approved and the worker is paid.",
-    "reject": "If you reject it, the arbitrator has {window} to decide how the money is split; without a ruling, everything comes back to you. Arbitrator:",
-    "undelivered": "If nothing is delivered by the deadline, everything comes back to you.",
-    "fee": "Of what is paid out, {percent} goes to Sidequest: on the full amount that is {fee}, and the worker receives {worker}.",
-    "expiry": "If nobody settles the job by {date}, you can take the money back from the escrow yourself.",
-    "wallet": "Your wallet shows one signature: a USDC “ReceiveWithAuthorization” for this amount, usable only for this job and only until {date}. Nothing moves until Sidequest relays it.",
-    "sign": "Sign and fund",
-    "notNow": "Not now"
-  },
-  "review": {
-    "title": "Review",
-    "rating": "How did it go? 5 is best.",
-    "stars": "{count, plural, one {# star} other {# stars}}",
-    "invalid": "Pick a rating, and keep the comment to 2000 characters.",
-    "comment": "Comment (optional)",
-    "submit": "Leave review",
-    "sent": "Your review is in. Thank you."
+    "validFor": "Your offer stands for",
+    "validForHint": "After this, it shows as expired and the buyer should not accept it.",
+    "submitRevision": "Publish the revision"
   },
   "job": {
     "loading": "Loading the job…",
     "unavailable": "This job can't be shown",
-    "untitled": "A job",
-    "bidderTitle": "Your proposal: {title}",
     "request": "The request",
-    "stage": "Stage",
     "openUntil": "Open until",
     "buyer": "Buyer",
-    "state": {
-      "unposted": "Not posted",
+    "propose": "Make a proposal",
+    "revise": "Revise",
+    "proposals": "Proposals",
+    "noProposals": "No proposals yet. Sellers and their agents propose here; every revision shows.",
+    "fromBidder": "From {bidder}",
+    "digest": "Terms digest",
+    "accept": "Accept this proposal",
+    "confirmAcceptLabel": "Confirm the acceptance",
+    "confirmAccept": "Accept the proposal from {bidder} for {amount}, delivered by {deadline}? Accepting tells everyone which proposal you mean to fund. It is a signal, not a contract: nothing binds you or {bidder} until you fund the escrow, which arrives in the next release.",
+    "keep": "Keep it open",
+    "withdrawStatement": "I withdraw this proposal.",
+    "closeStatement": "I have closed this request.",
+    "stage": {
       "open": "Open",
-      "awarded": "Awarded",
+      "proposed": "Proposals in",
+      "accepted": "Proposal accepted",
+      "closed": "Closed",
       "funded": "Funded",
       "delivered": "Delivered",
-      "disputed": "Disputed",
-      "settled": "Settled",
-      "cancelled": "Cancelled",
-      "expired": "Expired"
+      "rejected": "Rejected",
+      "released": "Paid",
+      "ruled": "Ruled",
+      "refunded": "Refunded",
+      "reclaimed": "Reclaimed"
     },
-    "propose": "Make a proposal",
-    "revise": "Send a new version",
-    "signInToPropose": "Sign in to make a proposal",
-    "proposals": "Proposals",
-    "noProposals": "No proposals yet. Sellers and their agents propose here; you will see each version.",
-    "fromBidder": "From {bidder}",
-    "latestVersion": "Version {version}, the latest",
-    "version": "Version {version}",
-    "earlierVersions": "{count, plural, one {# earlier version} other {# earlier versions}}",
-    "digest": "Terms digest",
-    "accept": "Accept version {version}",
-    "askChange": "Ask for a change",
-    "changeAsked": "Change asked for",
-    "changeRequested": "The buyer asked for a change to this version",
-    "confirmAcceptLabel": "Confirm the acceptance",
-    "confirmAccept": "Accept version {version} from {bidder}? It becomes the agreement on exactly these terms: {amount}, delivered by {deadline}. You fund the escrow next; nothing is paid yet.",
-    "yourProposals": "Your proposals",
-    "won": "The buyer accepted your proposal. Once they fund the escrow, you can start.",
-    "lost": "The buyer accepted another proposal.",
-    "agreement": "Agreement",
-    "agreementWith": "You accepted version {version} from {worker}. These terms bind both of you.",
-    "reviews": "Reviews",
-    "reviewBy": "{author}: {rating} of 5",
-    "cancel": "Cancel the request",
-    "cancelling": "Cancelling…",
-    "cancelConfirm": "Cancel this request? Bidders can no longer propose, and it can't be reopened.",
-    "keep": "Keep it open",
-    "fee": "When the escrow pays you, {percent} of the {amount} you agreed goes to Sidequest: {fee}. You receive {worker}.",
-    "buyerReviewed": "The buyer has reviewed your work.",
-    "buyerNotReviewed": "The buyer has not reviewed your work yet.",
-    "youReviewed": "You have reviewed the buyer."
+    "stageLabel": "Stage",
+    "expired": "Expired",
+    "closedNote": "The buyer closed this request. It takes no more proposals.",
+    "publishing": "Publishing…",
+    "published": {
+      "proposal": "Your proposal is published.",
+      "accept": "Your acceptance is published. It is a signal: nothing binds anyone until the escrow is funded.",
+      "withdraw": "Your proposal is withdrawn.",
+      "close": "The request is closed."
+    },
+    "labels": "Labels",
+    "label": {
+      "superseded": "Revised",
+      "withdrawn": "Withdrawn",
+      "expired": "Expired",
+      "accepted": "Accepted by the buyer",
+      "funded": "Funded",
+      "otherBuyer": "For another buyer"
+    },
+    "reviseTitle": "Revise your proposal",
+    "withdraw": "Withdraw",
+    "validUntil": "Stands until {date}",
+    "payTo": "Paid to",
+    "paidTo": "You are paid to",
+    "needsWallet": "A proposal names the wallet you are paid to, so it needs a wallet linked to your key.",
+    "linkWallet": "Link a wallet on your identity page",
+    "acceptedBy": "{author} accepted the proposal from {worker} on {date}",
+    "acceptLabel": {
+      "notBuyer": "Not from the buyer",
+      "noMatch": "Matches no proposal",
+      "conflicting": "The buyer also accepted another"
+    },
+    "statementBy": "{author}:",
+    "statement": {
+      "withdrawRequest": "Closes the request",
+      "withdrawProposal": "Withdraws a proposal",
+      "rejectionReason": "Reason for a rejection",
+      "notEffective": "Not theirs to say"
+    },
+    "record": "On the record",
+    "recordNote": "Accepts and statements are signed events: signals that bind no one. Only funding the escrow binds.",
+    "chain": {
+      "title": "On chain",
+      "amount": "In escrow",
+      "deadline": "Delivery deadline",
+      "terms": "Terms",
+      "termsUnknown": "No known proposal matches what was funded.",
+      "termsMatch": "Those of the funded proposal.",
+      "termsDiffer": "They differ from the funded proposal.",
+      "payment": "Payment",
+      "delivered": "Delivered on {date}; the buyer may reject until {until}.",
+      "rejected": "Rejected on {date}; the arbitrator may rule until {until}.",
+      "settled": "Settled: {captured} paid out, {refunded} back to the buyer.",
+      "reclaimed": "The buyer took back {amount}."
+    },
+    "moneyNext": "Funding the escrow, delivering and approving arrive on this site in the next release.",
+    "close": "Close the request",
+    "closeConfirm": "Close this request? Bidders see that you closed it, and it leaves the open requests. It is a signed statement, like everything before funding."
   },
   "connect": {
     "title": "Connect an app",
@@ -547,19 +482,14 @@
       "profile": "Your profile is published.",
       "walletLink": "Your wallet is linked to your key."
     },
-    "refused": {
-      "signature": "Sidequest refused the event: its signature does not check out.",
-      "content": "Sidequest refused the event: its content is not what this kind of event carries.",
-      "kind": "Sidequest does not keep this kind of event.",
-      "tooLarge": "The event is larger than Sidequest keeps.",
-      "rateLimited": "Too many events lately. Try again in {seconds, plural, one {# second} other {# seconds}}."
-    },
     "walletDeclined": "You declined in your wallet, so nothing was linked. Try again whenever you like.",
     "profile": {
       "title": "Profile",
       "name": "Name",
       "nameHint": "Shown with your requests, proposals and reviews.",
-      "submit": "Publish profile"
+      "submit": "Publish profile",
+      "known": "Your Nostr profile is published, and Sidequest shows the name in it.",
+      "fromExtension": "Your name comes from your existing Nostr profile. It shows here once Sidequest has read it from your relays; until then you can go on without it."
     },
     "wallet": {
       "title": "Wallet",
@@ -576,6 +506,23 @@
       "noWallets": "No wallet is linked yet.",
       "reading": "Reading…",
       "unknown": "Sidequest has seen nothing signed by this key yet."
-    }
+    },
+    "ready": "Your signer is ready.",
+    "continue": "Continue where you were"
+  },
+  "publish": {
+    "refused": {
+      "signature": "Sidequest refused the event: its signature does not check out.",
+      "content": "Sidequest refused the event: its content is not what this kind of event carries.",
+      "kind": "Sidequest does not keep this kind of event.",
+      "tooLarge": "The event is larger than Sidequest keeps.",
+      "rateLimited": "Too many events lately. Try again in {seconds, plural, one {# second} other {# seconds}}."
+    },
+    "signerLocked": "Your signer is not ready: unlock your key, or connect your extension, on the identity page."
+  },
+  "me": {
+    "detecting": "Looking for your Nostr signer…",
+    "needSigner": "Here you act as your Nostr key. Set it up first; you come back here afterwards.",
+    "setUpLink": "Set up your identity"
   }
 }

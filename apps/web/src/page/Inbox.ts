@@ -9,7 +9,7 @@ import { signedInOnly } from '../Gate.ts'
 import { Language } from '../Language.ts'
 import type { RecentInbox } from '../Preload.ts'
 import { Problem, problemOf } from '../Problem.ts'
-import { AppRoute, jobRouter } from '../route.ts'
+import { AppRoute } from '../route.ts'
 import type { Session } from '../Session.ts'
 import { styled } from '../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../Text.ts'
@@ -97,7 +97,8 @@ const kindKeys: Readonly<Record<InboxKind, PlainKey>> = {
 type ViewInputs = { readonly session: Session; readonly timeZone: string }
 
 const entryRow = (h: Html.HtmlBuilder<Message>, language: Language, timeZone: string, entry: InboxEntry) => [
-  h.a([h.Href(jobRouter({ job: entry.job })), ...styled(h, s.rowTitle())], [say(language, kindKeys[entry.kind])]),
+  // NOTE: phase 1 jobs have no page any more: the job page shows the index's jobs, by their request event's id.
+  h.p(styled(h, s.rowTitle()), [say(language, kindKeys[entry.kind])]),
   h.p(styled(h, s.meta()), [
     h.time([h.Datetime(new Date(entry.at * 1000).toISOString())], [formatInstant(entry.at, language, timeZone)]),
   ]),

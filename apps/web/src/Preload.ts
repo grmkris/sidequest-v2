@@ -1,4 +1,6 @@
-import { Agent, Cursor, InboxEntry, JobView, Listing, OpenRequest, Page, SessionView } from '@sidequest/protocol'
+import { JobView } from '@sidequest/fold'
+import { OpenJob } from '@sidequest/fold/api'
+import { Agent, Cursor, InboxEntry, IndexListing, IndexListingDetail, Page, SessionView } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { Names } from './Names.ts'
@@ -17,8 +19,8 @@ export type RecentInbox = typeof RecentInbox.Type
 /** The data of the page the server rendered, or none: a page it did not read for, or a read that failed. */
 export const Preload = defineTaggedUnion({
   Nothing: {},
-  Home: { requests: Page(OpenRequest), listings: Page(Listing), names: Names },
-  Listing: { listing: Listing, names: Names },
+  Home: { requests: Page(OpenJob), listings: Page(IndexListing), names: Names },
+  Listing: { listing: IndexListingDetail },
   Job: { view: JobView, names: Names },
   Inbox: { recent: RecentInbox },
   Agents: { agents: Page(Agent) },

@@ -1,125 +1,122 @@
-import { format } from '@sidequest/i18n'
-import { AccountId, Listing, ListingDetails, ListingId } from '@sidequest/protocol'
-import { Array, Effect, Option, Schema } from 'effect'
+import { IndexListingDetail, IndexListingSlug } from '@sidequest/protocol'
+import { Effect, Option, Schema } from 'effect'
+import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { AsyncData, Command, type Html, Submodel, Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
-import { formatAmount } from '../Amount.ts'
 import { SidequestClient } from '../Api.ts'
 import { Language } from '../Language.ts'
-import { defineReadNames, Names, nameOf, unnamed, withNames } from '../Names.ts'
+import { Me, pubkeyOf } from '../Me.ts'
+import { shortNpub } from '../Names.ts'
 import type { Preload } from '../Preload.ts'
-import { Problem, problemOf } from '../Problem.ts'
+import { failedWith, Problem } from '../Problem.ts'
+import { PublishFailure, publishEvent, publishFailureNotice, publishFailureOf } from '../Publishing.ts'
+import { AppRoute, identityHref } from '../route.ts'
+import type { Signers } from '../Signer.ts'
 import { styled } from '../Styled.ts'
 import { say } from '../Text.ts'
 import * as Ui from '../Ui.ts'
 import * as s from '../Ui.styles.ts'
+import { priceText } from './Home.ts'
 import * as ListingForm from './ListingForm.ts'
 
-// One listing, which anyone may read. Its owner edits or withdraws it here.
+// One seller's listing as the index holds it: the latest NIP-99 event under their key and its slug, which anyone may
+// read. Its seller edits it here by publishing a newer version under the same slug.
 
 // MODEL
 
-const ListingData = AsyncData.Schema(Listing, Problem)
+const ListingData = AsyncData.Schema(IndexListingDetail, Problem)
 
-/** What the owner is doing: reading it, editing it, or withdrawing it. */
-const Mode = defineTaggedUnion({
-  Viewing: { maybeProblem: Schema.Option(Problem) },
-  Editing: { form: ListingForm.Model },
-  Withdrawing: {},
+/** What the seller is doing: reading it, or writing its next version. */
+export const Mode = defineTaggedUnion({
+  Viewing: { maybeFailure: Schema.Option(PublishFailure) },
+  Editing: { form: ListingForm.Model, maybeFailure: Schema.Option(PublishFailure) },
 })
 type Mode = typeof Mode.Type
 
 export const Model = Schema.Struct({
   language: Language,
-  id: ListingId,
+  pubkey: Schema.String,
+  slug: IndexListingSlug,
   listing: ListingData.schema,
   mode: Mode,
-  names: Names,
-  askedNames: Schema.Array(AccountId),
+  me: Me,
 })
 export type Model = typeof Model.Type
 
 // MESSAGE
 
 export const Message = defineMessageUnion({
-  SucceededReadListing: { listing: Listing },
+  SucceededReadListing: { listing: IndexListingDetail },
   FailedReadListing: { problem: Problem },
   ClickedEdit: {},
   ClickedCancelEdit: {},
   GotListingFormMessage: { message: ListingForm.Message },
-  SucceededUpdateListing: {},
-  FailedUpdateListing: { problem: Problem },
-  ClickedWithdraw: {},
-  SucceededWithdrawListing: {},
-  FailedWithdrawListing: { problem: Problem },
-  SucceededReadNames: { names: Names },
-  FailedReadNames: { problem: Problem },
+  SucceededPublishVersion: {},
+  FailedPublishVersion: { failure: PublishFailure },
 })
 export type Message = typeof Message.Type
 
+export const OutMessage = defineMessageUnion({ SignerMissing: {} })
+export type OutMessage = typeof OutMessage.Type
+
 // COMMAND
 
-export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
-
+/** The listing; `fresh` right after its seller published a version, past what the browser's cache kept. */
 export const ReadListing = Command.define('ReadListing', {
-  args: { id: ListingId },
+  args: { pubkey: Schema.String, slug: IndexListingSlug, fresh: Schema.Boolean },
   messages: [Message.SucceededReadListing, Message.FailedReadListing],
-  execute: ({ id }) =>
+  execute: ({ pubkey, slug, fresh }) =>
     Effect.gen(function* () {
       const api = yield* (yield* SidequestClient).api
-      const listing = yield* api.listings.get({ params: { listing: id } })
+      const listing = yield* api.events
+        .listing({ params: { pubkey, slug } })
+        .pipe(Effect.provideService(FetchHttpClient.RequestInit, fresh ? { cache: 'no-cache' } : {}))
       return Message.SucceededReadListing({ listing })
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedReadListing({ problem: problemOf(error) })))),
+    }).pipe(Effect.catch(failedWith(Message.FailedReadListing))),
 })
 
-export const UpdateListing = Command.define('UpdateListing', {
-  args: { id: ListingId, details: ListingDetails },
-  messages: [Message.SucceededUpdateListing, Message.FailedUpdateListing],
-  execute: ({ id, details }) =>
-    Effect.gen(function* () {
-      const api = yield* (yield* SidequestClient).api
-      yield* api.listings.update({ params: { listing: id }, payload: details })
-      return Message.SucceededUpdateListing()
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedUpdateListing({ problem: problemOf(error) })))),
-})
-
-export const WithdrawListing = Command.define('WithdrawListing', {
-  args: { id: ListingId },
-  messages: [Message.SucceededWithdrawListing, Message.FailedWithdrawListing],
-  execute: ({ id }) =>
-    Effect.gen(function* () {
-      const api = yield* (yield* SidequestClient).api
-      yield* api.listings.withdraw({ params: { listing: id } })
-      return Message.SucceededWithdrawListing()
-    }).pipe(Effect.catch((error) => Effect.succeed(Message.FailedWithdrawListing({ problem: problemOf(error) })))),
+/** The listing's next version: the draft, under the same slug, keeping its status and first publication. */
+export const PublishVersion = Command.define('PublishVersion', {
+  args: { listing: IndexListingDetail, draft: ListingForm.ListingDraft },
+  messages: [Message.SucceededPublishVersion, Message.FailedPublishVersion],
+  execute: ({ listing, draft }) =>
+    publishEvent((kit, createdAt) =>
+      kit.listingTemplate(
+        { ...draft, slug: listing.slug, status: listing.status, publishedAt: listing.publishedAt },
+        createdAt,
+      ),
+    ).pipe(
+      Effect.as(Message.SucceededPublishVersion()),
+      Effect.catch((error) => Effect.succeed(Message.FailedPublishVersion({ failure: publishFailureOf(error) }))),
+    ),
 })
 
 // INIT
 
-type UpdateReturn = Update.Return<Model, Message, SidequestClient>
+type Services = SidequestClient | Signers
+type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>
+type InitReturn = Update.Return<Model, Message, Services>
 
 type ListingPreload = Extract<Preload, { readonly _tag: 'Listing' }>
 
-export const init = (language: Language, id: ListingId, maybePreload: Option.Option<ListingPreload>): UpdateReturn => {
-  const viewing = Mode.Viewing({ maybeProblem: Option.none() })
+const viewing = Mode.Viewing({ maybeFailure: Option.none() })
+
+export const init = (
+  language: Language,
+  address: { readonly pubkey: string; readonly slug: typeof IndexListingSlug.Type },
+  me: Me,
+  maybePreload: Option.Option<ListingPreload>,
+): InitReturn => {
+  const base = { language, pubkey: address.pubkey, slug: address.slug, mode: viewing, me }
   return Option.match(
-    Option.filter(maybePreload, (preload) => preload.listing.id === id),
+    Option.filter(maybePreload, ({ listing }) => listing.pubkey === address.pubkey && listing.slug === address.slug),
     {
-      onSome: ({ listing, names }) => ({
-        model: {
-          language,
-          id,
-          listing: ListingData.Success({ data: listing }),
-          mode: viewing,
-          names,
-          askedNames: [listing.owner],
-        },
-      }),
+      onSome: ({ listing }) => ({ model: { ...base, listing: ListingData.Success({ data: listing }) } }),
       onNone: () => ({
-        model: { language, id, listing: AsyncData.Loading(), mode: viewing, names: [], askedNames: [] },
-        commands: [ReadListing({ id })],
+        model: { ...base, listing: AsyncData.Loading() },
+        commands: [ReadListing({ pubkey: address.pubkey, slug: address.slug, fresh: false })],
       }),
     },
   )
@@ -127,130 +124,146 @@ export const init = (language: Language, id: ListingId, maybePreload: Option.Opt
 
 // UPDATE
 
-const viewing = (maybeProblem: Option.Option<Problem>) => Mode.Viewing({ maybeProblem })
+/** Whether the person is the listing's seller: their signer's key is the listing's. */
+export const isSeller = (model: Model): boolean => Option.contains(pubkeyOf(model.me), model.pubkey)
 
 const foldForm = Update.foldChild({
   update: ListingForm.update,
   read: (model: Model) => (Mode.guards.Editing(model.mode) ? Option.some(model.mode.form) : Option.none()),
   write: (model: Model, nextForm: ListingForm.Model): Model =>
-    modifyFields(model, { mode: () => Mode.Editing({ form: nextForm }) }),
+    modifyFields(model, {
+      mode: (mode) => (Mode.guards.Editing(mode) ? modifyFields(mode, { form: () => nextForm }) : mode),
+    }),
   toParentMessage: (message) => Message.GotListingFormMessage({ message }),
-  foldOutMessage: ListingForm.OutMessage.match<Update.Step<Model, Message, SidequestClient>>({
+  foldOutMessage: ListingForm.OutMessage.match<Update.StepWithOutMessage<Model, Message, OutMessage, Services>>({
     Submitted:
-      ({ details }) =>
-      (model) => ({ model, commands: [UpdateListing({ id: model.id, details })] }),
+      ({ draft }) =>
+      (model) =>
+        Option.match(AsyncData.getData(model.listing), {
+          onNone: () => ({ model }),
+          onSome: (listing) =>
+            Me.guards.Ready(model.me)
+              ? { model, commands: [PublishVersion({ listing, draft })] }
+              : {
+                  model: modifyFields(model, { mode: () => viewing }),
+                  outMessage: OutMessage.SignerMissing(),
+                },
+        }),
   }),
 })
 
+/** Read the listing again past the cache, keeping it on screen meanwhile. */
 const reread = (model: Model, mode: Mode): UpdateReturn => ({
   model: modifyFields(model, {
     mode: () => mode,
     listing: (listing) => Option.getOrElse(AsyncData.revalidate(listing), () => listing),
   }),
-  commands: [ReadListing({ id: model.id })],
+  commands: [ReadListing({ pubkey: model.pubkey, slug: model.slug, fresh: true })],
 })
+
+const failedVersion = (mode: Mode, failure: PublishFailure): Mode =>
+  Mode.guards.Editing(mode)
+    ? Mode.Editing({ form: ListingForm.settled(mode.form), maybeFailure: Option.some(failure) })
+    : Mode.Viewing({ maybeFailure: Option.some(failure) })
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    SucceededReadListing: ({ listing }) => {
-      const nextModel = modifyFields(model, { listing: () => ListingData.Success({ data: listing }) })
-      return Array.match(unnamed([listing.owner], model.names, model.askedNames), {
-        onEmpty: () => ({ model: nextModel }),
-        onNonEmpty: (ids) => ({
-          model: modifyFields(nextModel, { askedNames: Array.appendAll(ids) }),
-          commands: [ReadNames({ ids })],
-        }),
-      })
-    },
+    SucceededReadListing: ({ listing }) => ({
+      model: modifyFields(model, { listing: () => ListingData.Success({ data: listing }) }),
+    }),
     FailedReadListing: ({ problem }) => ({
       model: modifyFields(model, { listing: () => ListingData.Failure({ error: problem }) }),
     }),
     ClickedEdit: () =>
       Option.match(AsyncData.getData(model.listing), {
         onNone: () => ({ model }),
-        onSome: (listing) => ({
-          model: modifyFields(model, {
-            mode: () => Mode.Editing({ form: ListingForm.fromListing(model.language, listing) }),
-          }),
-        }),
+        onSome: (listing) =>
+          Me.guards.Ready(model.me)
+            ? {
+                model: modifyFields(model, {
+                  mode: () =>
+                    Mode.Editing({
+                      form: ListingForm.fromListing(model.language, listing),
+                      maybeFailure: Option.none(),
+                    }),
+                }),
+              }
+            : { model, outMessage: OutMessage.SignerMissing() },
       }),
-    ClickedCancelEdit: () => ({ model: modifyFields(model, { mode: () => viewing(Option.none()) }) }),
+    ClickedCancelEdit: () => ({ model: modifyFields(model, { mode: () => viewing }) }),
     GotListingFormMessage: ({ message: formMessage }) => foldForm(model, formMessage),
-    SucceededUpdateListing: () => reread(model, viewing(Option.none())),
-    FailedUpdateListing: ({ problem }) => ({
-      model: modifyFields(model, {
-        mode: (mode) =>
-          Mode.guards.Editing(mode) ? Mode.Editing({ form: ListingForm.refused(mode.form, problem) }) : mode,
-      }),
+    SucceededPublishVersion: () => reread(model, viewing),
+    FailedPublishVersion: ({ failure }) => ({
+      model: modifyFields(model, { mode: (mode) => failedVersion(mode, failure) }),
     }),
-    ClickedWithdraw: () => ({
-      model: modifyFields(model, { mode: () => Mode.Withdrawing() }),
-      commands: [WithdrawListing({ id: model.id })],
-    }),
-    SucceededWithdrawListing: () => reread(model, viewing(Option.none())),
-    FailedWithdrawListing: ({ problem }) => ({
-      model: modifyFields(model, { mode: () => viewing(Option.some(problem)) }),
-    }),
-    SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
-    FailedReadNames: () => ({ model }),
   })
 
 // VIEW
 
-type ViewInputs = { readonly maybeAccount: Option.Option<AccountId> }
-
-const details = (h: Html.HtmlBuilder<Message>, model: Model, listing: Listing) => {
+const details = (h: Html.HtmlBuilder<Message>, model: Model, listing: IndexListingDetail) => {
   const language = model.language
   return h.section(styled(h, s.panel()), [
+    h.p(styled(h, s.lede()), [listing.summary]),
     h.p([], [listing.description]),
     Ui.facts(h, [
-      Ui.fact(
-        h,
-        say(language, 'listingPage.price'),
-        Option.match(Option.fromNullishOr(listing.priceHint), {
-          onNone: () => say(language, 'listing.noPrice'),
-          onSome: (hint) =>
-            format(language, 'listing.priceFrom', { price: formatAmount(hint.amount, hint.asset, language) }),
-        }),
-      ),
+      Ui.fact(h, say(language, 'listingPage.price'), priceText(language, listing.price)),
       Ui.fact(
         h,
         say(language, 'listing.tags'),
-        listing.tags.length === 0 ? say(language, 'listingPage.noTags') : listing.tags.join(', '),
+        listing.topics.length === 0 ? say(language, 'listingPage.noTags') : listing.topics.join(', '),
       ),
-      Ui.fact(h, say(language, 'listingPage.seller'), nameOf(model.names, listing.owner, language)),
+      Ui.fact(
+        h,
+        say(language, 'listingPage.seller'),
+        h.span(
+          [h.Title(listing.pubkey)],
+          [
+            listing.author.name ?? shortNpub(listing.pubkey),
+            ' ',
+            listing.author.walletVerified
+              ? Ui.chip(h, say(language, 'listingPage.walletLinked'), 'done')
+              : Ui.chip(h, say(language, 'listingPage.noWallet')),
+          ],
+        ),
+      ),
       Ui.fact(
         h,
         say(language, 'listingPage.state'),
-        listing.state === 'published'
-          ? Ui.chip(h, say(language, 'listingPage.published'), 'done')
-          : Ui.chip(h, say(language, 'listingPage.withdrawn')),
+        listing.status === 'active'
+          ? Ui.chip(h, say(language, 'listingPage.active'), 'done')
+          : Ui.chip(h, say(language, 'listingPage.sold')),
       ),
     ]),
   ])
 }
 
-const ownerActions = (h: Html.HtmlBuilder<Message>, model: Model, listing: Listing) =>
+const failureNotice = (h: Html.HtmlBuilder<Message>, model: Model, maybeFailure: Option.Option<PublishFailure>) =>
+  Option.match(maybeFailure, {
+    onNone: () => h.empty,
+    onSome: (failure) =>
+      publishFailureNotice(
+        h,
+        model.language,
+        failure,
+        identityHref(AppRoute.Listing({ pubkey: model.pubkey, slug: model.slug })),
+      ),
+  })
+
+const sellerActions = (h: Html.HtmlBuilder<Message>, model: Model) =>
   Mode.match(model.mode, {
-    Viewing: ({ maybeProblem }) =>
+    Viewing: ({ maybeFailure }) =>
       h.div(styled(h, s.section()), [
-        listing.state === 'published'
-          ? h.div(styled(h, s.actions()), [
-              Ui.button(h, {
-                label: say(model.language, 'listingPage.edit'),
-                onClick: Message.ClickedEdit(),
-                kind: 'primary',
-              }),
-              Ui.button(h, {
-                label: say(model.language, 'listingPage.withdraw'),
-                onClick: Message.ClickedWithdraw(),
-                kind: 'destructive',
-              }),
-            ])
-          : h.p(styled(h, s.meta()), [say(model.language, 'listingPage.withdrawnNote')]),
-        Ui.maybeProblem(h, model.language, maybeProblem),
+        h.div(styled(h, s.actions()), [
+          Ui.button(h, {
+            label: say(model.language, 'listingPage.edit'),
+            onClick: Message.ClickedEdit(),
+            kind: 'primary',
+          }),
+        ]),
+        h.p(styled(h, s.meta()), [say(model.language, 'listingPage.editNote')]),
+        failureNotice(h, model, maybeFailure),
       ]),
-    Editing: ({ form }) =>
+    Editing: ({ form, maybeFailure }) =>
       h.section(
         [h.AriaLabel(say(model.language, 'listingPage.edit')), ...styled(h, s.panel())],
         [
@@ -264,20 +277,15 @@ const ownerActions = (h: Html.HtmlBuilder<Message>, model: Model, listing: Listi
             },
             toParentMessage: (message) => Message.GotListingFormMessage({ message }),
           }),
+          failureNotice(h, model, maybeFailure),
           h.div(styled(h, s.actions()), [
             Ui.button(h, { label: say(model.language, 'common.cancel'), onClick: Message.ClickedCancelEdit() }),
           ]),
         ],
       ),
-    Withdrawing: () =>
-      Ui.button(h, {
-        label: say(model.language, 'listingPage.withdrawing'),
-        onClick: Message.ClickedWithdraw(),
-        busy: true,
-      }),
   })
 
-export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { maybeAccount }, h) =>
+export const view = Submodel.defineView<Model, Message>((model, h) =>
   AsyncData.matchData(model.listing, {
     onEmpty: () => h.div(styled(h, s.page()), [Ui.pageHead(h, say(model.language, 'listingPage.loading'))]),
     onFailure: (problem) =>
@@ -289,7 +297,7 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { ma
       h.div(styled(h, s.page()), [
         Ui.pageHead(h, listing.title),
         details(h, model, listing),
-        Option.contains(maybeAccount, listing.owner) ? ownerActions(h, model, listing) : h.empty,
+        isSeller(model) ? sellerActions(h, model) : h.empty,
       ]),
   }),
 )

@@ -3,6 +3,7 @@ import { Schema } from 'effect'
 import { defineMessageUnion } from 'foldkit/message'
 import { UrlRequest } from 'foldkit/navigation'
 import { Url } from 'foldkit/url'
+import * as Me from './Me.ts'
 import { Problem } from './Problem.ts'
 import * as Pages from './Pages.ts'
 
@@ -17,6 +18,7 @@ export const Message = defineMessageUnion({
   ClickedSignOut: {},
   SucceededSignOut: {},
   FailedSignOut: { problem: Problem },
+  GotMeMessage: { message: Me.Message },
   GotHomeMessage: { message: Pages.Home.Message },
   GotSignInMessage: { message: Pages.SignIn.Message },
   GotNewListingMessage: { message: Pages.NewListing.Message },

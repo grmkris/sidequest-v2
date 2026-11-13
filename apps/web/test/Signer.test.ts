@@ -152,6 +152,26 @@ describe('a NIP-07 extension', () => {
     }),
   )
 
+  it.effect('after a reload, a page signs with the remembered extension again; a local key stays locked', () =>
+    Effect.gen(function* () {
+      const { storage } = memoryStorage()
+      yield* (yield* signersOver(storage, Option.some(extension()))).connectExtension
+      const reloaded = yield* signersOver(storage, Option.some(extension()))
+      expect((yield* Effect.flip(reloaded.active)).reason).toBe('locked')
+      const signed = yield* (yield* reloaded.resume).signEvent(template)
+      expect(signed.pubkey).toBe(publicKeyOf(extensionKey))
+
+      const withLocalKey = memoryStorage()
+      const before = yield* signersOver(withLocalKey.storage, Option.some(extension()))
+      yield* before.createLocal(password)
+      yield* before.confirmBackup
+      const afterReload = yield* signersOver(withLocalKey.storage, Option.some(extension()))
+      expect((yield* Effect.flip(afterReload.resume)).reason).toBe('locked')
+      const nothingRemembered = yield* signersOver(memoryStorage().storage, Option.some(extension()))
+      expect((yield* Effect.flip(nothingRemembered.resume)).reason).toBe('locked')
+    }),
+  )
+
   it.effect('is not trusted: another event, another key or a bad key is refused', () =>
     Effect.gen(function* () {
       const altered = extension((event) =>

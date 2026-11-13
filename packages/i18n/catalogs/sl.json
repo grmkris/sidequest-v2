@@ -74,8 +74,7 @@
   "common": {
     "showMore": "Pokaži več",
     "tryAgain": "Poskusite znova",
-    "cancel": "Prekliči",
-    "account": "račun …{id}"
+    "cancel": "Prekliči"
   },
   "shell": {
     "skip": "Preskoči na vsebino",
@@ -108,7 +107,7 @@
   },
   "home": {
     "title": "Delo, ki ga opravijo ljudje in njihovi agenti",
-    "lede": "Na Sidequestu se ljudje in njihovi agenti umetne inteligence med seboj najemajo za posamezna dela. Agenti se pogajajo prek MCP, vi pa se tu prijavite, pregledate, odločite in podpišete, denar pa do potrditve dela počaka v skrbniški pogodbi.",
+    "lede": "Na Sidequestu se ljudje in njihovi agenti umetne inteligence med seboj najemajo za posamezna dela. Naročila, predlogi in ponudbe so podpisani dogodki Nostr, denar pa do potrditve dela počaka v skrbniški pogodbi.",
     "postRequest": "Objavite naročilo",
     "publishListing": "Objavite ponudbo",
     "requests": {
@@ -116,7 +115,8 @@
       "loading": "Nalagamo odprta naročila …",
       "empty": "Trenutno ni odprtih naročil. Objavite prvo.",
       "until": "Odprto do {date}",
-      "byUntil": "{name} · odprto do {date}"
+      "byUntil": "{name} · odprto do {date}",
+      "proposals": "{count, plural, one {# predlog} two {# predloga} few {# predlogi} other {# predlogov}}"
     },
     "listings": {
       "title": "Ponudbe",
@@ -183,7 +183,9 @@
     "tooManyTags": "Uporabite največ deset oznak.",
     "tagTooLong": "Vsaka oznaka naj ima največ {max} znakov.",
     "priceLabel": "Običajna cena v USDC (neobvezno)",
-    "priceHint": "Namig za naročnike. Zavezujejo samo pogoji sprejetega predloga."
+    "priceHint": "Namig za naročnike. Zavezujejo samo pogoji sprejetega predloga.",
+    "summaryLabel": "Povzetek",
+    "summaryHint": "Ena ali dve povedi, prikazani v rezultatih iskanja."
   },
   "newListing": {
     "title": "Objavite ponudbo",
@@ -198,14 +200,14 @@
     "noTags": "Brez",
     "seller": "Izvajalec",
     "state": "Stanje",
-    "published": "Objavljena",
-    "withdrawn": "Umaknjena",
     "edit": "Uredi ponudbo",
-    "withdraw": "Umakni ponudbo",
-    "withdrawing": "Umikamo …",
-    "withdrawnNote": "To ponudbo ste umaknili. V iskanju se ne prikazuje več.",
     "save": "Shrani spremembe",
-    "saving": "Shranjujemo …"
+    "saving": "Shranjujemo …",
+    "walletLinked": "Denarnica povezana",
+    "noWallet": "Brez povezane denarnice",
+    "active": "Na voljo",
+    "sold": "Ni več na voljo",
+    "editNote": "Shranjevanje objavi novo različico, podpisano z vašim ključem. Nadomesti to povsod, kjer je ponudba prikazana."
   },
   "inbox": {
     "title": "Prejeto",
@@ -286,166 +288,99 @@
     "deliveryIn": "Oddaja v",
     "windowsHint": "Po oddaji ima naročnik čas za pregled, da delo potrdi ali zavrne, molk pa šteje kot potrditev. Zavrnitev odpre spor, o katerem razsodnik odloči v času za spor in času za razsodbo.",
     "submit": "Pošlji predlog",
-    "submitVersion": "Pošlji različico {version}"
-  },
-  "room": {
-    "title": "Pogovor",
-    "choose": "Pogovori",
-    "engagement": "Delovni pogovor",
-    "negotiation": "Pogajanje",
-    "withBidder": "Z: {bidder}",
-    "you": "Vi",
-    "viaAgent": "{person} prek agenta …{agent}",
-    "loading": "Nalagamo sporočila …",
-    "empty": "Sporočil še ni. Tu so vprašanja in odgovori o pogojih; sporočilo pogojev nikoli ne spremeni.",
-    "messages": "Sporočila",
-    "message": "Vaše sporočilo",
-    "send": "Pošlji",
-    "pause": "Ustavi moje agente tukaj",
-    "resume": "Naj moji agenti nadaljujejo",
-    "agentsHint": "Agenti lahko napišejo največ šest sporočil zapored, nato mora odgovoriti človek. Svoje agente lahko v tem pogovoru kadar koli ustavite.",
-    "paused": "Vaši agenti so v tem pogovoru ustavljeni.",
-    "resumed": "Vaši agenti lahko v tem pogovoru spet pišejo.",
-    "running": "Vaši agenti lahko pišejo v tem pogovoru."
-  },
-  "settlement": {
-    "title": "Plačilo",
-    "loading": "Beremo skrbniško pogodbo v testnem omrežju Arc …",
-    "kind": {
-      "fund": "Vplačilo",
-      "deliver": "Oddaja",
-      "approve": "Potrditev",
-      "reject": "Zavrnitev"
-    },
-    "step": {
-      "preparing": "pripravljamo, kar boste podpisali …",
-      "recording": "beležimo oddajo …",
-      "signing": "potrdite v denarnici …",
-      "submitting": "pošiljamo vaš podpis na verigo …"
-    },
-    "sent": "poslano na verigo. Naročilo se premakne naprej, ko bralnik verige vidi potrditev.",
-    "transaction": "Transakcija",
-    "checking": "Kmalu znova preverimo verigo …",
-    "notYet": "Veriga tega še ne kaže. Lahko traja nekaj minut.",
-    "checkAgain": "Preveri znova",
-    "fundIntro": "Sprejeli ste predlog. Za začetek dela vplačajte znesek v skrbniško pogodbo: preden vas vpraša denarnica, boste natančno videli, kaj podpisujete.",
-    "reviewFunding": "Preglejte plačilo",
-    "waitingFunding": "Naročnik še ni vplačal zneska v skrbniško pogodbo. Z delom začnite, ko bo vplačan.",
-    "funded": "Za to naročilo je v skrbniški pogodbi {amount}.",
-    "fundedPlain": "Skrbniška pogodba za to naročilo je vplačana.",
-    "deliver": "Oddajte delo",
-    "deliverIntro": "Zabeležena oddaja zapiše SHA-256 datoteke na verigo in začne naročnikov čas za pregled. Najprej preverite vplačane pogoje: z oddajo jih sprejmete.",
-    "deliveryUrl": "Kje ga naročnik prevzame",
-    "deliveryUrlHint": "Naslov, ki se začne s https://.",
-    "deliveryUrlError": "Vpišite naslov, ki se začne s https://.",
-    "deliveryHash": "SHA-256 oddane datoteke",
-    "deliveryHashHint": "64 šestnajstiških znakov. Spodaj izberite datoteko in ga izračunamo tukaj; datoteka se ne naloži.",
-    "deliveryHashError": "To ni SHA-256, ki ima 64 znakov od 0–9 in a–f.",
-    "deliveryFile": "Izračunaj iz datoteke",
-    "recordDelivery": "Zabeleži in podpiši oddajo",
-    "waitingDelivery": "Vplačano. Čakamo, da izvajalec odda delo.",
-    "waitingDeliveryBy": "Vplačano. Izvajalec odda delo do {date}; če do takrat ne prispe nič, dobite vse nazaj.",
-    "deliveredAt": "Oddano",
-    "reviewEnds": "Pregled se konča",
-    "approve": "Potrdi in plačaj",
-    "reject": "Zavrni",
-    "approveExplain": "S potrditvijo izvajalcu takoj plačate: skrbniška pogodba sprosti celoten znesek, od njega pa se odšteje Sidequestova provizija. Tega ni mogoče razveljaviti.",
-    "signApproval": "Podpiši potrditev",
-    "rejectExplain": "Zavrnitev odpre spor. Razsodnik odloči, kako se denar razdeli; če pravočasno ne odloči, dobite denar nazaj. Pozneje dela ne morete več potrditi.",
-    "reason": "Zakaj ga zavračate",
-    "signRejection": "Podpiši zavrnitev",
-    "waitingReview": "Oddano. Naročnik delo potrdi ali zavrne pred koncem pregleda; molk šteje kot potrditev.",
-    "disputed": "Naročnik je oddajo zavrnil. Odločil bo razsodnik.",
-    "disputedOn": "Naročnik je oddajo zavrnil {rejected}. Razsodnik odloči do {ends}; če ne odloči, naročnik dobi denar nazaj.",
-    "settled": "Naročilo je poravnano.",
-    "receipts": "Premiki denarja",
-    "outcome": {
-      "approved": "Naročnik je delo potrdil in izvajalec je bil plačan.",
-      "silence": "Čas za pregled se je iztekel brez odgovora, zato je delo veljalo za potrjeno in izvajalec je bil plačan.",
-      "ruled": "Razsodnik je odločil: {share} izvajalcu, preostanek nazaj naročniku.",
-      "unruled": "Razsodba ni prišla pravočasno, zato je naročnik dobil denar nazaj.",
-      "undelivered": "Do roka ni bilo nič oddano, zato je naročnik dobil denar nazaj.",
-      "reclaimed": "Naročnik je denar prevzel nazaj iz skrbniške pogodbe."
-    },
-    "receipt": {
-      "capture": "Izplačano {amount}",
-      "void": "Vrnjeno naročniku {amount}",
-      "reclaim": "Naročnik prevzel nazaj {amount}"
-    }
-  },
-  "slip": {
-    "title": "Kaj podpisujete",
-    "escrow": "Denar se prenese iz vaše denarnice v to skrbniško pogodbo v testnem omrežju Arc; Sidequest ga nikoli ne hrani:",
-    "worker": "Namenjen je izvajalcu, ki odda delo do {deadline}, na to denarnico:",
-    "review": "Ko je delo oddano, imate {review}, da ga potrdite ali zavrnete. Če se v tem času ne odzovete, šteje kot potrjeno in izvajalec je plačan.",
-    "reject": "Če ga zavrnete, ima razsodnik {window}, da odloči, kako se denar razdeli; brez razsodbe dobite vse nazaj. Razsodnik:",
-    "undelivered": "Če do roka ni nič oddano, dobite vse nazaj.",
-    "fee": "Od izplačanega gre {percent} Sidequestu: pri celotnem znesku je to {fee}, izvajalec pa prejme {worker}.",
-    "expiry": "Če naročila do {date} nihče ne poravna, lahko denar iz skrbniške pogodbe prevzamete nazaj sami.",
-    "wallet": "Denarnica pokaže en podpis: USDC »ReceiveWithAuthorization« za ta znesek, ki ga je mogoče uporabiti samo za to naročilo in samo do {date}. Nič se ne premakne, dokler ga Sidequest ne posreduje.",
-    "sign": "Podpiši in vplačaj",
-    "notNow": "Ne zdaj"
-  },
-  "review": {
-    "title": "Ocena",
-    "rating": "Kako je šlo? 5 je najboljše.",
-    "stars": "{count, plural, one {# zvezdica} two {# zvezdici} few {# zvezdice} other {# zvezdic}}",
-    "invalid": "Izberite oceno, komentar pa naj ima največ 2000 znakov.",
-    "comment": "Komentar (neobvezno)",
-    "submit": "Oddaj oceno",
-    "sent": "Vaša ocena je oddana. Hvala."
+    "validFor": "Ponudba velja",
+    "validForHint": "Potem je prikazana kot potekla in naročnik je ne bi smel sprejeti.",
+    "submitRevision": "Objavi popravek"
   },
   "job": {
     "loading": "Nalagamo naročilo …",
     "unavailable": "Tega naročila ni mogoče prikazati",
-    "untitled": "Naročilo",
-    "bidderTitle": "Vaš predlog: {title}",
     "request": "Naročilo",
-    "stage": "Stopnja",
     "openUntil": "Odprto do",
     "buyer": "Naročnik",
-    "state": {
-      "unposted": "Ni objavljeno",
+    "propose": "Dajte predlog",
+    "revise": "Popravi",
+    "proposals": "Predlogi",
+    "noProposals": "Predlogov še ni. Izvajalci in njihovi agenti predlagajo tukaj; prikaže se vsak popravek.",
+    "fromBidder": "Od: {bidder}",
+    "digest": "Odtis pogojev",
+    "accept": "Sprejmi ta predlog",
+    "confirmAcceptLabel": "Potrdite sprejem",
+    "confirmAccept": "Sprejmete predlog, ki ga je poslal(a) {bidder}, za {amount} z oddajo do {deadline}? S sprejemom vsem poveste, kateri predlog nameravate vplačati. To je znak, ne pogodba: nič ne zavezuje ne vas ne {bidder}, dokler ne vplačate zneska v skrbniško pogodbo, kar pride v naslednji izdaji.",
+    "keep": "Pusti odprto",
+    "withdrawStatement": "Ta predlog umikam.",
+    "closeStatement": "To naročilo sem zaprl(a).",
+    "stage": {
       "open": "Odprto",
-      "awarded": "Dodeljeno",
+      "proposed": "Prejeti predlogi",
+      "accepted": "Predlog sprejet",
+      "closed": "Zaprto",
       "funded": "Vplačano",
       "delivered": "Oddano",
-      "disputed": "V sporu",
-      "settled": "Poravnano",
-      "cancelled": "Preklicano",
-      "expired": "Poteklo"
+      "rejected": "Zavrnjeno",
+      "released": "Izplačano",
+      "ruled": "Razsojeno",
+      "refunded": "Vrnjeno",
+      "reclaimed": "Prevzeto nazaj"
     },
-    "propose": "Dajte predlog",
-    "revise": "Pošljite novo različico",
-    "signInToPropose": "Prijavite se, da daste predlog",
-    "proposals": "Predlogi",
-    "noProposals": "Predlogov še ni. Izvajalci in njihovi agenti predlagajo tukaj; videli boste vsako različico.",
-    "fromBidder": "Od: {bidder}",
-    "latestVersion": "Različica {version}, najnovejša",
-    "version": "Različica {version}",
-    "earlierVersions": "{count, plural, one {# starejša različica} two {# starejši različici} few {# starejše različice} other {# starejših različic}}",
-    "digest": "Odtis pogojev",
-    "accept": "Sprejmi različico {version}",
-    "askChange": "Prosi za spremembo",
-    "changeAsked": "Sprememba zaprošena",
-    "changeRequested": "Naročnik je prosil za spremembo te različice",
-    "confirmAcceptLabel": "Potrdite sprejem",
-    "confirmAccept": "Sprejmete različico {version}, ki jo je poslal(a) {bidder}? Postane dogovor natanko pod temi pogoji: {amount}, oddaja do {deadline}. Nato vplačate znesek v skrbniško pogodbo; zaenkrat se nič ne plača.",
-    "yourProposals": "Vaši predlogi",
-    "won": "Naročnik je sprejel vaš predlog. Ko vplača znesek v skrbniško pogodbo, lahko začnete.",
-    "lost": "Naročnik je sprejel drug predlog.",
-    "agreement": "Dogovor",
-    "agreementWith": "Sprejeli ste različico {version}, ki jo je poslal(a) {worker}. Ti pogoji zavezujejo oba.",
-    "reviews": "Ocene",
-    "reviewBy": "{author}: {rating} od 5",
-    "cancel": "Prekliči naročilo",
-    "cancelling": "Preklicujemo …",
-    "cancelConfirm": "Preklicati to naročilo? Ponudniki ne bodo mogli več predlagati in ga ni mogoče znova odpreti.",
-    "keep": "Pusti odprto",
-    "fee": "Ko vam skrbniška pogodba izplača znesek, gre {percent} od dogovorjenih {amount} Sidequestu: {fee}. Prejmete {worker}.",
-    "buyerReviewed": "Naročnik je ocenil vaše delo.",
-    "buyerNotReviewed": "Naročnik vašega dela še ni ocenil.",
-    "youReviewed": "Naročnika ste že ocenili."
+    "stageLabel": "Stanje",
+    "expired": "Poteklo",
+    "closedNote": "Naročnik je to naročilo zaprl. Novih predlogov ne sprejema več.",
+    "publishing": "Objavljamo …",
+    "published": {
+      "proposal": "Vaš predlog je objavljen.",
+      "accept": "Vaš sprejem je objavljen. Je le znak: nikogar nič ne zavezuje, dokler znesek ni vplačan v skrbniško pogodbo.",
+      "withdraw": "Vaš predlog je umaknjen.",
+      "close": "Naročilo je zaprto."
+    },
+    "labels": "Oznake",
+    "label": {
+      "superseded": "Popravljen",
+      "withdrawn": "Umaknjen",
+      "expired": "Potekel",
+      "accepted": "Naročnik ga je sprejel",
+      "funded": "Vplačan",
+      "otherBuyer": "Za drugega naročnika"
+    },
+    "reviseTitle": "Popravite svoj predlog",
+    "withdraw": "Umakni",
+    "validUntil": "Velja do {date}",
+    "payTo": "Plačilo na",
+    "paidTo": "Plačilo prejmete na",
+    "needsWallet": "Predlog navede denarnico, na katero prejmete plačilo, zato potrebuje denarnico, povezano z vašim ključem.",
+    "linkWallet": "Povežite denarnico na strani identitete",
+    "acceptedBy": "{author} je {date} sprejel(a) predlog, ki ga je poslal(a) {worker}",
+    "acceptLabel": {
+      "notBuyer": "Ne od naročnika",
+      "noMatch": "Ne ustreza nobenemu predlogu",
+      "conflicting": "Naročnik je sprejel tudi drugega"
+    },
+    "statementBy": "{author}:",
+    "statement": {
+      "withdrawRequest": "Zapre naročilo",
+      "withdrawProposal": "Umakne predlog",
+      "rejectionReason": "Razlog za zavrnitev",
+      "notEffective": "Tega ne more izjaviti"
+    },
+    "record": "Zapisano",
+    "recordNote": "Sprejemi in izjave so podpisani dogodki: znaki, ki nikogar ne zavezujejo. Zavezuje šele vplačilo v skrbniško pogodbo.",
+    "chain": {
+      "title": "V verigi",
+      "amount": "V skrbniški pogodbi",
+      "deadline": "Rok oddaje",
+      "terms": "Pogoji",
+      "termsUnknown": "Nobeden od znanih predlogov se ne ujema z vplačanim.",
+      "termsMatch": "Pogoji vplačanega predloga.",
+      "termsDiffer": "Razlikujejo se od vplačanega predloga.",
+      "payment": "Plačilo",
+      "delivered": "Oddano {date}; naročnik lahko zavrne do {until}.",
+      "rejected": "Zavrnjeno {date}; razsodnik lahko odloči do {until}.",
+      "settled": "Poravnano: izplačanih {captured}, naročniku vrnjenih {refunded}.",
+      "reclaimed": "Naročnik je prevzel nazaj {amount}."
+    },
+    "moneyNext": "Vplačilo v skrbniško pogodbo, oddaja in potrditev pridejo na to stran v naslednji izdaji.",
+    "close": "Zapri naročilo",
+    "closeConfirm": "Zaprete to naročilo? Ponudniki vidijo, da ste ga zaprli, in izgine z odprtih naročil. To je podpisana izjava, kot vse pred vplačilom."
   },
   "connect": {
     "title": "Povežite aplikacijo",
@@ -547,19 +482,14 @@
       "profile": "Vaš profil je objavljen.",
       "walletLink": "Vaša denarnica je povezana s ključem."
     },
-    "refused": {
-      "signature": "Sidequest je dogodek zavrnil: njegov podpis ni veljaven.",
-      "content": "Sidequest je dogodek zavrnil: njegova vsebina ni takšna, kot jo ima ta vrsta dogodka.",
-      "kind": "Sidequest te vrste dogodkov ne hrani.",
-      "tooLarge": "Dogodek je večji, kot ga Sidequest hrani.",
-      "rateLimited": "V zadnjem času je bilo preveč dogodkov. Poskusite znova čez {seconds, plural, one {# sekundo} two {# sekundi} few {# sekunde} other {# sekund}}."
-    },
     "walletDeclined": "V denarnici ste zavrnili, zato ni bilo nič povezano. Poskusite znova, kadar želite.",
     "profile": {
       "title": "Profil",
       "name": "Ime",
       "nameHint": "Prikazano ob vaših naročilih, ponudbah in ocenah.",
-      "submit": "Objavi profil"
+      "submit": "Objavi profil",
+      "known": "Vaš profil Nostr je objavljen in Sidequest prikazuje ime iz njega.",
+      "fromExtension": "Vaše ime pride iz vašega obstoječega profila Nostr. Tu se prikaže, ko ga Sidequest prebere z vaših relejev; do takrat lahko nadaljujete brez njega."
     },
     "wallet": {
       "title": "Denarnica",
@@ -576,6 +506,23 @@
       "noWallets": "Nobena denarnica še ni povezana.",
       "reading": "Beremo …",
       "unknown": "Sidequest še ni videl ničesar, kar bi podpisal ta ključ."
-    }
+    },
+    "ready": "Vaš podpisnik je pripravljen.",
+    "continue": "Nadaljujte, kjer ste bili"
+  },
+  "publish": {
+    "refused": {
+      "signature": "Sidequest je dogodek zavrnil: njegov podpis ni veljaven.",
+      "content": "Sidequest je dogodek zavrnil: njegova vsebina ni takšna, kot jo ima ta vrsta dogodka.",
+      "kind": "Sidequest te vrste dogodkov ne hrani.",
+      "tooLarge": "Dogodek je večji, kot ga Sidequest hrani.",
+      "rateLimited": "V zadnjem času je bilo preveč dogodkov. Poskusite znova čez {seconds, plural, one {# sekundo} two {# sekundi} few {# sekunde} other {# sekund}}."
+    },
+    "signerLocked": "Vaš podpisnik ni pripravljen: na strani identitete odklenite ključ ali povežite razširitev."
+  },
+  "me": {
+    "detecting": "Iščemo vaš podpisnik Nostr …",
+    "needSigner": "Tukaj delujete kot svoj ključ Nostr. Najprej ga nastavite, nato se vrnete sem.",
+    "setUpLink": "Nastavite svojo identiteto"
   }
 }
