@@ -1,12 +1,30 @@
 import { publicKeyOf } from '@sidequest/nostr'
-import { Person, SameOrigin, SidequestApi, SignedEvent } from '@sidequest/protocol'
+import { LinkedWallet, Person, SameOrigin, SidequestApi, SignedEvent } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { HttpApi } from 'effect/http-api'
 import { describe, expect, test } from 'vitest'
 import { publishLimits } from '../src/Index/RateLimiter.ts'
 import { eventLimits } from '../src/Index/Validation.ts'
 import { type Api, bodyOf, withApi } from './HttpWorld.ts'
-import { alice, bob, carol, keyOf, messagingRelays, profile, relayList, request, signed } from './IndexWorld.ts'
+import {
+  accountOf,
+  alice,
+  bob,
+  carol,
+  grant,
+  keyOf,
+  linked,
+  messagingRelays,
+  profile,
+  relayList,
+  request,
+  revocation,
+  signed,
+  walletLinkEvent,
+  walletOne,
+  walletSignature,
+  walletTwo,
+} from './IndexWorld.ts'
 
 // Publish-through and the index's public reads, over HTTP: no session, no cookie; the event is its own authority.
 
@@ -91,6 +109,85 @@ describe('publishing a signed event', () => {
     }))
 })
 
+describe('reading identity from the index', () => {
+  test('answers the key a wallet is linked to, cacheably, and follows a re-link to another key', () =>
+    withApi(async ({ fetch }) => {
+      const account = accountOf(walletOne)
+      expect(await reply(await fetch(`/api/wallets/${account}`))).toEqual({ status: 404, body: { _tag: 'NotIndexed' } })
+      const first = await linked(alice, walletOne, now() - 60)
+      for (const event of [profile(alice, now(), { name: 'Alice' }), first])
+        expect((await publish(fetch, event)).status).toBe(200)
+      const answered = await fetch(`/api/wallets/${account}`)
+      expect(answered.headers.get('cache-control')).toBe('public, max-age=60')
+      expect(bodyOf(LinkedWallet, await reply(answered))).toEqual({
+        account,
+        pubkey: publicKeyOf(alice),
+        event: first.id,
+        issuedAt: first.created_at,
+        verification: 'verified',
+      })
+      const relinked = await linked(bob, walletOne, now())
+      expect((await publish(fetch, relinked)).status).toBe(200)
+      // An address in mixed case names the same wallet.
+      const mixed = `eip155:5042002:${walletOne.address}`
+      expect(bodyOf(LinkedWallet, await reply(await fetch(`/api/wallets/${mixed}`)))).toMatchObject({
+        pubkey: publicKeyOf(bob),
+        event: relinked.id,
+      })
+      // Alice lost the wallet to Bob's newer link.
+      expect(bodyOf(Person, await reply(await fetch(`/api/people/${publicKeyOf(alice)}`))).wallets).toEqual([])
+      expect(bodyOf(Person, await reply(await fetch(`/api/people/${publicKeyOf(bob)}`))).wallets).toEqual([
+        { account, event: relinked.id, issuedAt: relinked.created_at, verification: 'verified' },
+      ])
+      expect((await fetch('/api/wallets/not-an-account')).status).toBe(400)
+    }))
+
+  test('serves a key known only by its links, with the links it could not verify labelled and linking nothing', () =>
+    withApi(async ({ fetch }) => {
+      const verified = await linked(carol, walletTwo, now())
+      const claimed = walletLinkEvent(carol, accountOf(walletOne), now(), await walletSignature(walletOne, bob, now()))
+      for (const event of [verified, claimed]) expect((await publish(fetch, event)).status).toBe(200)
+      const person = bodyOf(Person, await reply(await fetch(`/api/people/${publicKeyOf(carol)}`)))
+      expect(person).toMatchObject({ profile: null, relays: null, agents: [], operators: [] })
+      expect(person.wallets).toEqual([
+        { account: accountOf(walletTwo), event: verified.id, issuedAt: verified.created_at, verification: 'verified' },
+      ])
+      expect(person.unverifiedWallets).toEqual([
+        { account: accountOf(walletOne), event: claimed.id, issuedAt: claimed.created_at, verification: 'unverified' },
+      ])
+      expect((await fetch(`/api/wallets/${accountOf(walletOne)}`)).status).toBe(404)
+    }))
+
+  test('serves the grants a key gave and the unrevoked grants it received, with their status now', () =>
+    withApi(async ({ fetch }) => {
+      const start = now() - 100
+      const active = grant(alice, bob, { createdAt: start, notBefore: start, expiresAt: now() + 3600 })
+      const revoked = grant(alice, bob, { createdAt: start - 1, notBefore: start, expiresAt: now() + 3600 })
+      const later = grant(alice, carol, { createdAt: start - 2, notBefore: now() + 600, expiresAt: now() + 3600 })
+      const expired = grant(carol, bob, { createdAt: start - 3, notBefore: start - 50, expiresAt: start })
+      const strangers = revocation(carol, active.id, now())
+      for (const event of [revocation(alice, revoked.id, now()), strangers, active, revoked, later, expired])
+        expect((await publish(fetch, event)).status).toBe(200)
+      const operator = bodyOf(Person, await reply(await fetch(`/api/people/${publicKeyOf(alice)}`)))
+      expect(operator.agents.map(({ event, status }) => ({ event, status }))).toEqual([
+        { event: active.id, status: 'active' },
+        { event: revoked.id, status: 'revoked' },
+        { event: later.id, status: 'notYet' },
+      ])
+      expect(operator.agents[0]).toMatchObject({
+        operator: publicKeyOf(alice),
+        agent: publicKeyOf(bob),
+        scopes: ['discuss', 'propose'],
+        label: 'Helper',
+      })
+      const agent = bodyOf(Person, await reply(await fetch(`/api/people/${publicKeyOf(bob)}`)))
+      expect(agent.operators.map(({ event, status }) => ({ event, status }))).toEqual([
+        { event: active.id, status: 'active' },
+        { event: expired.id, status: 'expired' },
+      ])
+    }))
+})
+
 /**
  * Waits, when needed, until a fresh rate-limit window has at least 25 seconds left, so a test that fills one window is
  * not split across two (the window's own behaviour is proven against a test clock in `RateLimiter.test.ts`).
@@ -156,7 +253,12 @@ describe('the same-origin rule', () => {
             unguarded.push(`${endpoint.method} ${endpoint.path}`)
         },
       })
-      expect(unguarded.toSorted()).toEqual(['GET /api/events/:id', 'GET /api/people/:pubkey', 'POST /api/events'])
+      expect(unguarded.toSorted()).toEqual([
+        'GET /api/events/:id',
+        'GET /api/people/:pubkey',
+        'GET /api/wallets/:account',
+        'POST /api/events',
+      ])
       // And it is the middleware that runs: a cross-site state change elsewhere is still refused.
       const forged = await fetch('/api/session/challenge', {
         method: 'POST',

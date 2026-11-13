@@ -25,16 +25,20 @@ export {
 } from './ConnectApi.ts'
 export { AssetId, AssetRef } from './AssetRef.ts'
 export {
+  AgentGrantStatus,
+  AgentGrantView,
   EventInvalid,
   EventInvalidReason,
   EventsApi,
   EventTooLarge,
   KindNotIndexed,
+  LinkedWallet,
   NotIndexed,
   Person,
   Published,
   RateLimited,
   SignedEvent,
+  WalletLink,
 } from './EventsApi.ts'
 export { Bytes32 } from './Bytes32.ts'
 export { findAsset, UsdcOnArcTestnet } from './AssetRegistry.ts'

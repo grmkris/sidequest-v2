@@ -1,5 +1,7 @@
 import { Schema } from 'effect'
 import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
+import { AccountRef } from './AccountRef.ts'
+import { GrantScope } from './Grant.ts'
 import { Unavailable } from './SessionApi.ts'
 
 /**
@@ -69,9 +71,48 @@ export class NotIndexed extends Schema.TaggedError<NotIndexed>()('NotIndexed', {
 const Origin = { event: Hex32, createdAt: Schema.Int }
 
 /**
+ * A key's link to a wallet: the CAIP-10 account, the wallet-link event and the `issuedAt` the wallet signed.
+ * `verification` is `verified` when the wallet's EIP-712 signature recovers to the account, and `unverified` when the
+ * index cannot tell (an ERC-1271 contract wallet's signature needs a call to its chain, which the index does not make).
+ */
+export const WalletLink = Schema.Struct({
+  account: AccountRef,
+  event: Hex32,
+  issuedAt: Schema.Int,
+  verification: Schema.Literals(['verified', 'unverified']),
+})
+export type WalletLink = typeof WalletLink.Type
+
+/** A grant as of the read: revoked by its operator, not yet valid, past its expiry, or active. */
+export const AgentGrantStatus = Schema.Literals(['active', 'expired', 'notYet', 'revoked'])
+export type AgentGrantStatus = typeof AgentGrantStatus.Type
+
+/**
+ * An agent grant (ADR-0003, decision 7): its event, the operator who signed it, the agent key it lets act, the scopes,
+ * the window from `notBefore` to `expiresAt`, and its status at the time of the read.
+ */
+export const AgentGrantView = Schema.Struct({
+  event: Hex32,
+  operator: Hex32,
+  agent: Hex32,
+  scopes: Schema.Array(GrantScope),
+  notBefore: Schema.Int,
+  expiresAt: Schema.Int,
+  label: Schema.String,
+  status: AgentGrantStatus,
+})
+export type AgentGrantView = typeof AgentGrantView.Type
+
+/**
  * What the index knows of a key: its latest profile (kind 0), its latest relay list (NIP-65, kind 10002) and its
  * latest messaging relays (NIP-17, kind 10050), each `null` until one is seen. "Latest" is the greatest `created_at`,
  * ties to the lowest event id, whatever order the events arrived in.
+ *
+ * `wallets` are the accounts this key is currently linked to: of every verified link naming an account, the greatest
+ * `issuedAt` wins, ties to the lowest event id, so a wallet that re-links to another key leaves this one.
+ * `unverifiedWallets` are links this key signed that the index could not verify; they never link an account. `agents`
+ * are the grants this key gave, and `operators` the unrevoked grants it received, each with its status at the time of
+ * the read. A revocation counts only when the grant's own operator signed it.
  */
 export const Person = Schema.Struct({
   pubkey: Hex32,
@@ -87,13 +128,21 @@ export const Person = Schema.Struct({
     Schema.Struct({ read: Schema.Array(Schema.String), write: Schema.Array(Schema.String), ...Origin }),
   ),
   messagingRelays: Schema.NullOr(Schema.Struct({ relays: Schema.Array(Schema.String), ...Origin })),
+  wallets: Schema.Array(WalletLink),
+  unverifiedWallets: Schema.Array(WalletLink),
+  agents: Schema.Array(AgentGrantView),
+  operators: Schema.Array(AgentGrantView),
 })
 export type Person = typeof Person.Type
 
+/** The key a wallet is currently linked to: its winning verified link, by the rule `Person.wallets` describes. */
+export const LinkedWallet = Schema.Struct({ ...WalletLink.fields, pubkey: Hex32 })
+export type LinkedWallet = typeof LinkedWallet.Type
+
 /**
  * The index over signed Nostr events. Anyone publishes one signed event through it (the event authenticates itself,
- * so there is no session) and the index stores it and relays it on; anyone reads a stored event, and what the index
- * knows of a key. Publishing is limited per client and per key.
+ * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
+ * of a key, and which key a wallet is linked to. Publishing is limited per client and per key.
  */
 export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.post('publish', '/api/events', {
@@ -109,6 +158,11 @@ export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.get('person', '/api/people/:pubkey', {
     params: { pubkey: Hex32 },
     success: Person,
+    error: [NotIndexed, Unavailable],
+  }),
+  HttpApiEndpoint.get('wallet', '/api/wallets/:account', {
+    params: { account: AccountRef },
+    success: LinkedWallet,
     error: [NotIndexed, Unavailable],
   }),
 ) {}

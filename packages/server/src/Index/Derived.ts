@@ -1,5 +1,16 @@
 import type { NostrEvent } from '@sidequest/nostr'
-import type { MessagingRelays, ProfileName, RelayList } from '@sidequest/nostr/vocabulary'
+import {
+  type AgentGrantContent,
+  type GrantRevocationContent,
+  type MessagingRelays,
+  type ParsedEvent,
+  type ProfileName,
+  type RelayList,
+  recoverAddress,
+  type WalletLinkContent,
+  walletLinkDigest,
+} from '@sidequest/nostr/vocabulary'
+import type { AccountRef, GrantScope } from '@sidequest/protocol'
 import { Option, Schema } from 'effect'
 
 /** The event a derived row came from, and when its author signed it: what decides which row is the latest. */
@@ -23,10 +34,44 @@ export interface RelayListRow extends Origin {
   readonly write: ReadonlyArray<string>
 }
 
-/** What an event derives: a profile or a relay list. */
+/** Whether the index could check a wallet link's wallet signature and it held, or could not tell. */
+export type Verification = 'verified' | 'unverified'
+
+/** A key's link to a wallet, as a CAIP-10 account, from one wallet-link event. */
+export interface WalletLinkRow {
+  readonly eventId: string
+  readonly account: AccountRef
+  readonly pubkey: string
+  readonly issuedAt: number
+  readonly verification: Verification
+}
+
+/** An operator (the grant's author) lets an agent key act for them with these scopes from `notBefore` to `expiresAt`. */
+export interface GrantRow {
+  readonly eventId: string
+  readonly operator: string
+  readonly agent: string
+  readonly scopes: ReadonlyArray<GrantScope>
+  readonly notBefore: number
+  readonly expiresAt: number
+  readonly label: string
+  readonly createdAt: number
+}
+
+/** A revocation of a grant, by whoever signed it: it counts only when that is the grant's operator. */
+export interface RevocationRow {
+  readonly eventId: string
+  readonly grant: string
+  readonly pubkey: string
+}
+
+/** What an event derives: a profile, a relay list, a wallet link, a grant or a revocation. */
 export type Derived =
   | { readonly table: 'profiles'; readonly row: ProfileRow }
   | { readonly table: 'relay_lists'; readonly row: RelayListRow }
+  | { readonly table: 'wallet_links'; readonly row: WalletLinkRow }
+  | { readonly table: 'agent_grants'; readonly row: GrantRow }
+  | { readonly table: 'grant_revocations'; readonly row: RevocationRow }
 
 /**
  * Whether `candidate` replaces `current` as a key's latest of a kind: NIP-01's rule for replaceable events, the
@@ -79,3 +124,68 @@ export const messagingRelaysOf = (event: NostrEvent, list: MessagingRelays): Der
   table: 'relay_lists',
   row: { ...originOf(event), kind: event.kind, read: list.relays, write: [] },
 })
+
+/**
+ * Whether a wallet link's signature recovers to the wallet it names: the EIP-712 digest of `LinkNostrKey(pubkey,
+ * issuedAt)` on the account's chain, recovered as `ecrecover` does. `@sidequest/nostr` reads the link but leaves this to
+ * the indexer. Anything that does not recover to the address is `unverified`, not refused: an ERC-1271 contract
+ * wallet's signature (of any length, 65 bytes included) can only be checked by calling the wallet on its chain, which
+ * the index does not do, and a forgery looks the same from here. A chain id too large to be a safe integer cannot be
+ * hashed exactly, so it does not verify either.
+ */
+export const verifyWalletLink = (event: NostrEvent, content: WalletLinkContent): Verification => {
+  const [, chain = '', address = ''] = content.address.split(':')
+  const chainId = Number(chain)
+  if (!Number.isSafeInteger(chainId)) return 'unverified'
+  const recovered = recoverAddress(walletLinkDigest(event.pubkey, content.issuedAt, chainId), content.walletSignature)
+  return Option.exists(recovered, (wallet) => wallet === address) ? 'verified' : 'unverified'
+}
+
+/** The wallet-link row of a kind-8410 event the vocabulary read, labelled by whether its wallet signature verified. */
+export const walletLinkOf = ({ event, content }: ParsedEvent<WalletLinkContent>): Derived => ({
+  table: 'wallet_links',
+  row: {
+    eventId: event.id,
+    account: content.address,
+    pubkey: event.pubkey,
+    issuedAt: content.issuedAt,
+    verification: verifyWalletLink(event, content),
+  },
+})
+
+/** The grant row of an agent grant the vocabulary read: its author is the operator. */
+export const grantOf = ({ event, content }: ParsedEvent<AgentGrantContent>): Derived => ({
+  table: 'agent_grants',
+  row: {
+    eventId: event.id,
+    operator: event.pubkey,
+    agent: content.agent,
+    scopes: content.scopes,
+    notBefore: content.notBefore,
+    expiresAt: content.expiresAt,
+    label: content.label,
+    createdAt: event.created_at,
+  },
+})
+
+/** The revocation row of a grant revocation the vocabulary read, whoever signed it. */
+export const revocationOf = ({ event, content }: ParsedEvent<GrantRevocationContent>): Derived => ({
+  table: 'grant_revocations',
+  row: { eventId: event.id, grant: content.grant, pubkey: event.pubkey },
+})
+
+/** A grant as of a moment: revoked by its operator, not yet valid, expired, or active. */
+export type GrantStatus = 'active' | 'expired' | 'notYet' | 'revoked'
+
+/**
+ * A grant's status at `now`, in Unix seconds: revoked whenever its operator revoked it, otherwise active from
+ * `notBefore` up to but not including `expiresAt`. Expiry is never stored; every read asks it of its own `now`.
+ */
+export const grantStatus = (
+  grant: { readonly notBefore: number; readonly expiresAt: number; readonly revoked: boolean },
+  now: number,
+): GrantStatus => {
+  if (grant.revoked) return 'revoked'
+  if (now < grant.notBefore) return 'notYet'
+  return now < grant.expiresAt ? 'active' : 'expired'
+}

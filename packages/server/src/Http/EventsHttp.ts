@@ -1,12 +1,22 @@
-import { EventInvalid, EventTooLarge, KindNotIndexed, NotIndexed, type Person, SidequestApi } from '@sidequest/protocol'
+import {
+  type AgentGrantView,
+  EventInvalid,
+  EventTooLarge,
+  KindNotIndexed,
+  NotIndexed,
+  type Person,
+  SidequestApi,
+  type WalletLink,
+} from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
 import * as HttpEffect from 'effect/http/HttpEffect'
 import { HttpServerRequest } from 'effect/http/HttpServerRequest'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
 import { HttpApiBuilder } from 'effect/http-api'
-import type { Known } from '../Index/EventStore.ts'
+import { grantStatus, type WalletLinkRow } from '../Index/Derived.ts'
+import type { Known, KnownGrant } from '../Index/EventStore.ts'
 import { EventStore } from '../Index/EventStore.ts'
-import { Ingest } from '../Index/Ingest.ts'
+import { Ingest, nowSeconds } from '../Index/Ingest.ts'
 import { Outbox } from '../Index/Outbox.ts'
 import { publishLimits, RateLimiter } from '../Index/RateLimiter.ts'
 import { type EventRefused, validateEvent } from '../Index/Validation.ts'
@@ -37,7 +47,27 @@ const refusalOf = ({ reason, kind }: EventRefused) => {
  */
 const clientAddress = (request: HttpServerRequest) => request.headers['cf-connecting-ip'] ?? 'unknown'
 
-const personOf = (pubkey: string, known: Known): typeof Person.Type => ({
+const walletOf = ({ account, eventId, issuedAt, verification }: WalletLinkRow): WalletLink => ({
+  account,
+  event: eventId,
+  issuedAt,
+  verification,
+})
+
+const grantViewOf =
+  (now: number) =>
+  (grant: KnownGrant): AgentGrantView => ({
+    event: grant.eventId,
+    operator: grant.operator,
+    agent: grant.agent,
+    scopes: grant.scopes,
+    notBefore: grant.notBefore,
+    expiresAt: grant.expiresAt,
+    label: grant.label,
+    status: grantStatus(grant, now),
+  })
+
+const personOf = (pubkey: string, known: Known, now: number): typeof Person.Type => ({
   pubkey,
   profile: Option.getOrNull(
     Option.map(known.profile, ({ name, about, picture, eventId, createdAt }) => ({
@@ -54,10 +84,23 @@ const personOf = (pubkey: string, known: Known): typeof Person.Type => ({
   messagingRelays: Option.getOrNull(
     Option.map(known.messagingRelays, ({ read, eventId, createdAt }) => ({ relays: read, event: eventId, createdAt })),
   ),
+  wallets: known.wallets.map(walletOf),
+  unverifiedWallets: known.unverifiedWallets.map(walletOf),
+  agents: known.agents.map(grantViewOf(now)),
+  operators: known.operators.map(grantViewOf(now)),
 })
 
 const nothingKnown = (known: Known) =>
-  Option.isNone(known.profile) && Option.isNone(known.relayList) && Option.isNone(known.messagingRelays)
+  Option.isNone(known.profile) &&
+  Option.isNone(known.relayList) &&
+  Option.isNone(known.messagingRelays) &&
+  known.wallets.length === 0 &&
+  known.unverifiedWallets.length === 0 &&
+  known.agents.length === 0 &&
+  known.operators.length === 0
+
+/** An EVM account as wallet links spell it: in lowercase, so `eip155:1:0xAbC…` finds the same wallet. */
+const linkSpelling = (account: string) => (account.startsWith('eip155:') ? account.toLowerCase() : account)
 
 /**
  * The `events` group: publish-through and the index's public reads.
@@ -101,7 +144,15 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           const known = yield* events.known(params.pubkey)
           if (nothingKnown(known)) return yield* new NotIndexed()
           yield* publicFor(60)
-          return personOf(params.pubkey, known)
+          return personOf(params.pubkey, known, yield* nowSeconds)
+        }),
+      )
+      .handle('wallet', ({ params }) =>
+        Effect.gen(function* () {
+          const linked = yield* events.wallet(linkSpelling(params.account))
+          if (Option.isNone(linked)) return yield* new NotIndexed()
+          yield* publicFor(60)
+          return { ...walletOf(linked.value), pubkey: linked.value.pubkey }
         }),
       )
   }),

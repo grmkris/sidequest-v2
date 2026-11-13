@@ -12,6 +12,7 @@ import {
   parseProfileName,
   parseRelayList,
   parseServiceListing,
+  type ParsedEvent,
   parseSidequestEvent,
   standardKinds,
   statement,
@@ -19,7 +20,15 @@ import {
   walletLink,
 } from '@sidequest/nostr/vocabulary'
 import { Effect, Option, Result, Schema } from 'effect'
-import { type Derived, messagingRelaysOf, profileOf, relayListOf } from './Derived.ts'
+import {
+  type Derived,
+  grantOf,
+  messagingRelaysOf,
+  profileOf,
+  relayListOf,
+  revocationOf,
+  walletLinkOf,
+} from './Derived.ts'
 
 /** What an event passed beyond NIP-01's id and signature: the reader of its kind. */
 export type Validation = 'profile' | 'relayList' | 'messagingRelays' | 'sidequest' | 'listing'
@@ -45,7 +54,7 @@ export class EventRefused extends Schema.TaggedError<EventRefused>()('EventRefus
   kind: Schema.optionalKey(Schema.Int),
 }) {}
 
-/** A valid event, what it passed, and what it derives (a profile or a relay list), if anything. */
+/** A valid event, what it passed, and what it derives (a profile, relay list, wallet link, grant or revocation), if anything. */
 export interface Validated {
   readonly event: NostrEvent
   readonly validation: Validation
@@ -76,6 +85,18 @@ const sidequest = <C>(spec: KindSpec<C>): readonly [number, Reader] => [
   (event) => parseSidequestEvent(spec, event).pipe(Effect.as({ validation: 'sidequest', derived: nothingDerived })),
 ]
 
+/** A reader of a Sidequest kind whose events derive a row: a wallet link, a grant or a revocation. */
+const sidequestDeriving = <C>(
+  spec: KindSpec<C>,
+  derive: (parsed: ParsedEvent<C>) => Derived,
+): readonly [number, Reader] => [
+  spec.kind,
+  (event) =>
+    parseSidequestEvent(spec, event).pipe(
+      Effect.map((parsed) => ({ validation: 'sidequest', derived: Option.some(derive(parsed)) })),
+    ),
+]
+
 /** A reader from one of `@sidequest/nostr`'s readers that answer a `Result`, with what its result derives. */
 const deriving =
   <A>(
@@ -100,15 +121,15 @@ const readers: ReadonlyMap<number, Reader> = new Map<number, Reader>([
     standardKinds.listing,
     (event) => parseServiceListing(event).pipe(Effect.as({ validation: 'listing', derived: nothingDerived })),
   ],
-  sidequest(walletLink),
+  sidequestDeriving(walletLink, walletLinkOf),
   sidequest(jobRequest),
   sidequest(jobProposal),
   sidequest(jobAccept),
   sidequest(deliveryNote),
   sidequest(statement),
   sidequest(jobReview),
-  sidequest(agentGrant),
-  sidequest(grantRevocation),
+  sidequestDeriving(agentGrant, grantOf),
+  sidequestDeriving(grantRevocation, revocationOf),
 ])
 
 /** The kinds the index keeps, for relay filters. */
