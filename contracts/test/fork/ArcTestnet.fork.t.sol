@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Test} from "forge-std/Test.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {AuthCaptureEscrow} from "commerce-payments/src/AuthCaptureEscrow.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {SidequestOperator} from "../../src/SidequestOperator.sol";
+import {DeployedCode} from "../utils/DeployedCode.sol";
 import {SigningKit} from "../utils/SigningKit.sol";
 
 /// @dev Stand-in for Arc's native-coin precompile at 0x1800…0000, which forge's local EVM does not implement.
@@ -33,7 +33,7 @@ contract ArcNativeCoinShim {
 
 /// @dev Fork tests against Arc testnet (chain 5042002), using the deployed `AuthCaptureEscrow` and
 ///      `ERC3009PaymentCollector` and Arc's USDC. Skipped unless `ARC_TESTNET_RPC_URL` is set.
-contract ArcTestnetForkTest is Test, SigningKit {
+contract ArcTestnetForkTest is DeployedCode, SigningKit {
     uint256 internal constant ARC_TESTNET_CHAIN_ID = 5_042_002;
     AuthCaptureEscrow internal constant ESCROW = AuthCaptureEscrow(0xf96815976523E00e65Be8f34cA5e64b4f41EB19c);
     address internal constant COLLECTOR = 0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88;
@@ -86,17 +86,7 @@ contract ArcTestnetForkTest is Test, SigningKit {
     ///      this workspace's settings: identical except for the CBOR metadata (source paths differ, so the IPFS hash
     ///      does) and the immutables, which are masked.
     function test_fork_deployedBytecodeMatchesVendoredV110() public view {
-        address tokenStoreImpl = ESCROW.tokenStoreImplementation();
-        _assertSameCode(
-            "AuthCaptureEscrow.sol:AuthCaptureEscrow", address(ESCROW), _one(tokenStoreImpl), "AuthCaptureEscrow"
-        );
-        _assertSameCode(
-            "ERC3009PaymentCollector.sol:ERC3009PaymentCollector",
-            COLLECTOR,
-            _two(address(ESCROW), MULTICALL3),
-            "ERC3009PaymentCollector"
-        );
-        _assertSameCode("TokenStore.sol:TokenStore", tokenStoreImpl, _one(address(ESCROW)), "TokenStore");
+        _assertCommercePaymentsV110(ESCROW, COLLECTOR, MULTICALL3);
     }
 
     function test_fork_fundDeliverApprove() public {
@@ -203,54 +193,5 @@ contract ArcTestnetForkTest is Test, SigningKit {
         bytes memory sig = _signReceive(payerPk, address(USDC), pi);
         vm.prank(relayer);
         hash = op.fund(pi, params, sig);
-    }
-
-    function _assertSameCode(string memory artifact, address deployed, address[] memory immutables, string memory name)
-        internal
-        view
-    {
-        bytes memory local = _stripMetadata(vm.getDeployedCode(artifact));
-        bytes memory live = _stripMetadata(deployed.code);
-        for (uint256 i; i < immutables.length; ++i) {
-            _zeroOccurrences(live, immutables[i]);
-        }
-        assertEq(live.length, local.length, string.concat(name, ": length"));
-        assertEq(keccak256(live), keccak256(local), string.concat(name, ": bytecode"));
-    }
-
-    /// @dev Drops the trailing CBOR metadata, whose length is the code's last two bytes.
-    function _stripMetadata(bytes memory code) internal pure returns (bytes memory out) {
-        uint256 metaLength = (uint256(uint8(code[code.length - 2])) << 8) | uint8(code[code.length - 1]);
-        out = new bytes(code.length - metaLength - 2);
-        for (uint256 i; i < out.length; ++i) {
-            out[i] = code[i];
-        }
-    }
-
-    /// @dev Zeroes every occurrence of `value`; the compiler leaves immutables as zeros in the artifact.
-    function _zeroOccurrences(bytes memory code, address value) internal pure {
-        bytes20 needle = bytes20(value);
-        for (uint256 i; i + 20 <= code.length; ++i) {
-            bool hit = true;
-            for (uint256 k; k < 20 && hit; ++k) {
-                hit = code[i + k] == needle[k];
-            }
-            if (hit) {
-                for (uint256 k; k < 20; ++k) {
-                    code[i + k] = 0;
-                }
-            }
-        }
-    }
-
-    function _one(address a) internal pure returns (address[] memory list) {
-        list = new address[](1);
-        list[0] = a;
-    }
-
-    function _two(address a, address b) internal pure returns (address[] memory list) {
-        list = new address[](2);
-        list[0] = a;
-        list[1] = b;
     }
 }

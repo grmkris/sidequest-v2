@@ -96,9 +96,11 @@ Times are block timestamps; "before" means strictly before.
 | `test/SidequestOperator.delegation.t.sol` | Delivery delegation: every accept and refuse case, revocation, ERC-1271 receivers.        |
 | `test/SidequestOperator.fuzz.t.sol`       | Fuzz tests on amounts, shares, windows and timings.                                       |
 | `test/SidequestOperator.invariant.t.sol`  | Stateful fuzzing with a handler: conservation, one outcome per job, no stranger succeeds. |
+| `test/SidequestOperator.safeArbitrator.t.sol` | A Safe-style 2-of-3 ERC-1271 arbitrator rules (relayed, by its own call, on-chain message); below threshold it cannot. |
 | `test/fork/ArcTestnet.fork.t.sol`         | Arc testnet fork tests against the deployed escrow, collector and USDC.                   |
-| `test/DeploySidequestOperator.t.sol`      | The deploy script refuses mainnets and reads its parameters from the environment.         |
-| `script/DeploySidequestOperator.s.sol`    | Deployment, testnets only.                                                                |
+| `test/fork/BaseMainnet.fork.t.sol`        | Read-only Base mainnet checks: the escrow's bytecode and USDC's EIP-712 domain.           |
+| `test/DeploySidequestOperator.t.sol`      | The deploy script refuses mainnets without the exact opt-in, dry-runs, reads the env.     |
+| `script/DeploySidequestOperator.s.sol`    | Deployment: testnets; a mainnet only with its exact opt-in phrase; a dry run anywhere.    |
 
 ## Running
 
@@ -121,18 +123,18 @@ FOUNDRY_PROFILE=ci forge test  # more fuzz and invariant runs, as CI does
 ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.network forge test --match-path 'test/fork/*'
 ```
 
-Without `ARC_TESTNET_RPC_URL` the suite skips. With it, it checks that the deployed `AuthCaptureEscrow` (`0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`), `ERC3009PaymentCollector` (`0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88`) and their `TokenStore` implementation are byte-for-byte the vendored v1.1.0 build, ignoring only the CBOR metadata (its IPFS hash covers source paths, which differ) and the immutables; then runs fund → deliver → approve, fund → delegated delivery → approve and fund → deliver → reject → rule with a fresh, locally signing payer and Arc's real USDC.
+Without `ARC_TESTNET_RPC_URL` the suite skips. `BASE_MAINNET_RPC_URL=https://mainnet.base.org forge test --match-path test/fork/BaseMainnet.fork.t.sol` runs the same bytecode comparison against Base mainnet (passed on 2026-11-13) and checks USDC's domain there ("USD Coin", "2"); it reads only. With it, it checks that the deployed `AuthCaptureEscrow` (`0xf96815976523E00e65Be8f34cA5e64b4f41EB19c`), `ERC3009PaymentCollector` (`0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88`) and their `TokenStore` implementation are byte-for-byte the vendored v1.1.0 build, ignoring only the CBOR metadata (its IPFS hash covers source paths, which differ) and the immutables; then runs fund → deliver → approve, fund → delegated delivery → approve and fund → deliver → reject → rule with a fresh, locally signing payer and Arc's real USDC.
 
 Arc's USDC is the native coin, with 18 decimals; the ERC-20 at `0x3600…0000` is a 6-decimal view over the same balance. The test funds the payer the Arc way, with `vm.deal(payer, amount × 10¹²)`, and asserts that the ERC-20 reports `amount`. Transfers in the ERC-20 call Arc's native-coin precompile at `0x1800…0000` (`transfer(from, to, amount18)`), which forge's local EVM does not implement, so the fork test installs a small shim there that moves native balance the same way. Everything else (escrow, collector, the USDC implementation and its ERC-3009 signature check) is the code deployed on Arc. The precompile itself is exercised only by a real testnet transaction, in the phase 1 testnet journey.
 
-### Deploying (testnets only; not done in this slice)
+### Deploying
 
 ```sh
 SIDEQUEST_FEE_RECEIVER=0x… forge script script/DeploySidequestOperator.s.sol --rpc-url "$ARC_TESTNET_RPC_URL"            # simulate
 SIDEQUEST_FEE_RECEIVER=0x… forge script script/DeploySidequestOperator.s.sol --rpc-url "$ARC_TESTNET_RPC_URL" --account <name> --broadcast
 ```
 
-Optional: `SIDEQUEST_FEE_BPS` (default 500), `AUTH_CAPTURE_ESCROW`, `ERC3009_PAYMENT_COLLECTOR` (default the canonical v1.1 addresses). The script refuses any chain but Arc testnet (5042002), Base Sepolia (84532) and Anvil (31337), and refuses addresses with no code.
+Optional: `SIDEQUEST_FEE_BPS` (default 500), `AUTH_CAPTURE_ESCROW`, `ERC3009_PAYMENT_COLLECTOR` (default the canonical v1.1 addresses). The script refuses addresses with no code, and any chain but Arc testnet (5042002), Base Sepolia (84532) and Anvil (31337) unless `SIDEQUEST_ALLOW_MAINNET_DEPLOY` is exactly `deploy SidequestOperator to mainnet chain <chain id>` for the chain the RPC answers for; on such a chain the fee receiver must be a contract (a Safe), because it is immutable. `SIDEQUEST_DEPLOY_DRY_RUN=true` checks and prints the plan (chain, escrow, collector, the immutable fee and fee receiver, the deployer and the address the operator would get) on any chain and deploys nothing, even with `--broadcast`. No mainnet deployment has been made; see `docs/MAINNET-READINESS.md`.
 
 ## Compiler
 

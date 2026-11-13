@@ -30,6 +30,8 @@ jobs:
       FOUNDRY_PROFILE: ci
       # Optional repository secret. Without it the Arc testnet fork tests skip themselves.
       ARC_TESTNET_RPC_URL: ${{ secrets.ARC_TESTNET_RPC_URL }}
+      # Optional too: read-only checks of Base mainnet's escrow bytecode and USDC domain. Nothing is sent.
+      BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: foundry-rs/foundry-toolchain@v1
@@ -43,7 +45,10 @@ jobs:
         run: forge test --no-match-path 'test/fork/*'
       - name: Arc testnet fork tests
         if: env.ARC_TESTNET_RPC_URL != ''
-        run: forge test --match-path 'test/fork/*'
+        run: forge test --match-path 'test/fork/ArcTestnet.fork.t.sol'
+      - name: Base mainnet fork tests (read-only)
+        if: env.BASE_MAINNET_RPC_URL != ''
+        run: forge test --match-path 'test/fork/BaseMainnet.fork.t.sol'
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
