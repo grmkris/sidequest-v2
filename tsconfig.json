@@ -92,6 +92,14 @@
       }
     ]
   },
-  "include": ["apps/**/*.ts", "packages/**/*.ts", "tools/**/*.ts", "infra/**/*.ts", "*.config.ts", "alchemy.run.ts"],
+  "include": [
+    "apps/**/*.ts",
+    "packages/**/*.ts",
+    "tools/**/*.ts",
+    "infra/**/*.ts",
+    "examples/**/*.ts",
+    "*.config.ts",
+    "alchemy.run.ts"
+  ],
   "exclude": ["node_modules", "**/dist/**", "tools/oxlint/anti-slop/**", ".agents/**"]
 }

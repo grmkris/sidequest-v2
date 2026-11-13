@@ -110,6 +110,8 @@ const tokenAbi = parseAbi([
 ])
 
 export interface LocalChain {
+  /** Anvil's JSON-RPC URL, for a test that sends its own transactions or calls Anvil's own methods. */
+  readonly url: string
   readonly client: PublicClient
   /** Settlement on this chain, every confirmation counting at once. */
   readonly config: SettlementConfig
@@ -163,6 +165,7 @@ export const startChain = async (): Promise<LocalChain> => {
       tokenDomain: { name: 'USD Coin', version: '1' },
     }
     return {
+      url,
       client,
       chain,
       treasury,
