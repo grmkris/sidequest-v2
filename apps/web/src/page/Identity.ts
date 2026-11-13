@@ -15,6 +15,7 @@ import { PubkeyHex, type SignerFailed, SignerFailure, SignerIdentity, Signers } 
 import type { Rooms } from '../Rooms.ts'
 import { Connection, Wallet } from '../Wallet.ts'
 import * as InboxRelays from './InboxRelays.ts'
+import * as Erc8004 from './Erc8004.ts'
 import * as SignerSetup from './SignerSetup.ts'
 
 // A person's Nostr identity (ADR-0003, decision 3): their signer, the kind-0 profile with their name, and the link of
@@ -88,6 +89,8 @@ export const Model = Schema.Struct({
   person: PersonRead,
   action: Action,
   inbox: InboxRelays.Model,
+  /** The person's own ERC-8004 identities and counted reviews, and registering themselves. */
+  erc8004: Erc8004.Model,
 })
 export type Model = typeof Model.Type
 
@@ -96,6 +99,7 @@ export type Model = typeof Model.Type
 export const Message = defineMessageUnion({
   GotSetupMessage: { message: SignerSetup.Message },
   GotInboxRelaysMessage: { message: InboxRelays.Message },
+  GotErc8004Message: { message: Erc8004.Message },
   UpdatedName: { value: Schema.String },
   SubmittedProfile: {},
   ClickedLinkWallet: {},
@@ -269,6 +273,7 @@ export const init = (
       person: PersonRead.Unread(),
       action: Action.Idle(),
       inbox: InboxRelays.init(language, defaultInboxRelays),
+      erc8004: Erc8004.init(language),
     },
     commands: Command.mapMessages(setupInit.commands, toSetupMessage),
   }
@@ -365,9 +370,34 @@ const foldInboxRelays = Update.foldChild({
   }),
 })
 
+const erc8004Fold = {
+  read: (model: Model) => Option.some(model.erc8004),
+  write: (model: Model, nextErc8004: Erc8004.Model) => modifyFields(model, { erc8004: () => nextErc8004 }),
+  toParentMessage: (message: Erc8004.Message) => Message.GotErc8004Message({ message }),
+}
+
+const foldErc8004 = Update.foldChild({ update: Erc8004.update, ...erc8004Fold })
+
+/** After the index answered for the key: its ERC-8004 identities and counted reviews too. */
+const andReadErc8004 = (read: UpdateReturn): UpdateReturn =>
+  Option.match(identityOf(read.model), {
+    onNone: () => read,
+    onSome: ({ pubkey }) => {
+      const erc8004Read = Update.foldChildStep({
+        update: (erc8004: Erc8004.Model) => Erc8004.readFor(erc8004, [pubkey]),
+        ...erc8004Fold,
+      })(read.model)
+      return Update.withOutMessage(
+        { model: erc8004Read.model, commands: [...(read.commands ?? []), ...(erc8004Read.commands ?? [])] },
+        read.outMessage,
+      )
+    },
+  })
+
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     GotInboxRelaysMessage: ({ message: inboxMessage }) => foldInboxRelays(model, inboxMessage),
+    GotErc8004Message: ({ message: erc8004Message }) => foldErc8004(model, erc8004Message),
     GotSetupMessage: ({ message: setupMessage }) => foldSetup(model, setupMessage),
     UpdatedName: ({ value }) => ({
       model: modifyFields(model, {
@@ -403,24 +433,28 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     FailedPublish: ({ problem }) => ({ model: withAction(model, Action.Failed({ problem })) }),
     FailedSign: ({ reason }) => ({ model: withAction(model, Action.SignerFailed({ reason })) }),
     SucceededReadPerson: ({ person }) =>
-      withStanding(
-        modifyFields(model, {
-          person: () => PersonRead.Read({ person }),
-          name: (name) => (name === '' ? Option.getOrElse(person.maybeName, () => '') : name),
-        }),
-        Standing.Known({
-          maybeName: person.maybeName,
-          wallets: Array.map(
-            Array.filter(person.wallets, ({ verification }) => verification === 'verified'),
-            ({ account }) => account,
-          ),
-          agents: person.agents,
-        }),
+      andReadErc8004(
+        withStanding(
+          modifyFields(model, {
+            person: () => PersonRead.Read({ person }),
+            name: (name) => (name === '' ? Option.getOrElse(person.maybeName, () => '') : name),
+          }),
+          Standing.Known({
+            maybeName: person.maybeName,
+            wallets: Array.map(
+              Array.filter(person.wallets, ({ verification }) => verification === 'verified'),
+              ({ account }) => account,
+            ),
+            agents: person.agents,
+          }),
+        ),
       ),
     CompletedReadUnknownPerson: () =>
-      withStanding(
-        modifyFields(model, { person: () => PersonRead.Unknown() }),
-        Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
+      andReadErc8004(
+        withStanding(
+          modifyFields(model, { person: () => PersonRead.Unknown() }),
+          Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
+        ),
       ),
     FailedReadPerson: ({ problem }) => ({
       model: modifyFields(model, { person: () => PersonRead.Failed({ problem }) }),

@@ -15,6 +15,7 @@ import {
   SignWalletLink,
   update,
 } from '../../src/page/Identity.ts'
+import * as Erc8004 from '../../src/page/Erc8004.ts'
 import * as SignerSetup from '../../src/page/SignerSetup.ts'
 import { Standing } from '../../src/Me.ts'
 import { Problem } from '../../src/Problem.ts'
@@ -32,6 +33,15 @@ const linked = {
   agents: [],
 } as const
 const fresh = init('en', Option.none(), []).model
+
+/** The person's own ERC-8004 summary, read after the index answered for the key: no registries on this stage. */
+const summaryRead = Command.resolve(Erc8004.ReadSummaries, Erc8004.Message.SucceededReadSummaries({ summaries: [] }))
+const deploymentRead = Command.resolve(
+  Erc8004.ReadDeployment,
+  Erc8004.Message.SucceededReadDeployment({
+    deployment: { chainId: null, identityRegistry: null, reputationRegistry: null },
+  }),
+)
 
 /** The identity page once `signer` is ready and the index answered what it knows of the key. */
 const readyWith = (signer: typeof identity | typeof extension, answer: Message) =>
@@ -59,6 +69,8 @@ describe('a person’s Nostr identity', () => {
           standing: Standing.Known({ maybeName: Option.none(), wallets: [], agents: [] }),
         }),
       ),
+      deploymentRead,
+      summaryRead,
       model((page) => expect(page.person).toEqual(PersonRead.Unknown())),
     )
   })
@@ -110,6 +122,7 @@ describe('a person’s Nostr identity', () => {
           standing: Standing.Known({ maybeName: Option.some('Ada'), wallets: [account], agents: [] }),
         }),
       ),
+      summaryRead,
       model((page) => expect(page.person).toEqual(PersonRead.Read({ person: linked }))),
     )
   })
@@ -134,6 +147,7 @@ describe('a person’s Nostr identity', () => {
       model((page) => expect(page.action).toEqual(Action.Publishing({ publication: 'walletLink' }))),
       Command.resolve(PublishWalletLink, Message.SucceededPublish({ publication: 'walletLink' })),
       Command.resolve(ReadPerson, Message.SucceededReadPerson({ person: linked })),
+      summaryRead,
       model((page) => {
         expect(page.action).toEqual(Action.Published({ publication: 'walletLink' }))
         expect(page.person).toEqual(PersonRead.Read({ person: linked }))

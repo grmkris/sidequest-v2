@@ -713,6 +713,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'erc8004.register': 'Registriraj v ERC-8004',
   'erc8004.registerHint':
     'Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica agentovega žetona. Vaš ključ nato podpiše, da žeton predstavlja tega agenta. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.',
+  'erc8004.registerSelfHint':
+    'Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica vašega žetona. Vaš ključ nato podpiše, da žeton predstavlja vas. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.',
   'erc8004.waitingWallet': 'Čakam na vašo denarnico …',
   'erc8004.mining': 'Čakam, da se registracija zapiše v verigo …',
   'erc8004.claiming': 'Podpisujem in objavljam vašo prijavo …',

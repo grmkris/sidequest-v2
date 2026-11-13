@@ -95,6 +95,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'erc8004.post.wrongWallet': { readonly address: string | number }
   'erc8004.register': Readonly<Record<string, never>>
   'erc8004.registerHint': Readonly<Record<string, never>>
+  'erc8004.registerSelfHint': Readonly<Record<string, never>>
   'erc8004.title': Readonly<Record<string, never>>
   'erc8004.unchecked': Readonly<Record<string, never>>
   'erc8004.verified': { readonly id: string | number }
@@ -648,4 +649,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '550d611248f6c339f1cc62badabebbcf03a4c373eea11672345e874590e2562c'
+export const catalogVersion = '4345da6b948f208c50197fd5fbef132073f1c4226bca42c40011410168c99f83'

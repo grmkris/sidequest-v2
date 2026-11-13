@@ -758,6 +758,7 @@
     "feedback": "{count, plural, =0 {Še nobene upoštevane ocene.} one {# upoštevana ocena, v povprečju {average} od 5.} two {# upoštevani oceni, v povprečju {average} od 5.} few {# upoštevane ocene, v povprečju {average} od 5.} other {# upoštevanih ocen, v povprečju {average} od 5.}}",
     "register": "Registriraj v ERC-8004",
     "registerHint": "Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica agentovega žetona. Vaš ključ nato podpiše, da žeton predstavlja tega agenta. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.",
+    "registerSelfHint": "Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica vašega žetona. Vaš ključ nato podpiše, da žeton predstavlja vas. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.",
     "waitingWallet": "Čakam na vašo denarnico …",
     "mining": "Čakam, da se registracija zapiše v verigo …",
     "claiming": "Podpisujem in objavljam vašo prijavo …",

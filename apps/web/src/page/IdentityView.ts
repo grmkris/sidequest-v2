@@ -21,6 +21,7 @@ import {
   type Publication,
 } from './Identity.ts'
 import * as InboxRelays from './InboxRelays.ts'
+import * as Erc8004View from './Erc8004View.ts'
 import { setupProblemText, view as setupView } from './SignerSetupView.ts'
 
 const publishedKeys: Readonly<Record<Publication, PlainKey>> = {
@@ -195,6 +196,22 @@ const inboxSection = (h: Html.HtmlBuilder<Message>, model: Model) =>
       }),
   })
 
+/** The person's own ERC-8004 identities and counted reviews, and registering themselves with their wallet. */
+const erc8004Section = (h: Html.HtmlBuilder<Message>, model: Model) =>
+  Option.match(identityOf(model), {
+    onNone: () => h.empty,
+    onSome: ({ pubkey }) =>
+      h.div(styled(h, s.panel()), [
+        h.submodel({
+          slotId: 'erc8004',
+          model: model.erc8004,
+          view: Erc8004View.view,
+          viewInputs: { agent: pubkey, maybeMcp: Option.none(), kind: 'person' },
+          toParentMessage: (message) => Message.GotErc8004Message({ message }),
+        }),
+      ]),
+  })
+
 /** The person's signer, then, once it is ready, their profile, their wallet's link and what the index knows. */
 export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div(styled(h, s.page()), [
@@ -214,6 +231,7 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
         walletSection(h, model),
         inboxSection(h, model),
         personSection(h, model),
+        erc8004Section(h, model),
       ],
     }),
   ]),

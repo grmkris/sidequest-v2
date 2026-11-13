@@ -14,7 +14,12 @@ import { agentOf, Flow, identityRegistryOf, Message, type Model, RegistrationFai
 // One agent on ERC-8004: its identities as the index verified them, its counted reviews in short, and registering it
 // with the person's wallet.
 
-type Inputs = { readonly agent: string; readonly maybeMcp: Option.Option<string> }
+/** The key the section is about: one of the person's agents, or the person themselves. */
+type Inputs = {
+  readonly agent: string
+  readonly maybeMcp: Option.Option<string>
+  readonly kind: 'agent' | 'person'
+}
 
 const failureKeys: Readonly<Record<Erc8004Failure, PlainKey>> = {
   noToken: 'erc8004.failure.noToken',
@@ -73,7 +78,9 @@ const registerControl = (h: Html.HtmlBuilder<Message>, model: Model, inputs: Inp
   return verified || Option.isNone(identityRegistryOf(model))
     ? h.empty
     : h.div(styled(h, s.section()), [
-        h.p(styled(h, s.hint()), [say(language, 'erc8004.registerHint')]),
+        h.p(styled(h, s.hint()), [
+          say(language, inputs.kind === 'agent' ? 'erc8004.registerHint' : 'erc8004.registerSelfHint'),
+        ]),
         h.div(styled(h, s.actions()), [
           Ui.button(h, {
             label: say(language, 'erc8004.register'),

@@ -346,6 +346,7 @@ const agentRow = (h: Html.HtmlBuilder<Message>, reader: Reader, agent: AgentEntr
       viewInputs: {
         agent: agent.agent,
         maybeMcp: Option.map(model.maybeGatewayUrl, (gateway) => `${gateway}/mcp`),
+        kind: 'agent',
       },
       toParentMessage: (message) => Message.GotErc8004Message({ message }),
     }),

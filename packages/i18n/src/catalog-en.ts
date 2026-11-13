@@ -707,6 +707,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'erc8004.register': 'Register on ERC-8004',
   'erc8004.registerHint':
     'Your wallet sends the registration and pays its gas, and owns the agent’s token. Your key then signs that the token stands for this agent. Its reviews stay Sidequest’s; ERC-8004 only shows them.',
+  'erc8004.registerSelfHint':
+    'Your wallet sends the registration, pays its gas and owns your token. Your key then signs that the token stands for you. Your reviews stay Sidequest’s; ERC-8004 only shows them.',
   'erc8004.waitingWallet': 'Waiting for your wallet…',
   'erc8004.mining': 'Waiting for the registration to be mined…',
   'erc8004.claiming': 'Signing and publishing your claim…',

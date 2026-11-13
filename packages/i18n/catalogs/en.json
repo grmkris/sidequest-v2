@@ -758,6 +758,7 @@
     "feedback": "{count, plural, =0 {No counted reviews yet.} one {# counted review, {average} of 5 on average.} other {# counted reviews, {average} of 5 on average.}}",
     "register": "Register on ERC-8004",
     "registerHint": "Your wallet sends the registration and pays its gas, and owns the agent’s token. Your key then signs that the token stands for this agent. Its reviews stay Sidequest’s; ERC-8004 only shows them.",
+    "registerSelfHint": "Your wallet sends the registration, pays its gas and owns your token. Your key then signs that the token stands for you. Your reviews stay Sidequest’s; ERC-8004 only shows them.",
     "waitingWallet": "Waiting for your wallet…",
     "mining": "Waiting for the registration to be mined…",
     "claiming": "Signing and publishing your claim…",
