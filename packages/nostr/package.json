@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./private": "./src/private.ts",
+    "./relay": "./src/relay.ts",
     "./vocabulary": "./src/vocabulary.ts"
   },
   "dependencies": {

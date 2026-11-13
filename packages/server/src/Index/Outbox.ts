@@ -7,8 +7,8 @@ import { stored } from '@sidequest/serving/Stored'
 import { EventStore } from './EventStore.ts'
 import { IndexSettings, maxAuthorRelays } from './IndexConfig.ts'
 import { nowSeconds } from './Ingest.ts'
-import { connectRelay, type RelayFailure } from './RelayClient.ts'
-import type { OkReply } from './RelayFrames.ts'
+import { connectRelay, keyAuth, type RelayFailure } from '@sidequest/nostr/relay'
+import type { OkReply } from '@sidequest/nostr/relay'
 import { allowedRelays } from './RelayUrls.ts'
 
 /** What a relay's answer means for a delivery: done (`duplicate:` included), refused for good, or try again later. */
@@ -95,7 +95,10 @@ export class Outbox extends Context.Service<
       const publishAll = (relay: string, rows: ReadonlyArray<Due>) =>
         Effect.scoped(
           Effect.gen(function* () {
-            const connection = yield* connectRelay(relay, { ...settings.timing, authKey: settings.authKey })
+            const connection = yield* connectRelay(relay, {
+              ...settings.timing,
+              auth: Option.map(settings.authKey, keyAuth),
+            })
             return yield* Effect.forEach(rows, (row) =>
               Effect.flatMap(events.find(row.eventId), (event) =>
                 Option.match(event, {

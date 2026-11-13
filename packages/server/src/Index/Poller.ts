@@ -7,8 +7,8 @@ import { stored } from '@sidequest/serving/Stored'
 import { EventStore } from './EventStore.ts'
 import { IndexSettings, type RelayTiming } from './IndexConfig.ts'
 import { Ingest, nowSeconds } from './Ingest.ts'
-import { connectRelay, type RelayConnection, type RelayFailure } from './RelayClient.ts'
-import type { Filter } from './RelayFrames.ts'
+import { connectRelay, keyAuth, type RelayConnection, type RelayFailure } from '@sidequest/nostr/relay'
+import type { Filter } from '@sidequest/nostr/relay'
 import { indexedKinds } from './Validation.ts'
 
 /** Where a relay's reading stands: the start of its last complete pass, its failures since, and when to try again. */
@@ -122,7 +122,10 @@ export class Poller extends Context.Service<
       const pass = (relay: string, since: number, authors: ReadonlyArray<string>) =>
         Effect.scoped(
           Effect.gen(function* () {
-            const connection = yield* connectRelay(relay, { ...settings.timing, authKey: settings.authKey })
+            const connection = yield* connectRelay(relay, {
+              ...settings.timing,
+              auth: Option.map(settings.authKey, keyAuth),
+            })
             const ingestFrom = (event: unknown) =>
               ingest.ingest(event, `relay:${relay}`).pipe(
                 Effect.asVoid,

@@ -1,14 +1,14 @@
 import { it } from '@effect/vitest'
-import { publicKeyOf, type SecretKey } from '@sidequest/nostr'
+import { publicKeyOf } from '@sidequest/nostr'
 import { standardKinds } from '@sidequest/nostr/vocabulary'
 import { Effect, Option } from 'effect'
 import { describe, expect } from 'vitest'
-import { connectRelay, type RelayConnection } from '../src/Index/RelayClient.ts'
+import { type AuthSigner, connectRelay, keyAuth, type RelayConnection } from '@sidequest/nostr/relay'
 import { alice, profile, request, service, testTiming } from './IndexWorld.ts'
 import { startTestRelay, type TestRelay } from './TestRelay.ts'
 
 const at = 1_800_000_000
-const options = { ...testTiming, authKey: Option.none<SecretKey>() }
+const options = { ...testTiming, auth: Option.none<AuthSigner>() }
 
 /** Runs `use` with a fresh test relay (closed afterwards) and a connection to it. */
 const withRelay = <A, E>(
@@ -89,7 +89,7 @@ describe('the relay client', () => {
           expect((yield* connection.publish(request(alice, at + 1))).accepted).toBe(true)
         }),
       { auth: true },
-      { ...options, authKey: Option.some(service) },
+      { ...options, auth: Option.some(keyAuth(service)) },
     ),
   )
 

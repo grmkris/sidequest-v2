@@ -1,7 +1,7 @@
 import { Schema } from 'effect'
 
 // What a relay sends a client (NIP-01, NIP-42). A frame of any other shape is not one this client reads, and is
-// skipped; an event inside `EVENT` stays unknown until the index validates it.
+// skipped; an event inside `EVENT` stays unknown until its reader validates it.
 
 const EventFrame = Schema.Tuple([Schema.Literal('EVENT'), Schema.String, Schema.Unknown])
 const OkFrame = Schema.Tuple([Schema.Literal('OK'), Schema.String, Schema.Boolean, Schema.String])
@@ -16,10 +16,11 @@ export type RelayFrame = typeof RelayFrame.Type
 /** A relay's text message as a frame, if it is one. */
 export const decodeFrame = Schema.decodeUnknownOption(Schema.fromJsonString(RelayFrame))
 
-/** A filter for `REQ` (NIP-01): the fields the index asks with. */
+/** A filter for `REQ` (NIP-01): the fields the index and rooms ask with. */
 export interface Filter {
   readonly kinds?: ReadonlyArray<number>
   readonly authors?: ReadonlyArray<string>
+  readonly '#p'?: ReadonlyArray<string>
   readonly since?: number
   readonly until?: number
   readonly limit?: number

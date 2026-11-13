@@ -17,11 +17,19 @@ export const sidequestKinds = {
 } as const
 export type SidequestKind = (typeof sidequestKinds)[keyof typeof sidequestKinds]
 
-/** Standard kinds Sidequest reads: profile metadata (NIP-01), relay lists (NIP-65, NIP-17) and listings (NIP-99). */
+/**
+ * Standard kinds Sidequest reads and writes: profile metadata (NIP-01), relay lists (NIP-65, NIP-17), listings
+ * (NIP-99), and the private-message kinds of rooms: the rumor of a chat message (NIP-17), its seal and gift wrap
+ * (NIP-59), and the answer to a relay's authentication challenge (NIP-42).
+ */
 export const standardKinds = {
   profile: 0,
+  seal: 13,
+  chatMessage: 14,
+  giftWrap: 1059,
   relayList: 10_002,
   messagingRelays: 10_050,
+  clientAuth: 22_242,
   listing: 30_402,
   draftListing: 30_403,
 } as const
