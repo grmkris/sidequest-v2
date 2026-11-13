@@ -37,8 +37,6 @@ export interface Keys {
   readonly arbitrator: Hex
   readonly buyer: Hex
   readonly worker: Hex
-  /** The person allowed to issue rulings (the arbitration operator); holds no funds. */
-  readonly arbitration: Hex
 }
 
 export interface RehearsalChain {
@@ -189,7 +187,6 @@ const generatedKeys = (): Keys => ({
   arbitrator: generatePrivateKey(),
   buyer: generatePrivateKey(),
   worker: generatePrivateKey(),
-  arbitration: generatePrivateKey(),
 })
 
 /**
@@ -265,10 +262,10 @@ const keyIn = (environment: Readonly<Record<string, string | undefined>>, name: 
 
 /**
  * Arc testnet, from the environment: `ARC_TESTNET_RPC_URL`, the deployed `REHEARSAL_OPERATOR_ADDRESS` and its
- * `REHEARSAL_TREASURY_ADDRESS` (its immutable fee receiver), and five keys for the run: `REHEARSAL_RELAYER_KEY` (pays
- * gas), `REHEARSAL_ARBITRATOR_KEY`, `REHEARSAL_BUYER_KEY` (holds the amount three times over, plus gas),
- * `REHEARSAL_WORKER_KEY` and `REHEARSAL_ARBITRATION_KEY` (signs in only). Optional: `REHEARSAL_AMOUNT` (atomic units,
- * default 100000, 0.1 USDC) and `REHEARSAL_CONFIRMATIONS` (default 3). It refuses any chain id but Arc testnet's.
+ * `REHEARSAL_TREASURY_ADDRESS` (its immutable fee receiver), and four keys for the run: `REHEARSAL_RELAYER_KEY` (pays
+ * gas), `REHEARSAL_ARBITRATOR_KEY`, `REHEARSAL_BUYER_KEY` (holds the amount three times over, plus gas) and
+ * `REHEARSAL_WORKER_KEY`; the arbitration's Nostr key is made fresh for each run. Optional: `REHEARSAL_AMOUNT` (atomic
+ * units, default 100000, 0.1 USDC) and `REHEARSAL_CONFIRMATIONS` (default 3). It refuses any chain id but Arc testnet's.
  */
 export const arcTestnetFromEnvironment = async (
   environment: Readonly<Record<string, string | undefined>>,
@@ -295,7 +292,6 @@ export const arcTestnetFromEnvironment = async (
       arbitrator: keyIn(environment, 'REHEARSAL_ARBITRATOR_KEY'),
       buyer: keyIn(environment, 'REHEARSAL_BUYER_KEY'),
       worker: keyIn(environment, 'REHEARSAL_WORKER_KEY'),
-      arbitration: keyIn(environment, 'REHEARSAL_ARBITRATION_KEY'),
     },
     balanceOf: (owner) =>
       client.readContract({ address: token, abi: tokenAbi, functionName: 'balanceOf', args: [owner] }),
