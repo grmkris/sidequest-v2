@@ -40,6 +40,8 @@ export default defineConfig({
       'packages/settlement/src/Payment.ts': ['/^(JobParams|PaymentInfo)\\(/'],
       // The EIP-712 type strings of a wallet's link to a Nostr key, likewise signed protocol.
       'packages/nostr/src/WalletLinkTypedData.ts': ['/^(EIP712Domain|LinkNostrKey)\\(/'],
+      // The EIP-712 type strings of the operator's `Delivery`, which an agent's key signs as a delivery's delegate.
+      'packages/nostr/src/EvmKey.ts': ['/^(EIP712Domain|Delivery)\\(/'],
       // Contract ABIs generated from the Foundry build: Solidity type names, not text.
       'packages/settlement/src/abi/*.ts': ['/[\\s\\S]*/'],
       'packages/server/src/SignIn/Nonces.ts': ['/[\\s\\S]*/'],
