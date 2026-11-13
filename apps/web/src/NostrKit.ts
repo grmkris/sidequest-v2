@@ -29,9 +29,10 @@ import {
   walletLink,
   walletLinkTypedData,
 } from '@sidequest/nostr/vocabulary'
+import { localRoomSigner, type RoomSigner, RoomSignerRefused } from '@sidequest/nostr/rooms'
 import { type NetworkRef, type Terms, termsDigest, webCrypto } from '@sidequest/protocol'
-import { Crypto, Effect, Option, Schema } from 'effect'
-import type { KitSigner, Nip07Provider, SignerFailure } from './Signer.ts'
+import { Crypto, Effect, Option, Predicate, Schema } from 'effect'
+import type { KitSigner, Nip07Nip44, Nip07Provider, SignerFailure } from './Signer.ts'
 
 // The Nostr code of the browser, loaded as one chunk the first time a signer is used (see `Signer.ts`): the two
 // signers, and the templates the pages sign. It imports nothing of the website's own modules but types, so
@@ -46,6 +47,39 @@ export const localLogN = 16
 
 const fail = (reason: SignerFailure) => ({ reason })
 
+const isNip44 = (value: unknown): value is Nip07Nip44 =>
+  Predicate.hasProperty(value, 'encrypt') &&
+  Predicate.isFunction(value.encrypt) &&
+  Predicate.hasProperty(value, 'decrypt') &&
+  Predicate.isFunction(value.decrypt)
+
+const refusedAs = (reason: RoomSignerRefused['reason']) => () => new RoomSignerRefused({ reason })
+
+/** A text the extension answered, or `untrusted`. */
+const textOf = (answer: unknown) =>
+  Predicate.isString(answer) ? Effect.succeed(answer) : Effect.fail(new RoomSignerRefused({ reason: 'untrusted' }))
+
+/** The room signer over an extension's `nip44`, or none when it has none. The extension keeps its conversation keys, so
+ * it cannot disclose one message's keys: a disclosure needs a key held in the browser. */
+const extensionRoomSigner = (
+  provider: Nip07Provider,
+  publicKey: PublicKey,
+  signWith: KitSigner['signEvent'],
+): Option.Option<RoomSigner> =>
+  Option.map(Option.liftPredicate(provider.nip44, isNip44), (nip44) => ({
+    publicKey,
+    signEvent: (template) => Effect.mapError(signWith(template), refusedAs('refused')),
+    encrypt: (peer, plaintext) =>
+      Effect.tryPromise({ try: () => nip44.encrypt(peer, plaintext), catch: refusedAs('refused') }).pipe(
+        Effect.flatMap(textOf),
+      ),
+    decrypt: (peer, payload) =>
+      Effect.tryPromise({ try: () => nip44.decrypt(peer, payload), catch: refusedAs('refused') }).pipe(
+        Effect.flatMap(textOf),
+      ),
+    messageKeys: () => Effect.fail(new RoomSignerRefused({ reason: 'cannotDisclose' })),
+  }))
+
 /** A NIP-07 extension's signer. The extension is not trusted: its key must be a key, and every event it returns must
  * verify and be exactly the template it was given, signed by that key. */
 export const nip07Signer = Effect.fnUntraced(function* (provider: Nip07Provider) {
@@ -57,23 +91,25 @@ export const nip07Signer = Effect.fnUntraced(function* (provider: Nip07Provider)
     Effect.mapError(() => fail('extensionUntrusted')),
   )
   const expected = (template: EventTemplate) => eventIdOf({ pubkey: publicKey, ...template })
+  const signEventWith: KitSigner['signEvent'] = (template) =>
+    Effect.gen(function* () {
+      const signed = yield* Effect.tryPromise({
+        try: () => provider.signEvent({ ...template, tags: template.tags.map((tag) => [...tag]) }),
+        catch: () => fail('extensionRefused'),
+      })
+      const event = yield* Effect.fromResult(verifyEvent(signed)).pipe(
+        Effect.mapError(() => fail('extensionUntrusted')),
+      )
+      if (event.pubkey !== publicKey || event.id !== expected(template)) {
+        return yield* Effect.fail(fail('extensionUntrusted'))
+      }
+      return event
+    })
   const signer: KitSigner = {
     kind: 'nip07',
     publicKey,
-    signEvent: (template) =>
-      Effect.gen(function* () {
-        const signed = yield* Effect.tryPromise({
-          try: () => provider.signEvent({ ...template, tags: template.tags.map((tag) => [...tag]) }),
-          catch: () => fail('extensionRefused'),
-        })
-        const event = yield* Effect.fromResult(verifyEvent(signed)).pipe(
-          Effect.mapError(() => fail('extensionUntrusted')),
-        )
-        if (event.pubkey !== publicKey || event.id !== expected(template)) {
-          return yield* Effect.fail(fail('extensionUntrusted'))
-        }
-        return event
-      }),
+    signEvent: signEventWith,
+    maybeRoomSigner: extensionRoomSigner(provider, publicKey, signEventWith),
   }
   return signer
 })
@@ -83,6 +119,7 @@ const localSigner = (secret: SecretKey): KitSigner => ({
   kind: 'local',
   publicKey: publicKeyOf(secret),
   signEvent: (template) => signEvent(template, secret).pipe(Effect.provideService(Crypto.Crypto, webCrypto)),
+  maybeRoomSigner: Option.some(localRoomSigner(secret, webCrypto)),
 })
 
 /** A fresh key and its NIP-49 backup under `password`. Nobody has handled the key in the clear, so the backup says

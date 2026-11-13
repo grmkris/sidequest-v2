@@ -20,6 +20,7 @@ import {
   type PersonSummary,
   type Publication,
 } from './Identity.ts'
+import * as InboxRelays from './InboxRelays.ts'
 import { setupProblemText, view as setupView } from './SignerSetupView.ts'
 
 const publishedKeys: Readonly<Record<Publication, PlainKey>> = {
@@ -171,6 +172,29 @@ const personSection = (h: Html.HtmlBuilder<Message>, model: Model) => {
   )
 }
 
+/** Where the key receives private messages: what the index knows, or the stage's defaults to publish. */
+const inboxSection = (h: Html.HtmlBuilder<Message>, model: Model) =>
+  Option.match(identityOf(model), {
+    onNone: () => h.empty,
+    onSome: ({ pubkey }) =>
+      h.submodel({
+        slotId: 'inbox-relays',
+        model: model.inbox,
+        view: InboxRelays.view,
+        viewInputs: {
+          pubkey,
+          maybeKnown: PersonRead.match(model.person, {
+            Unread: () => Option.none(),
+            Reading: () => Option.none(),
+            Failed: () => Option.none(),
+            Unknown: () => Option.some([]),
+            Read: ({ person }) => Option.some(person.inboxRelays),
+          }),
+        },
+        toParentMessage: (message) => Message.GotInboxRelaysMessage({ message }),
+      }),
+  })
+
 /** The person's signer, then, once it is ready, their profile, their wallet's link and what the index knows. */
 export const view = Submodel.defineView<Model, Message>((model, h) =>
   h.div(styled(h, s.page()), [
@@ -188,6 +212,7 @@ export const view = Submodel.defineView<Model, Message>((model, h) =>
         actionNotice(h, model.language, model.action),
         profileSection(h, model),
         walletSection(h, model),
+        inboxSection(h, model),
         personSection(h, model),
       ],
     }),

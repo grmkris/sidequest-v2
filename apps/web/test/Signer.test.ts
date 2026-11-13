@@ -203,3 +203,46 @@ describe('a NIP-07 extension', () => {
     }),
   )
 })
+
+describe('rooms through a signer', () => {
+  it.effect('an extension without nip44 offers no room signer; one with it encrypts through the extension', () =>
+    Effect.gen(function* () {
+      const bare = yield* signersOver(memoryStorage().storage, Option.some(extension()))
+      yield* bare.connectExtension
+      expect(Option.isNone((yield* bare.active).maybeRoomSigner)).toBe(true)
+
+      const asked: Array<string> = []
+      const withNip44: Nip07Provider = {
+        ...extension(),
+        nip44: {
+          encrypt: async (peer: string, plaintext: string) => {
+            asked.push(`encrypt:${peer}`)
+            return `sealed:${plaintext}`
+          },
+          decrypt: async () => 42,
+        },
+      }
+      const signers = yield* signersOver(memoryStorage().storage, Option.some(withNip44))
+      yield* signers.connectExtension
+      const room = Option.getOrThrow((yield* signers.active).maybeRoomSigner)
+      expect(yield* room.encrypt(publicKeyOf(other), 'hi')).toBe('sealed:hi')
+      expect(asked).toEqual([`encrypt:${publicKeyOf(other)}`])
+      // An answer that is not text is not trusted, and an extension cannot give one message's keys away.
+      expect((yield* Effect.flip(room.decrypt(publicKeyOf(other), 'x'))).reason).toBe('untrusted')
+      expect((yield* Effect.flip(room.messageKeys(publicKeyOf(other), 'x'))).reason).toBe('cannotDisclose')
+    }),
+  )
+
+  it.effect('a key made in the browser is its own room signer', () =>
+    Effect.gen(function* () {
+      const signers = yield* signersOver(memoryStorage().storage)
+      yield* signers.createLocal(password)
+      yield* signers.confirmBackup
+      const active = yield* signers.active
+      const room = Option.getOrThrow(active.maybeRoomSigner)
+      expect(room.publicKey).toBe(active.publicKey)
+      const sealed = yield* room.encrypt(room.publicKey, 'to myself')
+      expect(yield* room.decrypt(room.publicKey, sealed)).toBe('to myself')
+    }),
+  )
+})

@@ -21,7 +21,7 @@ import {
   transactionHash,
 } from './MoneyFixtures.ts'
 
-const page = withViewInputs(view, { timeZone: 'UTC' })
+const page = withViewInputs(view, { timeZone: 'UTC', inboxConfigured: true })
 
 /** Someone whose NIP-07 extension signs as `pubkey`, with `wallets` linked to it. */
 const signingAs = (pubkey: string, wallets: ReadonlyArray<string> = []): Me =>

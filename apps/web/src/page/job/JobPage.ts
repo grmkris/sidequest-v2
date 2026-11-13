@@ -12,7 +12,7 @@ import { styled } from '../../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
-import { walletOn } from '../../Me.ts'
+import { pubkeyOf, walletOn } from '../../Me.ts'
 import { chainSection } from './ChainView.ts'
 import {
   type Act,
@@ -30,8 +30,10 @@ import * as js from './Job.styles.ts'
 import { addressOf, settledFlow } from './money/message.ts'
 import * as MoneyView from './money/view.ts'
 import { panelShown } from './money/view.ts'
+import * as Private from './Private.ts'
 import * as Propose from './Propose.ts'
 import * as Review from './Review.ts'
+import * as RoomView from './room/RoomView.ts'
 import { reviewsSection } from './ReviewsView.ts'
 import { termsView } from './TermsView.ts'
 
@@ -39,7 +41,7 @@ import { termsView } from './TermsView.ts'
 // accepts and statements, and the escrow's progress. Who looks decides what they may do: the buyer accepts or closes,
 // a bidder proposes, revises or withdraws. Accepting is a signal: the copy never says a deal binds before funding.
 
-type ViewInputs = { readonly timeZone: string }
+type ViewInputs = { readonly timeZone: string; readonly inboxConfigured: boolean }
 
 type Reader = { readonly model: Model; readonly view: JobView; readonly language: Language; readonly timeZone: string }
 
@@ -241,6 +243,69 @@ const proposalsSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
   )
 }
 
+/** The private proposals the person's rooms hold that the index does not: the buyer's to publish, a bidder's own. */
+const privateProposals = (reader: Reader) =>
+  Option.match(reader.model.room.maybeRead, {
+    onNone: () => [],
+    onSome: (read) =>
+      Array.filter(
+        Array.flatMap(read.rooms, (room) => Array.flatMap(room.lines, (line) => Option.toArray(line.maybeProposal))),
+        (proposal) => !reader.view.proposals.some((published) => published.id === proposal.id),
+      ),
+  })
+
+const privateSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
+  const { model, view, timeZone } = reader
+  return h.submodel({
+    slotId: 'private',
+    model: model.privateProposals,
+    view: Private.view,
+    viewInputs: {
+      proposals: privateProposals(reader),
+      buyer: isBuyer(model, view) && negotiable(view),
+      names: model.names,
+      timeZone,
+      identityHref: identityHref(jobRoute(model)),
+    },
+    toParentMessage: (message) => Message.GotPrivateMessage({ message }),
+  })
+}
+
+/** Whose rooms the panel opens: the buyer's with every bidder (and any a room revealed), or a bidder's own. */
+const roomTarget = (reader: Reader) =>
+  Option.map(pubkeyOf(reader.model.me), (me) => ({
+    job: reader.view.job,
+    buyer: reader.view.buyer,
+    bidders: isBuyer(reader.model, reader.view)
+      ? Array.dedupe(
+          Array.filter(
+            Array.map(reader.view.proposals, (proposal) => proposal.author),
+            (author) => author !== me,
+          ),
+        )
+      : [me],
+  }))
+
+const roomSection = (h: Html.HtmlBuilder<Message>, reader: Reader, inboxConfigured: boolean) => {
+  const { model, timeZone } = reader
+  return signerOnly(h, { language: model.language, me: model.me, route: jobRoute(model) }, () =>
+    h.submodel({
+      slotId: 'room',
+      model: model.room,
+      view: RoomView.view,
+      viewInputs: {
+        maybeTarget: roomTarget(reader),
+        me: Option.getOrElse(pubkeyOf(model.me), () => ''),
+        names: model.names,
+        timeZone,
+        identityHref: identityHref(jobRoute(model)),
+        inboxConfigured,
+      },
+      toParentMessage: (message) => Message.GotRoomMessage({ message }),
+    }),
+  )
+}
+
 /** Where a bidder makes a proposal: with a signer and a linked wallet, the form; otherwise what they need first. */
 const proposeSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
   const { model, view, language } = reader
@@ -424,7 +489,7 @@ export const documentTitle = (model: Model): string =>
     onSome: (view) => view.request.content.title,
   })
 
-export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { timeZone }, h) =>
+export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { timeZone, inboxConfigured }, h) =>
   AsyncData.matchData(model.view, {
     onEmpty: () => h.div(styled(h, s.page()), [Ui.pageHead(h, say(model.language, 'job.loading'))]),
     onFailure: (problem) =>
@@ -447,7 +512,9 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { ti
             timeZone,
           }),
           proposalsSection(h, reader),
+          privateSection(h, reader),
           proposeSection(h, reader),
+          roomSection(h, reader, inboxConfigured),
           recordSection(h, reader),
           reviewsSection(h, {
             view: jobView,

@@ -6,6 +6,7 @@ import { languageOf } from './Language.ts'
 import { Flags } from './Model.ts'
 import { Preload } from './Preload.ts'
 import { pageData, sessionCookieOf } from './server/PageData.ts'
+import { defaultInboxRelays } from './server/StageSettings.ts'
 import { view } from './View.ts'
 // oxlint-disable-next-line no-unassigned-import -- GlobalStyles registers the extracted Zyzz document styles.
 import './GlobalStyles.ts'
@@ -46,6 +47,7 @@ export const renderPage: Server.EntryModule['renderPage'] = (request) =>
         hasSessionCookie,
         sessionRead,
         preload,
+        defaultInboxRelays: yield* defaultInboxRelays,
       }
       const rendered = yield* Server.renderToString(application, { url: request.url, flags })
       return Server.Rendered(rendered, {

@@ -74,7 +74,8 @@
   "common": {
     "showMore": "Show more",
     "tryAgain": "Try again",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "close": "Close"
   },
   "shell": {
     "skip": "Skip to content",
@@ -290,7 +291,11 @@
     "submit": "Send proposal",
     "validFor": "Your offer stands for",
     "validForHint": "After this, it shows as expired and the buyer should not accept it.",
-    "submitRevision": "Publish the revision"
+    "submitRevision": "Publish the revision",
+    "visibility": "Who sees this proposal",
+    "visibilityHint": "A private proposal goes only to the buyer, inside your encrypted conversation. It becomes public if the buyer chooses to fund it.",
+    "visibilityPublic": "Everyone: publish it",
+    "visibilityPrivate": "Only the buyer: send it privately"
   },
   "job": {
     "loading": "Loading the job…",
@@ -661,5 +666,93 @@
     "stars": "{count, plural, one {# star} other {# stars}}",
     "text": "Your review",
     "submit": "Publish review"
+  },
+  "private": {
+    "label": "Private",
+    "deadline": "Deliver by",
+    "note": "Sent privately in the conversation. Sidequest has not seen it.",
+    "publish": "Make public to fund",
+    "consent": "To fund this proposal it must be in Sidequest’s public index. Publishing it makes this signed proposal public: anyone can then read its terms. Publish it?",
+    "confirm": "Publish it",
+    "publishing": "Publishing the proposal…",
+    "sending": "Sending your proposal privately…",
+    "sent": "Your proposal was sent privately to the buyer.",
+    "sendFailed": "Your proposal could not be sent privately. Open the conversation and try again."
+  },
+  "room": {
+    "title": "Conversation",
+    "privacy": "End-to-end encrypted on Nostr: only the people in this conversation can read it, and Sidequest’s servers never see it. The relays that carry it see who receives a message and when.",
+    "keptHere": "This browser keeps the conversation, decrypted, so it can show it after a reload.",
+    "open": "Open the conversation",
+    "close": "Close the conversation",
+    "opening": "Reading your inbox relays…",
+    "unavailable": {
+      "locked": "Unlock your key or connect your Nostr extension to read and write here.",
+      "noNip44": "Your Nostr extension does not offer NIP-44 encryption, which conversations need. Use an extension that does, or a key made in this browser.",
+      "notLoaded": "The conversation code did not load. Reload the page and try again."
+    },
+    "problem": {
+      "notMember": "You are no longer in this conversation.",
+      "badBody": "That message can’t be sent: it is empty or longer than 5000 characters.",
+      "cannotDisclose": "Your Nostr extension keeps its keys to itself, so this browser can’t prove a single message. A key made in this browser can.",
+      "signerRefused": "Your signer declined.",
+      "failed": "Something went wrong reading or sending. Try again in a moment."
+    },
+    "noInbox": "You have no inbox relays yet, so nobody can write to you. Publish them on your identity page.",
+    "noInboxConfigured": "No inbox relay is configured on this site, so conversations can’t be opened yet.",
+    "setUpInbox": "Set up inbox relays",
+    "noRooms": "No conversation yet. One opens with each bidder.",
+    "conversations": "Conversations",
+    "with": "With {name}",
+    "messages": "Messages",
+    "empty": "No messages yet.",
+    "you": "You",
+    "viaGateway": "Agent via gateway",
+    "agent": "{name} is an agent ({label}) whose key Sidequest’s agent gateway holds: the gateway can read this conversation.",
+    "added": "{author} added {member} to the conversation.",
+    "removed": "{author} removed {member} from the conversation.",
+    "privateProposal": "A private proposal: {title}, {amount}.",
+    "unreadableProposal": "A proposal that is not valid.",
+    "dropped": "{count, plural, one {# message from someone outside this conversation was} other {# messages from people outside this conversation were}} left out.",
+    "disclose": "Save as evidence",
+    "preparing": "Preparing the evidence…",
+    "evidenceReady": "Evidence of this one message: its author’s signed seal and the keys of this message alone. Anyone can check it; no other message is revealed.",
+    "download": "Download the evidence",
+    "checkEvidence": "Check evidence",
+    "messageLabel": "Your message",
+    "count": "{count} of {limit} characters. Plain text only.",
+    "send": "Send",
+    "sending": "Sending…",
+    "sent": "Sent to {sent} of {total} relays.",
+    "relays": "Inbox relays:",
+    "relayRead": "{relay} read",
+    "relayFailed": "{relay} not reached",
+    "forget": "Forget this conversation on this device",
+    "forgetConfirm": "Forget this conversation in this browser? The relays keep their copies; opening it again fetches what they still hold.",
+    "keep": "Keep it"
+  },
+  "evidence": {
+    "title": "Check evidence",
+    "lede": "Paste a message disclosed from a conversation. The check runs in your browser and sends nothing anywhere.",
+    "bundleLabel": "The evidence (JSON)",
+    "check": "Check",
+    "checking": "Checking…",
+    "verified": "Verified: this key wrote this message.",
+    "refused": "This does not prove anything: it is not evidence, or something in it was changed.",
+    "author": "Written by",
+    "time": "Written at (as its author stated)",
+    "limits": "Evidence proves who wrote a message and what it says. It does not prove when it was delivered, or that anyone read it."
+  },
+  "inboxRelays": {
+    "title": "Inbox relays",
+    "lede": "Where you receive private messages (NIP-17). Conversations on job pages reach you there.",
+    "yours": "Your inbox relays",
+    "notConfigured": "You have no inbox relays, and no inbox relay is configured on this site.",
+    "offer": "You have no inbox relays yet. Publish these, which ask a reader to sign in before handing over private messages:",
+    "publish": "Publish inbox relays",
+    "publishing": "Publishing your inbox relays…",
+    "published": "Your inbox relays are published.",
+    "alreadyHad": "You already have inbox relays, so nothing was replaced.",
+    "failed": "Your inbox relays could not be published. Try again."
   }
 }

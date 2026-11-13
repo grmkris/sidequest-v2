@@ -2,7 +2,7 @@ import { JobView, type ProposalView } from '@sidequest/fold'
 import { NetworkRef, WalletAddress } from '@sidequest/protocol'
 import { Array, Effect, Option, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
-import { AsyncData, Command, Update } from 'foldkit'
+import { AsyncData, Command, Subscription, Update } from 'foldkit'
 import { defineMessageUnion } from 'foldkit/message'
 import { defineTaggedUnion } from 'foldkit/schema'
 import { modifyFields } from 'foldkit/struct'
@@ -13,13 +13,16 @@ import { defineReadNames, Names, unnamed, withNames } from '../../Names.ts'
 import type { Preload } from '../../Preload.ts'
 import { failedWith, Problem } from '../../Problem.ts'
 import { PublishFailure, publishEvent, publishFailureOf } from '../../Publishing.ts'
+import type { Rooms } from '../../Rooms.ts'
 import type { Signers } from '../../Signer.ts'
 import { say } from '../../Text.ts'
 import type { Wallet } from '../../Wallet.ts'
 import * as Money from './money/message.ts'
 import * as MoneyUpdate from './money/update.ts'
+import * as Private from './Private.ts'
 import * as Propose from './Propose.ts'
 import * as Review from './Review.ts'
+import * as Room from './room/Room.ts'
 
 // The job page: a request and everything signed about it, as the index folds it (`@sidequest/fold`'s `JobView`). Before
 // funding nothing binds: a bidder with a linked wallet proposes, revises and withdraws; the buyer accepts one proposal
@@ -55,6 +58,8 @@ export const Model = Schema.Struct({
   maybePropose: Schema.Option(Propose.Model),
   money: Money.Model,
   review: Review.Model,
+  room: Room.Model,
+  privateProposals: Private.Model,
   names: Names,
   askedNames: Schema.Array(Schema.String),
 })
@@ -72,6 +77,8 @@ export const Message = defineMessageUnion({
   GotMoneyMessage: { message: Money.Message },
   ClickedFund: { proposal: Schema.String, payer: WalletAddress },
   GotReviewMessage: { message: Review.Message },
+  GotRoomMessage: { message: Room.Message },
+  GotPrivateMessage: { message: Private.Message },
   ClickedWithdraw: { proposal: Schema.String },
   ClickedAccept: { proposal: Schema.String },
   ClickedConfirmAccept: {},
@@ -193,7 +200,7 @@ export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.Fai
 
 // INIT
 
-type Services = SidequestClient | Signers | Wallet
+type Services = SidequestClient | Signers | Wallet | Rooms
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>
 type Step = Update.StepWithOutMessage<Model, Message, OutMessage, Services>
 
@@ -229,6 +236,8 @@ export const init = (
     maybePropose: Option.none(),
     money: MoneyUpdate.init(language, job),
     review: Review.init(language),
+    room: Room.init(language),
+    privateProposals: Private.init(language),
   }
   return Option.match(
     Option.filter(maybePreload, (preload) => preload.view.job === job),
@@ -305,6 +314,47 @@ const submittedProposal = (model: Model, offer: Propose.Offer, maybePrevious: Op
     }),
   )
 
+const toPrivateMessage = (message: Private.Message) => Message.GotPrivateMessage({ message })
+
+const privateFold = {
+  read: (model: Model) => Option.some(model.privateProposals),
+  write: (model: Model, nextPrivate: Private.Model) => modifyFields(model, { privateProposals: () => nextPrivate }),
+  toParentMessage: toPrivateMessage,
+  foldOutMessage: Private.OutMessage.match<Step>({
+    Sent: () => (model) => foldRoomPoll(model),
+    Published: () => (model) => readAgain(model),
+  }),
+}
+
+const foldPrivate = Update.foldChild({ update: Private.update, ...privateFold })
+
+const foldSendPrivately = Update.foldChild({ update: Private.sendPrivately, ...privateFold })
+
+/** A bidder keeps a new proposal private: signed, then sent only into their room with the buyer. */
+const submittedPrivately = (model: Model, offer: Propose.Offer): UpdateReturn =>
+  asSigner(model, () =>
+    Option.match(Option.all({ view: AsyncData.getData(model.view), payTo: payToOf(model) }), {
+      onNone: () => ({ model: modifyFields(model, { maybePropose: Option.map(Propose.settled) }) }),
+      onSome: ({ view, payTo }) =>
+        foldSendPrivately(modifyFields(model, { maybePropose: () => Option.none() }), {
+          job: model.job,
+          buyer: view.buyer,
+          payTo,
+          offer,
+        }),
+    }),
+  )
+
+const roomFold = {
+  read: (model: Model) => Option.some(model.room),
+  write: (model: Model, nextRoom: Room.Model) => modifyFields(model, { room: () => nextRoom }),
+  toParentMessage: (message: Room.Message) => Message.GotRoomMessage({ message }),
+}
+
+const foldRoom = Update.foldChild({ update: Room.update, ...roomFold })
+
+const foldRoomPoll = Update.foldChildStep({ update: Room.pollNow, ...roomFold })
+
 const foldPropose = Update.foldChild({
   update: Propose.update,
   read: (model: Model) => model.maybePropose,
@@ -313,9 +363,9 @@ const foldPropose = Update.foldChild({
   toParentMessage: (message) => Message.GotProposeMessage({ message }),
   foldOutMessage: Propose.OutMessage.match<Step>({
     Submitted:
-      ({ offer, maybePrevious }) =>
+      ({ offer, maybePrevious, privately }) =>
       (model) =>
-        submittedProposal(model, offer, maybePrevious),
+        privately ? submittedPrivately(model, offer) : submittedProposal(model, offer, maybePrevious),
   }),
 })
 
@@ -436,6 +486,8 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotMoneyMessage: ({ message: moneyMessage }) => foldMoney(model, moneyMessage),
     ClickedFund: (funding) => foldFund(model, funding),
     GotReviewMessage: ({ message: reviewMessage }) => foldReview(model, reviewMessage),
+    GotRoomMessage: ({ message: roomMessage }) => foldRoom(model, roomMessage),
+    GotPrivateMessage: ({ message: privateMessage }) => foldPrivate(model, privateMessage),
     ClickedWithdraw: ({ proposal }) =>
       asSigner(model, () =>
         publishing(
@@ -487,3 +539,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
     FailedReadNames: () => ({ model }),
   })
+
+// SUBSCRIPTION
+
+export const subscriptions = Subscription.lift(Room.subscriptions)<Model, Message>({
+  read: (model) => Option.some(model.room),
+  toParentMessage: (message) => Message.GotRoomMessage({ message }),
+})

@@ -16,6 +16,7 @@ export const AppRoute = defineRouteUnion({
   Connect: { request: ConnectRequestId },
   Connections: {},
   Identity: { next: Schema.Option(Schema.String) },
+  Evidence: {},
   NotFound: { path: Schema.String },
 })
 export type AppRoute = typeof AppRoute.Type
@@ -63,7 +64,11 @@ export const identityRouter = pipe(
   Route.mapTo(AppRoute.Identity),
 )
 
+/** Where anyone checks a disclosed room message: author, time and text, from the bundle alone. */
+export const evidenceRouter = pipe(literal('evidence'), Route.mapTo(AppRoute.Evidence))
+
 const routeParser = Route.oneOf(
+  evidenceRouter,
   newListingRouter,
   listingRouter,
   newRequestRouter,
@@ -93,6 +98,7 @@ const pathOf = (route: AppRoute): string =>
     Connect: ({ request }) => connectRouter({ request }),
     Connections: () => connectionsRouter(),
     Identity: (identity) => identityRouter(identity),
+    Evidence: () => evidenceRouter(),
     NotFound: ({ path }) => path,
   })
 

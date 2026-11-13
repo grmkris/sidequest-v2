@@ -21,6 +21,9 @@ export const Flags = Schema.Struct({
   hasSessionCookie: Schema.Boolean,
   sessionRead: SessionRead,
   preload: Preload,
+  /** The stage's default inbox relays (NIP-17, kind 10050), which the identity page offers a person who has none;
+   * empty unless the stage sets `SIDEQUEST_DEFAULT_INBOX_RELAYS`. */
+  defaultInboxRelays: Schema.Array(Schema.String),
 })
 export type Flags = typeof Flags.Type
 
@@ -37,6 +40,7 @@ export const Page = defineTaggedUnion({
   Connect: { connect: Pages.Connect.Model },
   Connections: { connections: Pages.Connections.Model },
   Identity: { identity: Pages.Identity.Model },
+  Evidence: { evidence: Pages.Evidence.Model },
   NotFound: {},
 })
 export type Page = typeof Page.Type

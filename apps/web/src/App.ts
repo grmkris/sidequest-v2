@@ -14,6 +14,7 @@ import {
   foldConnections,
   foldHome,
   foldHomeSearch,
+  foldEvidence,
   foldIdentity,
   foldInbox,
   foldJob,
@@ -24,12 +25,13 @@ import {
   foldSignIn,
   openPage,
   type Services,
+  subscriptions,
 } from './Page.ts'
 import { Problem, problemOf } from './Problem.ts'
 import { AppRoute, homeRouter, routeFromUrl } from './route.ts'
 import { Session } from './Session.ts'
 
-export { Flags, Message, Model }
+export { Flags, Message, Model, subscriptions }
 
 // COMMAND
 
@@ -159,4 +161,5 @@ export const update = (model: Model, message: Message): UpdateReturn =>
     GotConnectMessage: ({ message: connectMessage }) => foldConnect(model, connectMessage),
     GotConnectionsMessage: ({ message: connectionsMessage }) => foldConnections(model, connectionsMessage),
     GotIdentityMessage: ({ message: identityMessage }) => foldIdentity(model, identityMessage),
+    GotEvidenceMessage: ({ message: evidenceMessage }) => foldEvidence(model, evidenceMessage),
   })

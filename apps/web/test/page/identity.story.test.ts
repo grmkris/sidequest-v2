@@ -28,8 +28,9 @@ const linked = {
   hasProfile: true,
   maybeName: Option.some('Ada'),
   wallets: [{ account, verification: 'verified' }],
+  inboxRelays: [],
 } as const
-const fresh = init('en', Option.none()).model
+const fresh = init('en', Option.none(), []).model
 
 /** The identity page once `signer` is ready and the index answered what it knows of the key. */
 const readyWith = (signer: typeof identity | typeof extension, answer: Message) =>

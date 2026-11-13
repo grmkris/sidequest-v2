@@ -44,6 +44,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'agents.tokensLoading': Readonly<Record<string, never>>
   'agents.validFor': Readonly<Record<string, never>>
   'common.cancel': Readonly<Record<string, never>>
+  'common.close': Readonly<Record<string, never>>
   'common.showMore': Readonly<Record<string, never>>
   'common.tryAgain': Readonly<Record<string, never>>
   'connect.allow': Readonly<Record<string, never>>
@@ -71,6 +72,16 @@ export interface MessageArgumentsByKey<_T = string> {
   'connections.revoke': Readonly<Record<string, never>>
   'connections.since': Readonly<Record<string, never>>
   'connections.title': Readonly<Record<string, never>>
+  'evidence.author': Readonly<Record<string, never>>
+  'evidence.bundleLabel': Readonly<Record<string, never>>
+  'evidence.check': Readonly<Record<string, never>>
+  'evidence.checking': Readonly<Record<string, never>>
+  'evidence.lede': Readonly<Record<string, never>>
+  'evidence.limits': Readonly<Record<string, never>>
+  'evidence.refused': Readonly<Record<string, never>>
+  'evidence.time': Readonly<Record<string, never>>
+  'evidence.title': Readonly<Record<string, never>>
+  'evidence.verified': Readonly<Record<string, never>>
   'form.amount': { readonly example: string | number; readonly decimals: string | number }
   'form.days': { readonly count: number }
   'form.positive': Readonly<Record<string, never>>
@@ -137,6 +148,16 @@ export interface MessageArgumentsByKey<_T = string> {
   'inbox.loading': Readonly<Record<string, never>>
   'inbox.refresh': Readonly<Record<string, never>>
   'inbox.title': Readonly<Record<string, never>>
+  'inboxRelays.alreadyHad': Readonly<Record<string, never>>
+  'inboxRelays.failed': Readonly<Record<string, never>>
+  'inboxRelays.lede': Readonly<Record<string, never>>
+  'inboxRelays.notConfigured': Readonly<Record<string, never>>
+  'inboxRelays.offer': Readonly<Record<string, never>>
+  'inboxRelays.publish': Readonly<Record<string, never>>
+  'inboxRelays.published': Readonly<Record<string, never>>
+  'inboxRelays.publishing': Readonly<Record<string, never>>
+  'inboxRelays.title': Readonly<Record<string, never>>
+  'inboxRelays.yours': Readonly<Record<string, never>>
   'job.accept': Readonly<Record<string, never>>
   'job.acceptLabel.conflicting': Readonly<Record<string, never>>
   'job.acceptLabel.noMatch': Readonly<Record<string, never>>
@@ -359,6 +380,16 @@ export interface MessageArgumentsByKey<_T = string> {
   'notFound.body': Readonly<Record<string, never>>
   'notFound.home': Readonly<Record<string, never>>
   'notFound.title': Readonly<Record<string, never>>
+  'private.confirm': Readonly<Record<string, never>>
+  'private.consent': Readonly<Record<string, never>>
+  'private.deadline': Readonly<Record<string, never>>
+  'private.label': Readonly<Record<string, never>>
+  'private.note': Readonly<Record<string, never>>
+  'private.publish': Readonly<Record<string, never>>
+  'private.publishing': Readonly<Record<string, never>>
+  'private.sendFailed': Readonly<Record<string, never>>
+  'private.sending': Readonly<Record<string, never>>
+  'private.sent': Readonly<Record<string, never>>
   'problem.badCursor': Readonly<Record<string, never>>
   'problem.conflict.agentTurnLimit': Readonly<Record<string, never>>
   'problem.conflict.alreadyPublished': Readonly<Record<string, never>>
@@ -424,6 +455,10 @@ export interface MessageArgumentsByKey<_T = string> {
   'propose.titleLabel': Readonly<Record<string, never>>
   'propose.validFor': Readonly<Record<string, never>>
   'propose.validForHint': Readonly<Record<string, never>>
+  'propose.visibility': Readonly<Record<string, never>>
+  'propose.visibilityHint': Readonly<Record<string, never>>
+  'propose.visibilityPrivate': Readonly<Record<string, never>>
+  'propose.visibilityPublic': Readonly<Record<string, never>>
   'propose.windowsHint': Readonly<Record<string, never>>
   'publish.refused.content': Readonly<Record<string, never>>
   'publish.refused.kind': Readonly<Record<string, never>>
@@ -445,6 +480,52 @@ export interface MessageArgumentsByKey<_T = string> {
   'review.stars': { readonly count: number }
   'review.submit': Readonly<Record<string, never>>
   'review.text': Readonly<Record<string, never>>
+  'room.added': { readonly author: string | number; readonly member: string | number }
+  'room.agent': { readonly name: string | number; readonly label: string | number }
+  'room.checkEvidence': Readonly<Record<string, never>>
+  'room.close': Readonly<Record<string, never>>
+  'room.conversations': Readonly<Record<string, never>>
+  'room.count': { readonly count: string | number; readonly limit: string | number }
+  'room.disclose': Readonly<Record<string, never>>
+  'room.download': Readonly<Record<string, never>>
+  'room.dropped': { readonly count: number }
+  'room.empty': Readonly<Record<string, never>>
+  'room.evidenceReady': Readonly<Record<string, never>>
+  'room.forget': Readonly<Record<string, never>>
+  'room.forgetConfirm': Readonly<Record<string, never>>
+  'room.keep': Readonly<Record<string, never>>
+  'room.keptHere': Readonly<Record<string, never>>
+  'room.messageLabel': Readonly<Record<string, never>>
+  'room.messages': Readonly<Record<string, never>>
+  'room.noInbox': Readonly<Record<string, never>>
+  'room.noInboxConfigured': Readonly<Record<string, never>>
+  'room.noRooms': Readonly<Record<string, never>>
+  'room.open': Readonly<Record<string, never>>
+  'room.opening': Readonly<Record<string, never>>
+  'room.preparing': Readonly<Record<string, never>>
+  'room.privacy': Readonly<Record<string, never>>
+  'room.privateProposal': { readonly title: string | number; readonly amount: string | number }
+  'room.problem.badBody': Readonly<Record<string, never>>
+  'room.problem.cannotDisclose': Readonly<Record<string, never>>
+  'room.problem.failed': Readonly<Record<string, never>>
+  'room.problem.notMember': Readonly<Record<string, never>>
+  'room.problem.signerRefused': Readonly<Record<string, never>>
+  'room.relayFailed': { readonly relay: string | number }
+  'room.relayRead': { readonly relay: string | number }
+  'room.relays': Readonly<Record<string, never>>
+  'room.removed': { readonly author: string | number; readonly member: string | number }
+  'room.send': Readonly<Record<string, never>>
+  'room.sending': Readonly<Record<string, never>>
+  'room.sent': { readonly sent: string | number; readonly total: string | number }
+  'room.setUpInbox': Readonly<Record<string, never>>
+  'room.title': Readonly<Record<string, never>>
+  'room.unavailable.locked': Readonly<Record<string, never>>
+  'room.unavailable.noNip44': Readonly<Record<string, never>>
+  'room.unavailable.notLoaded': Readonly<Record<string, never>>
+  'room.unreadableProposal': Readonly<Record<string, never>>
+  'room.viaGateway': Readonly<Record<string, never>>
+  'room.with': { readonly name: string | number }
+  'room.you': Readonly<Record<string, never>>
   'shell.account': { readonly address: string | number }
   'shell.agents': Readonly<Record<string, never>>
   'shell.checking': Readonly<Record<string, never>>
@@ -547,4 +628,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '0fd3852cbd7398de008b42a0c3e43b4c7822aa6ce48fa33f6ac287468785a51f'
+export const catalogVersion = 'f5122f8daa7c049cfc244c2acfd53388b4df66a9cf715d96df8ea312206e42f6'

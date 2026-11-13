@@ -2,6 +2,7 @@
 export * as Agents from './page/Agents.ts'
 export * as Connect from './page/Connect.ts'
 export * as Connections from './page/Connections.ts'
+export * as Evidence from './page/Evidence.ts'
 export * as Home from './page/Home.ts'
 export * as Identity from './page/Identity.ts'
 export * as Inbox from './page/Inbox.ts'

@@ -1,5 +1,5 @@
 import { Option } from 'effect'
-import { Command, Update } from 'foldkit'
+import { Command, Subscription, Update } from 'foldkit'
 import { modifyFields } from 'foldkit/struct'
 import type { SidequestClient } from './Api.ts'
 import { Message } from './Message.ts'
@@ -10,6 +10,7 @@ import { NavigateInternal, ReplaceInternal } from './Navigation.ts'
 import * as Agents from './page/Agents.ts'
 import * as Connect from './page/Connect.ts'
 import * as Connections from './page/Connections.ts'
+import * as Evidence from './page/Evidence.ts'
 import * as Home from './page/Home.ts'
 import * as Identity from './page/Identity.ts'
 import * as Inbox from './page/Inbox.ts'
@@ -20,12 +21,13 @@ import * as NewRequest from './page/NewRequest.ts'
 import * as SignIn from './page/SignIn.ts'
 import { AppRoute, identityHref, jobRouter, listingRouter } from './route.ts'
 import { Session } from './Session.ts'
+import type { Rooms } from './Rooms.ts'
 import type { Signers } from './Signer.ts'
 import type { Wallet } from './Wallet.ts'
 
 // Which page a route opens, and how each page's Messages and OutMessages fold into the app.
 
-export type Services = SidequestClient | Wallet | Signers
+export type Services = SidequestClient | Wallet | Signers | Rooms
 type Step = Update.Step<Model, Message, Services>
 
 /** Whether a page may read what only a signed-in person can: not when the browser is known to be signed out, which
@@ -34,7 +36,7 @@ const mayRead = (session: Session): boolean => !Session.guards.SignedOut(session
 
 /** The identity page, which reads nothing from the server: the signer lives in the browser. */
 const openIdentity = (flags: Flags, maybeNext: Option.Option<string>): Update.Return<Page, Message, Services> =>
-  Update.foldChildInit(Identity.init(flags.language, maybeNext), {
+  Update.foldChildInit(Identity.init(flags.language, maybeNext, flags.defaultInboxRelays), {
     toParentModel: (identity) => Page.Identity({ identity }),
     toParentMessage: (message) => Message.GotIdentityMessage({ message }),
   })
@@ -116,6 +118,7 @@ export const openPage = (
         toParentMessage: (message) => Message.GotConnectionsMessage({ message }),
       }),
     Identity: ({ next }) => openIdentity(flags, next),
+    Evidence: () => ({ model: Page.Evidence({ evidence: Evidence.init(flags.language) }) }),
     NotFound: () => ({ model: Page.NotFound() }),
   })
 
@@ -215,6 +218,7 @@ export const informMe = (model: Model): Model =>
       Connect: () => model.page,
       Connections: () => model.page,
       Identity: () => model.page,
+      Evidence: () => model.page,
       NotFound: () => model.page,
     }),
   )
@@ -275,4 +279,17 @@ export const foldIdentity = Update.foldChild({
       (model) =>
         withMe(model, { model: Me.standingRead(model.me, pubkey, standing) }),
   }),
+})
+
+export const foldEvidence = Update.foldChild({
+  update: Evidence.update,
+  read: (model: Model) => (Page.guards.Evidence(model.page) ? Option.some(model.page.evidence) : Option.none()),
+  write: (model: Model, nextEvidence: Evidence.Model) => writePage(model, Page.Evidence({ evidence: nextEvidence })),
+  toParentMessage: (message) => Message.GotEvidenceMessage({ message }),
+})
+
+/** The job page's room polls while its panel is open. */
+export const subscriptions = Subscription.lift(Job.subscriptions)<Model, Message>({
+  read: readJob,
+  toParentMessage: (message) => Message.GotJobMessage({ message }),
 })

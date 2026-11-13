@@ -110,6 +110,7 @@ const preloadFor = ({ index, session }: Readers, route: AppRoute, signedIn: bool
     Connections: () => Effect.succeed(Preload.Nothing()),
     // The signer lives in the browser; nothing about it is known before hydration.
     Identity: () => Effect.succeed(Preload.Nothing()),
+    Evidence: () => Effect.succeed(Preload.Nothing()),
     NotFound: () => Effect.succeed(Preload.Nothing()),
   })
 

@@ -24,8 +24,13 @@ export const WindowChoice = Schema.Literals(['1', '2', '3', '7', '14'])
 export type WindowChoice = typeof WindowChoice.Type
 const windowChoices: ReadonlyArray<WindowChoice> = ['1', '2', '3', '7', '14']
 
+/** Who sees a new proposal: everyone (it is published), or the buyer alone (it is sent into the bidder's room). */
+export const Visibility = Schema.Literals(['public', 'private'])
+export type Visibility = typeof Visibility.Type
+
 export const Model = Schema.Struct({
   language: Language,
+  visibility: Visibility,
   /** The proposal this one revises, by its event id. */
   maybePrevious: Schema.Option(Schema.String),
   title: Schema.String,
@@ -64,13 +69,14 @@ export const Message = defineMessageUnion({
   SelectedDisputeDays: { value: Schema.String },
   SelectedArbitrationDays: { value: Schema.String },
   SelectedValidDays: { value: Schema.String },
+  SelectedVisibility: { value: Schema.String },
   SubmittedProposal: {},
 })
 export type Message = typeof Message.Type
 
 /** The offer passed its checks: the job page signs and publishes it. */
 export const OutMessage = defineMessageUnion({
-  Submitted: { offer: Offer, maybePrevious: Schema.Option(Schema.String) },
+  Submitted: { offer: Offer, maybePrevious: Schema.Option(Schema.String), privately: Schema.Boolean },
 })
 export type OutMessage = typeof OutMessage.Type
 
@@ -103,6 +109,7 @@ export const proposalNetwork = UsdcOnArcTestnet.network
 
 export const init = (language: Language): Model => ({
   language,
+  visibility: 'public',
   maybePrevious: Option.none(),
   title: '',
   deliverables: '',
@@ -209,6 +216,10 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       selected(model, value, windowOf, (days) => modifyFields(model, { arbitrationDays: () => days })),
     SelectedValidDays: ({ value }) =>
       selected(model, value, dayChoiceOf, (days) => modifyFields(model, { validDays: () => days })),
+    SelectedVisibility: ({ value }) =>
+      selected(model, value, Schema.decodeUnknownOption(Visibility), (visibility) =>
+        modifyFields(model, { visibility: () => visibility }),
+      ),
     SubmittedProposal: () =>
       FormStatus.guards.Submitting(model.status)
         ? { model }
@@ -216,7 +227,11 @@ export const update = (model: Model, message: Message): UpdateReturn =>
             onNone: () => ({ model: modifyFields(model, { status: () => FormStatus.Invalid() }) }),
             onSome: (offer) => ({
               model: modifyFields(model, { status: () => FormStatus.Submitting() }),
-              outMessage: OutMessage.Submitted({ offer, maybePrevious: model.maybePrevious }),
+              outMessage: OutMessage.Submitted({
+                offer,
+                maybePrevious: model.maybePrevious,
+                privately: Option.isNone(model.maybePrevious) && model.visibility === 'private',
+              }),
             }),
           }),
   })
@@ -300,6 +315,19 @@ export const view = Submodel.defineView<Model, Message>((model, h) => {
         options: dayOptions(language, dayChoices),
         onChange: (value) => Message.SelectedValidDays({ value }),
       }),
+      Option.isSome(model.maybePrevious)
+        ? h.empty
+        : Ui.selectField(h, {
+            id: 'proposal-visibility',
+            label: say(language, 'propose.visibility'),
+            hint: say(language, 'propose.visibilityHint'),
+            value: model.visibility,
+            options: [
+              { value: 'public', label: say(language, 'propose.visibilityPublic') },
+              { value: 'private', label: say(language, 'propose.visibilityPrivate') },
+            ],
+            onChange: (value) => Message.SelectedVisibility({ value }),
+          }),
       h.div(styled(h, s.actions()), [
         Ui.submit(h, {
           label: say(language, Option.isSome(model.maybePrevious) ? 'propose.submitRevision' : 'propose.submit'),

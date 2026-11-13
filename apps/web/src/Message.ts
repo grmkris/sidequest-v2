@@ -30,5 +30,6 @@ export const Message = defineMessageUnion({
   GotConnectMessage: { message: Pages.Connect.Message },
   GotConnectionsMessage: { message: Pages.Connections.Message },
   GotIdentityMessage: { message: Pages.Identity.Message },
+  GotEvidenceMessage: { message: Pages.Evidence.Message },
 })
 export type Message = typeof Message.Type

@@ -1,4 +1,5 @@
 import type { EventTemplate, NostrEvent } from '@sidequest/nostr'
+import type { RoomSigner } from '@sidequest/nostr/rooms'
 import { Context, Effect, Exit, Layer, Option, Predicate, Redacted, Ref, Schema } from 'effect'
 import type * as NostrKit from './NostrKit.ts'
 
@@ -45,11 +46,13 @@ export type SignerFailure = typeof SignerFailure.Type
 
 export class SignerFailed extends Schema.TaggedError<SignerFailed>()('SignerFailed', { reason: SignerFailure }) {}
 
-/** One way of signing as one key. Every implementation answers events whose id and signature it checked. */
+/** One way of signing as one key. Every implementation answers events whose id and signature it checked. Rooms need
+ * NIP-44 too: `maybeRoomSigner` is none for an extension without `nip44`. */
 export interface Signer {
   readonly kind: SignerKind
   readonly publicKey: PubkeyHex
   readonly signEvent: (template: EventTemplate) => Effect.Effect<NostrEvent, SignerFailed>
+  readonly maybeRoomSigner: Option.Option<RoomSigner>
 }
 
 /** A signer as the Nostr code makes it, failing with the reason alone; `Signers` wraps it as a {@link Signer}. */
@@ -57,6 +60,7 @@ export interface KitSigner {
   readonly kind: SignerKind
   readonly publicKey: string
   readonly signEvent: (template: EventTemplate) => Effect.Effect<NostrEvent, { readonly reason: SignerFailure }>
+  readonly maybeRoomSigner: Option.Option<RoomSigner>
 }
 
 const failed = (failure: { readonly reason: SignerFailure }) => new SignerFailed({ reason: failure.reason })
@@ -66,12 +70,21 @@ const signerOf = (kit: KitSigner): Signer => ({
   kind: kit.kind,
   publicKey: kit.publicKey,
   signEvent: (template) => Effect.mapError(kit.signEvent(template), failed),
+  maybeRoomSigner: kit.maybeRoomSigner,
 })
+
+/** NIP-07's optional NIP-44 methods, which rooms need: encryption and decryption with the extension's key, which the
+ * page never sees. */
+export interface Nip07Nip44 {
+  readonly encrypt: (peer: string, plaintext: string) => Promise<unknown>
+  readonly decrypt: (peer: string, ciphertext: string) => Promise<unknown>
+}
 
 /** The NIP-07 interface an extension injects as `window.nostr`; nothing it returns is trusted. */
 export interface Nip07Provider {
   readonly getPublicKey: () => Promise<unknown>
   readonly signEvent: (event: unknown) => Promise<unknown>
+  readonly nip44?: unknown
 }
 
 /** What this browser offers when a page asks: an extension, a remembered signer, and one unlocked in this tab. */

@@ -28,6 +28,7 @@ const flags = (
   hasSessionCookie,
   sessionRead,
   preload,
+  defaultInboxRelays: [],
 })
 
 const urlOf = (path: string) =>

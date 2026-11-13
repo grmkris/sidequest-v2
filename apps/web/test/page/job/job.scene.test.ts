@@ -7,7 +7,7 @@ import { view } from '../../../src/page/job/JobPage.ts'
 import { Preload } from '../../../src/Preload.ts'
 import { bidderAccount, bidderKey, buyerKey, foldedJob, otherKey, proposalFrom, requestId } from '../../Fixtures.ts'
 
-const page = withViewInputs(view, { timeZone: 'UTC' })
+const page = withViewInputs(view, { timeZone: 'UTC', inboxConfigured: true })
 
 const ready = (pubkey: string, wallets: ReadonlyArray<string> = []) =>
   Me.Ready({

@@ -9,6 +9,7 @@ import * as ConnectView from './page/ConnectView.ts'
 import type { Model as ConnectModel } from './page/Connect.ts'
 import type { Model as ConnectionsModel } from './page/Connections.ts'
 import type { Model as IdentityModel } from './page/Identity.ts'
+import * as Evidence from './page/Evidence.ts'
 import * as Home from './page/Home.ts'
 import * as IdentityView from './page/IdentityView.ts'
 import * as Inbox from './page/Inbox.ts'
@@ -198,7 +199,7 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
         slotId: 'job',
         model: job,
         view: JobPage.view,
-        viewInputs: { timeZone },
+        viewInputs: { timeZone, inboxConfigured: model.flags.defaultInboxRelays.length > 0 },
         toParentMessage: (message) => Message.GotJobMessage({ message }),
       }),
     Inbox: ({ inbox }) =>
@@ -220,6 +221,14 @@ const pageView = (h: Html.HtmlBuilder<Message>, model: Model): Html.Html => {
     Connect: ({ connect }) => connectPage(h, connect, session, timeZone),
     Connections: ({ connections }) => connectionsPage(h, connections, session, timeZone),
     Identity: ({ identity }) => identityPage(h, identity),
+    Evidence: ({ evidence }) =>
+      h.submodel({
+        slotId: 'evidence',
+        model: evidence,
+        view: Evidence.view,
+        viewInputs: { timeZone },
+        toParentMessage: (message) => Message.GotEvidenceMessage({ message }),
+      }),
     NotFound: () => notFound(h, model),
   })
 }
@@ -238,6 +247,7 @@ const pageTitle = (model: Model): string => {
     Connect: () => say(language, 'connect.title'),
     Connections: () => say(language, 'connections.title'),
     Identity: () => say(language, 'identity.title'),
+    Evidence: () => say(language, 'evidence.title'),
     NotFound: () => say(language, 'notFound.title'),
   })
 }

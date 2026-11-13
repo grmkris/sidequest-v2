@@ -12,7 +12,9 @@ import { Standing } from '../Me.ts'
 import { failedWith, Problem } from '../Problem.ts'
 import { nowSeconds, PublishFailure, publishFailureOf, PublishRefusal } from '../Publishing.ts'
 import { PubkeyHex, type SignerFailed, SignerFailure, SignerIdentity, Signers } from '../Signer.ts'
+import type { Rooms } from '../Rooms.ts'
 import { Connection, Wallet } from '../Wallet.ts'
+import * as InboxRelays from './InboxRelays.ts'
 import * as SignerSetup from './SignerSetup.ts'
 
 // A person's Nostr identity (ADR-0003, decision 3): their signer, the kind-0 profile with their name, and the link of
@@ -57,6 +59,8 @@ export const PersonSummary = Schema.Struct({
   hasProfile: Schema.Boolean,
   maybeName: Schema.Option(Schema.String),
   wallets: Schema.Array(LinkedAccount),
+  /** Where the key receives private messages (its kind-10050 list); empty when the index knows none. */
+  inboxRelays: Schema.Array(Schema.String),
 })
 export type PersonSummary = typeof PersonSummary.Type
 
@@ -81,6 +85,7 @@ export const Model = Schema.Struct({
   name: Schema.String,
   person: PersonRead,
   action: Action,
+  inbox: InboxRelays.Model,
 })
 export type Model = typeof Model.Type
 
@@ -88,6 +93,7 @@ export type Model = typeof Model.Type
 
 export const Message = defineMessageUnion({
   GotSetupMessage: { message: SignerSetup.Message },
+  GotInboxRelaysMessage: { message: InboxRelays.Message },
   UpdatedName: { value: Schema.String },
   SubmittedProfile: {},
   ClickedLinkWallet: {},
@@ -115,7 +121,7 @@ export type OutMessage = typeof OutMessage.Type
 
 // COMMAND
 
-type Services = SidequestClient | Wallet | Signers
+type Services = SidequestClient | Wallet | Signers | Rooms
 
 /** The wallet's answer does not make a wallet link the vocabulary accepts (an account or signature of another shape). */
 class WalletLinkUnbuildable extends Schema.TaggedError<WalletLinkUnbuildable>()('WalletLinkUnbuildable', {}) {}
@@ -227,6 +233,7 @@ export const ReadPerson = Command.define('ReadPerson', {
             account,
             verification,
           })),
+          inboxRelays: person.messagingRelays?.relays ?? [],
         },
       })
     }).pipe(
@@ -241,7 +248,11 @@ type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Serv
 
 const toSetupMessage = (message: SignerSetup.Message) => Message.GotSetupMessage({ message })
 
-export const init = (language: Language, maybeNext: Option.Option<string>): Update.Return<Model, Message, Services> => {
+export const init = (
+  language: Language,
+  maybeNext: Option.Option<string>,
+  defaultInboxRelays: ReadonlyArray<string>,
+): Update.Return<Model, Message, Services> => {
   const setupInit = SignerSetup.init(language)
   return {
     model: {
@@ -251,6 +262,7 @@ export const init = (language: Language, maybeNext: Option.Option<string>): Upda
       name: '',
       person: PersonRead.Unread(),
       action: Action.Idle(),
+      inbox: InboxRelays.init(language, defaultInboxRelays),
     },
     commands: Command.mapMessages(setupInit.commands, toSetupMessage),
   }
@@ -336,8 +348,19 @@ const readAgain = (model: Model) =>
     onSome: ({ pubkey }) => [ReadPerson({ pubkey })],
   })
 
+const foldInboxRelays = Update.foldChild({
+  update: InboxRelays.update,
+  read: (model: Model) => Option.some(model.inbox),
+  write: (model: Model, nextInbox: InboxRelays.Model) => modifyFields(model, { inbox: () => nextInbox }),
+  toParentMessage: (message: InboxRelays.Message) => Message.GotInboxRelaysMessage({ message }),
+  foldOutMessage: InboxRelays.OutMessage.match<Step>({
+    Changed: () => (model) => ({ model, commands: readAgain(model) }),
+  }),
+})
+
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
+    GotInboxRelaysMessage: ({ message: inboxMessage }) => foldInboxRelays(model, inboxMessage),
     GotSetupMessage: ({ message: setupMessage }) => foldSetup(model, setupMessage),
     UpdatedName: ({ value }) => ({
       model: modifyFields(model, {
