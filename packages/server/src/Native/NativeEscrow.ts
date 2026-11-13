@@ -152,6 +152,7 @@ const status = Effect.fnUntraced(function* (w: Wiring, job: string) {
   const chainTime = yield* on.chainTime.pipe(Effect.mapError(() => new Unavailable()))
   const paymentHash = money.funding?.paymentHash ?? null
   const answer: IndexPaymentStatus = {
+    escrow: on.chain.escrow,
     paymentHash,
     chainTime,
     ...stageOf(money),

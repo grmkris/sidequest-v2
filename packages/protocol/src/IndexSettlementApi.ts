@@ -114,8 +114,10 @@ export type RelayedCall = typeof RelayedCall.Type
 /**
  * Where a Nostr-native job's escrow payment stands, from the chain's facts the index recorded (the job's earliest
  * funding), the chain's time (the newest confirmed block's), and the calls the relayer took on for that payment.
+ * `escrow` is the escrow contract the chain's payments are held in, where a payer reclaims after expiry.
  */
 export const IndexPaymentStatus = Schema.Struct({
+  escrow: WalletAddress,
   paymentHash: Schema.NullOr(Bytes32),
   chainTime: UnixSeconds,
   stage: EscrowStage,
