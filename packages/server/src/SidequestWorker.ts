@@ -9,6 +9,8 @@ import { SidequestSql } from './Database.ts'
 import { DomainLive } from './DomainLive.ts'
 import { ClientDocuments } from './OAuth/ClientDocuments.ts'
 import { SidequestMedia } from './Resources.ts'
+import { IndexSettingsLive } from './Index/IndexConfig.ts'
+import { IndexLive, indexSchedule } from './Index/IndexLive.ts'
 import { escrowConfigFrom } from './Settlement/EscrowConfig.ts'
 import { escrowLive } from './Settlement/SettlementLive.ts'
 import { ArcRpc, arcRpcUrlFrom } from './SignIn/ArcRpc.ts'
@@ -21,6 +23,7 @@ const Platform = Layer.mergeAll(
   Cloudflare.Telemetry({ headSamplingRate: 1 }),
   Cloudflare.D1.QueryDatabaseBinding,
   Cloudflare.R2.ReadWriteBucketBinding,
+  Cloudflare.Workers.CronEventSourceLive,
 )
 
 /** The Arc testnet RPC client, at the URL the Worker's configuration names. */
@@ -33,9 +36,13 @@ const EscrowLive = Layer.unwrap(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) => escrowLive(escrowConfigFrom(environment))),
 )
 
-/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow; and
- * the fetcher of MCP clients' metadata documents. */
-const Runtime = Layer.merge(SignInLive, ClientDocuments.layer).pipe(
+/** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow; the
+ * fetcher of MCP clients' metadata documents; and the index, configured by the Worker's variables. */
+const Runtime = Layer.mergeAll(
+  SignInLive,
+  ClientDocuments.layer,
+  IndexLive.pipe(Layer.provide(IndexSettingsLive)),
+).pipe(
   Layer.provideMerge(DomainLive),
   Layer.provideMerge(EscrowLive),
   Layer.provideMerge(ArcRpcLive),
@@ -68,6 +75,7 @@ export default SidequestWorker.make(
     const environment = yield* Cloudflare.Workers.WorkerEnvironment
     const release = releaseFromEnvironment(environment)
     const application = yield* makeApplication(release)
+    yield* indexSchedule
     const fetch = Effect.gen(function* () {
       yield* HttpServerRequest
       return yield* application.handle

@@ -18,6 +18,8 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { DomainHandlers } from '../src/DomainLive.ts'
+import { type IndexConfig, idleIndex, IndexSettings } from '../src/Index/IndexConfig.ts'
+import { IndexLive } from '../src/Index/IndexLive.ts'
 import { ClientDocuments } from '../src/OAuth/ClientDocuments.ts'
 import type { EscrowConfig } from '../src/Settlement/EscrowConfig.ts'
 import { escrowLive } from '../src/Settlement/SettlementLive.ts'
@@ -95,12 +97,14 @@ export const clientDocuments = (documents: Readonly<Record<string, unknown>>) =>
 
 /**
  * Sign-in over the model in memory, its projections and the sign-in and settlement stores on a fresh local D1, and
- * `rpc` as the chain. `sqlite` reads the database directly.
+ * `rpc` as the chain; the index on the same database, idle unless `index` names relays. `sqlite` reads the database
+ * directly.
  */
 export const signInWorld = (
   rpc: PublicClient,
   settling: Settling = { escrow: Option.none() },
   documents: Layer.Layer<ClientDocuments> = clientDocuments({}).layer,
+  index: IndexConfig = idleIndex,
 ) => {
   const { sqlite, layer: sql } = localSql()
   const handlers =
@@ -108,7 +112,11 @@ export const signInWorld = (
       ? DomainHandlers
       : DomainHandlers.pipe(Layer.provide(Layer.succeed(SettlementTiming, settling.timing)))
   const model = Sidequest.layer(handlers).pipe(Layer.provide(Domain.InMemory))
-  const layer = Layer.merge(SignInLive, documents).pipe(
+  const layer = Layer.mergeAll(
+    SignInLive,
+    documents,
+    IndexLive.pipe(Layer.provide(Layer.succeed(IndexSettings, index))),
+  ).pipe(
     Layer.provideMerge(model),
     Layer.provideMerge(escrowLive(settling.escrow)),
     Layer.provideMerge(Layer.succeed(ArcRpc, rpc)),

@@ -3,6 +3,7 @@ import { Layer } from 'effect'
 import { HttpApiBuilder } from 'effect/http-api'
 import { accountHandlers } from './Http/AccountHttp.ts'
 import { agentsHandlers } from './Http/AgentsHttp.ts'
+import { eventsHandlers } from './Http/EventsHttp.ts'
 import { inboxHandlers } from './Http/InboxHttp.ts'
 import { jobsHandlers } from './Http/JobsHttp.ts'
 import { listingsHandlers } from './Http/ListingsHttp.ts'
@@ -40,7 +41,8 @@ const OAuthStores = Layer.mergeAll(OAuthClients.layer, ConnectRequests.layer, Co
 /**
  * The API Worker's routes: the typed HTTP API (every group of `SidequestApi` with its handlers and the `SameOrigin`
  * and `SignedIn` middleware) and the MCP endpoint, two transports over the same model and D1 reads. It needs the
- * hosted model, sign-in's `Sessions` and `AgentAccess`, the database's `SqlClient` and the `Escrow`.
+ * hosted model, sign-in's `Sessions` and `AgentAccess`, the database's `SqlClient`, the `Escrow` and the index
+ * (`IndexLive`).
  */
 export const apiRoutes = (release: string) =>
   Layer.mergeAll(
@@ -56,6 +58,7 @@ export const apiRoutes = (release: string) =>
         roomsHandlers,
         inboxHandlers,
         connectHandlers,
+        eventsHandlers,
       ]),
       Layer.provide([SameOriginLive, SignedInLive]),
     ),

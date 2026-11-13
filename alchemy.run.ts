@@ -2,6 +2,7 @@ import * as Cloudflare from '@alchemy.run/cloudflare'
 import * as Alchemy from 'alchemy'
 import { Config, Effect } from 'effect'
 import { settlementVariablesFromShell, stageRpcUrl } from '@sidequest/server/Settlement/SettlementStage'
+import { indexVariablesFromShell } from '@sidequest/server/Index/IndexConfig'
 import { compatibility, observability, sidequestWorkers } from '@sidequest/server/Stack'
 
 export default Alchemy.Stack(
@@ -12,6 +13,8 @@ export default Alchemy.Stack(
     // Settlement's addresses and keys come from the deploying shell; unset, the stage runs without settlement.
     const settlement = yield* settlementVariablesFromShell
     const arcRpcUrl = yield* stageRpcUrl
+    // The index's relays come from the deploying shell too; unset, it polls and relays nowhere.
+    const index = yield* indexVariablesFromShell
     return yield* sidequestWorkers(
       release,
       (api) =>
@@ -24,6 +27,7 @@ export default Alchemy.Stack(
         }),
       arcRpcUrl,
       settlement,
+      index,
     )
   }),
 )

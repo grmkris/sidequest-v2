@@ -24,6 +24,18 @@ export {
   ConnectRequestGone,
 } from './ConnectApi.ts'
 export { AssetId, AssetRef } from './AssetRef.ts'
+export {
+  EventInvalid,
+  EventInvalidReason,
+  EventsApi,
+  EventTooLarge,
+  KindNotIndexed,
+  NotIndexed,
+  Person,
+  Published,
+  RateLimited,
+  SignedEvent,
+} from './EventsApi.ts'
 export { Bytes32 } from './Bytes32.ts'
 export { findAsset, UsdcOnArcTestnet } from './AssetRegistry.ts'
 export { Delivery } from './Delivery.ts'

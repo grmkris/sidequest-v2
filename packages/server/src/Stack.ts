@@ -4,6 +4,7 @@ import { Effect } from 'effect'
 import { SidequestDatabase, SidequestMedia } from './Resources.ts'
 import { arcTestnetRpcUrl } from './SignIn/ArcRpc.ts'
 import type { SettlementVariables } from './Settlement/SettlementStage.ts'
+import type { IndexVariables } from './Index/IndexConfig.ts'
 import SidequestWorkerLive, { SidequestWorker } from './SidequestWorker.ts'
 
 export const compatibility = { date: '2026-10-19' }
@@ -29,12 +30,14 @@ export const edgeWorker = {
  * builds the website from source and reads Arc testnet's public RPC; the native acceptance test runs the built
  * artifact, because Foldkit's dev mode runs Vite in Node rather than the deployed Worker, and names an RPC endpoint
  * that must not be called. Settlement is bound only when `settlement` names it (see `Settlement/SettlementStage.ts`):
- * the keys as secrets, the rest as plain variables. */
+ * the keys as secrets, the rest as plain variables. The index's relays are bound only when `index` names them (see
+ * `Index/IndexConfig.ts`); without them it connects to no relay at all. */
 export const sidequestWorkers = <R>(
   release: string,
   website: (api: Cloudflare.Worker) => Effect.Effect<Cloudflare.Worker, never, R>,
   arcRpcUrl: string = arcTestnetRpcUrl,
   settlement: SettlementVariables = {},
+  index: IndexVariables = {},
 ) =>
   Effect.gen(function* () {
     const stage = yield* Stage
@@ -49,7 +52,13 @@ export const sidequestWorkers = <R>(
       observability,
     })
     yield* api.bind('RuntimeConfiguration', {
-      env: { SIDEQUEST_ENV: stage, SIDEQUEST_RELEASE: release, SIDEQUEST_ARC_RPC_URL: arcRpcUrl, ...settlement },
+      env: {
+        SIDEQUEST_ENV: stage,
+        SIDEQUEST_RELEASE: release,
+        SIDEQUEST_ARC_RPC_URL: arcRpcUrl,
+        ...settlement,
+        ...index,
+      },
     })
     return { url: edge.url.as<string>() }
   }).pipe(Effect.provide(SidequestWorkerLive))

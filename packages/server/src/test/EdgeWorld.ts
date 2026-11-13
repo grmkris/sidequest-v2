@@ -14,6 +14,8 @@ import {
   SignInChallenge,
   UsdcOnArcTestnet,
 } from '@sidequest/protocol'
+import { Entropy, finalizeEvent, publicKeyOf, SecretKey } from '@sidequest/nostr'
+import { profileTemplate } from '@sidequest/nostr/vocabulary'
 import { DateTime, Effect, Schedule, Schema } from 'effect'
 import * as HttpClient from 'effect/http/HttpClient'
 import type * as HttpClientError from 'effect/http/HttpClientError'
@@ -95,6 +97,14 @@ export const createdBy = <A>(
     Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ id }))),
     Effect.map((created) => created.id),
   )
+
+/** A fresh key's kind-0 profile with `name`, signed now: what a Nostr client publishes. */
+export const signedProfile = (name: string) => {
+  const key = Schema.decodeSync(SecretKey)(generatePrivateKey().slice(2))
+  const createdAt = Math.floor(Date.now() / 1000)
+  const event = finalizeEvent(profileTemplate(name, createdAt), key, Schema.decodeSync(Entropy)(new Uint8Array(32)))
+  return { event, pubkey: publicKeyOf(key) }
+}
 
 /** One day, in seconds. */
 export const day = 86_400

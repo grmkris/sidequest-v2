@@ -7,6 +7,7 @@ import {
   IssuedAgentToken,
   JobId,
   ListingId,
+  Person,
   SessionView,
   Status,
 } from '@sidequest/protocol'
@@ -35,6 +36,7 @@ import {
   postJson,
   Rooms,
   signedIn,
+  signedProfile,
   signIn,
   until,
 } from './EdgeWorld.ts'
@@ -145,6 +147,19 @@ test(
     expect((yield* Clock.currentTimeMillis) - started).toBeLessThan(sleeps * millis + 5000)
   }).pipe(Effect.provide(FetchHttpClient.layer)),
   { timeout: 60000 },
+)
+
+test(
+  'accepts a signed profile through the edge with no session, and serves it as what the index knows of the key',
+  Effect.gen(function* () {
+    const { url } = yield* stack
+    const { event, pubkey } = signedProfile('Acceptance')
+    const published = yield* postJson(`${url}/api/events`, event)
+    expect(yield* published.json).toEqual({ id: event.id, status: 'stored' })
+    const person = yield* until(HttpClient.get(`${url}/api/people/${pubkey}`), Person)
+    expect(person.profile).toMatchObject({ name: 'Acceptance', event: event.id })
+  }).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 30000 },
 )
 
 test(
