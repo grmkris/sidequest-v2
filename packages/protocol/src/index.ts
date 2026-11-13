@@ -33,6 +33,8 @@ export {
   EventTooLarge,
   KindNotIndexed,
   LinkedWallet,
+  KeyJob,
+  maxKeyJobs,
   maxPeoplePerLookup,
   NotIndexed,
   Person,

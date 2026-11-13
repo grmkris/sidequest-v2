@@ -81,7 +81,7 @@ const answered = (
 
 /**
  * `POST /api/agents` (`{ label }`) makes an agent and its key and answers `{ agent, operator, label, createdAt }`;
- * `GET /api/agents` lists the operator's agents; `DELETE /api/agents/:agent` destroys one and its key, and ends every
+ * `GET /api/agents` lists the operator's agents, each with `paused` and its number of live MCP `connections`; `DELETE /api/agents/:agent` destroys one and its key, and ends every
  * OAuth connection to it.
  *
  * Delivery delegations, for the operator's own agent only: `GET /api/agents/:agent/delegations` answers the agent's
@@ -115,7 +115,7 @@ export const operatorRoutes = Layer.effectDiscard(
     yield* router.add('GET', agentsPath, (request) =>
       Effect.gen(function* () {
         const operator = yield* auth.verify(request, '', false)
-        return reply({ items: yield* keys.list(operator) })
+        return reply({ items: yield* keys.overview(operator) })
       }).pipe(answered),
     )
     const preflight = Effect.succeed(HttpServerResponse.empty({ status: 204, headers: cors }))

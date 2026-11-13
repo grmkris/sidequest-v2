@@ -97,8 +97,20 @@ again from the relays when needed and never kept. Two calls of one agent at the 
 (the later one wins), but each answers only the messages it claimed in `agent_room_reads` first, so no message is
 answered twice. Without seals the gateway cannot disclose a message as evidence.
 
+## The website's agents page
+
+The website calls the operator API from the core's origin: its CSP allows no other, so the core's edge proxies
+`/gateway/api/agents…` to the stage's gateway (`SIDEQUEST_GATEWAY_URL`), forwarding only the method, the path and
+query, the body (at most 16 KiB), `authorization` and `content-type`, never a cookie
+(`packages/server/src/GatewayProxy.ts`). The page signs its NIP-98 authorization for the URL it calls,
+`<core>/gateway/api/agents…`; the gateway accepts that `u` as well as its own URL for the request, since it knows the
+core's URL and so both name this gateway alone. `GET /api/agents` answers each agent with `paused` and its number of
+live MCP `connections`, so the page needs one signature to show the list.
+
 ## Running it
 
 `alchemy.run.ts` deploys it beside the core when the deploying shell sets `SIDEQUEST_GATEWAY_SECRET` (64 hex
-characters, `openssl rand -hex 32`), configured with the core's public URL. Its own D1 is migrated from
+characters, `openssl rand -hex 32`), configured with the core's public URL. The website reaches it once the shell
+also sets `SIDEQUEST_GATEWAY_URL` to the gateway's URL from an earlier deploy: the gateway needs the core's URL, so the
+two cannot name each other in one plan. Its own D1 is migrated from
 `apps/gateway/migrations`.

@@ -100,6 +100,45 @@ describe('the operator API', () => {
       expect(gateway.sqlite.prepare('SELECT COUNT(*) AS n FROM delivery_delegations').get()).toEqual({ n: 0 })
     }))
 
+  test('lists each agent with its pause and its live MCP connections', () =>
+    withGateway(async (gateway) => {
+      const operator = freshKey()
+      const agent = await gateway.createAgent(operator)
+      const listed = async () => (await gateway.asOperator(operator, 'GET', '/api/agents')).body
+      expect(await listed()).toEqual({ items: [expect.objectContaining({ agent, paused: false, connections: 0 })] })
+      expect((await gateway.asOperator(operator, 'POST', `/api/agents/${agent}/pause`)).status).toBe(200)
+      const insert = gateway.sqlite.prepare(
+        `INSERT INTO oauth_connections (id, operator, agent, client_id, client_kind, redirect_uri, resource, code_hash,
+          code_challenge, code_expires_at, code_used_at, created_at, revoked_at)
+         VALUES (?, ?, ?, 'client', 'registered', 'http://127.0.0.1/cb', 'mcp', ?, 'c', 1, ?, 1, ?)`,
+      )
+      // One live connection, one revoked, one whose code was never redeemed: only the first counts.
+      insert.run('connection_live', operatorOf(operator), agent, 'h1', 2, null)
+      insert.run('connection_revoked', operatorOf(operator), agent, 'h2', 2, 3)
+      insert.run('connection_pending', operatorOf(operator), agent, 'h3', null, null)
+      expect(await listed()).toEqual({ items: [expect.objectContaining({ agent, paused: true, connections: 1 })] })
+    }))
+
+  test('takes an authorization signed for the core’s proxy of this gateway, and no other origin’s', () =>
+    withGateway(async (gateway) => {
+      const operator = freshKey()
+      const proxied = await gateway.fetch('/api/agents', {
+        method: 'GET',
+        headers: { authorization: nip98(operator, 'https://core.test/gateway/api/agents', 'GET') },
+      })
+      expect([proxied.status, await proxied.json()]).toEqual([200, { items: [] }])
+      const foreign = await gateway.fetch('/api/agents', {
+        method: 'GET',
+        headers: { authorization: nip98(operator, 'https://elsewhere.test/gateway/api/agents', 'GET') },
+      })
+      expect(await foreign.json()).toEqual({ error: 'unauthorized', reason: 'urlMismatch' })
+      const unprefixed = await gateway.fetch('/api/agents', {
+        method: 'GET',
+        headers: { authorization: nip98(operator, 'https://core.test/api/agents', 'GET') },
+      })
+      expect(await unprefixed.json()).toEqual({ error: 'unauthorized', reason: 'urlMismatch' })
+    }))
+
   test('answers a browser’s preflight from any origin', () =>
     withGateway(async (gateway) => {
       const preflight = await gateway.fetch('/api/agents', { method: 'OPTIONS' })

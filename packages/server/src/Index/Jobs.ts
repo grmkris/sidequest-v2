@@ -2,7 +2,14 @@ import { type ChainFact, type ChainFunded, foldJob, type JobView, type WalletLin
 import { OpenJob } from '@sidequest/fold/api'
 import { PublicKey } from '@sidequest/nostr'
 import { envelopeTag, EvmAccount, JobRequestContent, sidequestKinds } from '@sidequest/nostr/vocabulary'
-import { type BadCursor, type Cursor, defaultPageSize, type Unavailable } from '@sidequest/protocol'
+import {
+  type BadCursor,
+  type Cursor,
+  defaultPageSize,
+  maxKeyJobs,
+  type KeyJob,
+  type Unavailable,
+} from '@sidequest/protocol'
 import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
@@ -89,6 +96,49 @@ const candidates = (sql: SqlClient.SqlClient) =>
       FROM flagged ORDER BY created_at DESC, id`,
   })
 
+/** How many of a key's newest proposals a read of its jobs looks through: a bound however many it signed. */
+export const keyJobLimits = { proposals: 200 } as const
+
+const PartyRow = Schema.Struct({ job: Schema.String, at: Schema.Int })
+
+/** The key's newest requests, and the requests its newest proposals name (each once, by its newest proposal). */
+const keyJobQueries = (sql: SqlClient.SqlClient) => ({
+  requests: SqlSchema.findAll({
+    Request: Schema.String,
+    Result: PartyRow,
+    execute: (pubkey) => sql`
+      SELECT id AS job, created_at AS at FROM events
+      WHERE pubkey = ${pubkey} AND kind = ${sidequestKinds.request}
+      ORDER BY created_at DESC, id LIMIT ${maxKeyJobs}`,
+  }),
+  proposed: SqlSchema.findAll({
+    Request: Schema.String,
+    Result: PartyRow,
+    execute: (pubkey) => sql`
+      SELECT r.id AS job, MAX(p.created_at) AS at
+      FROM (
+        SELECT content, created_at FROM events WHERE pubkey = ${pubkey} AND kind = ${sidequestKinds.proposal}
+        ORDER BY created_at DESC, id LIMIT ${keyJobLimits.proposals}
+      ) AS p
+      JOIN events AS r ON r.id = json_extract(p.content, '$.job') AND r.kind = ${sidequestKinds.request}
+      GROUP BY r.id ORDER BY at DESC, r.id LIMIT ${maxKeyJobs}`,
+  }),
+})
+
+/** The two lists as one, newest first, each job once (as its buyer, should a key have bid on its own request). */
+const keyJobsOf = (
+  requests: ReadonlyArray<typeof PartyRow.Type>,
+  proposed: ReadonlyArray<typeof PartyRow.Type>,
+): ReadonlyArray<KeyJob> => {
+  const buyerOf = new Set(requests.map(({ job }) => job))
+  return [
+    ...requests.map(({ job, at }) => ({ job, at, role: 'buyer' as const })),
+    ...proposed.filter(({ job }) => !buyerOf.has(job)).map(({ job, at }) => ({ job, at, role: 'bidder' as const })),
+  ]
+    .toSorted((left, right) => right.at - left.at || left.job.localeCompare(right.job))
+    .slice(0, maxKeyJobs)
+}
+
 const RequestJson = Schema.fromJsonString(JobRequestContent)
 const AcceptedProposal = Schema.fromJsonString(Schema.Struct({ proposal: Schema.String }))
 
@@ -142,6 +192,8 @@ export class Jobs extends Context.Service<
       { readonly items: ReadonlyArray<OpenJob>; readonly next: Cursor | null },
       BadCursor | Unavailable
     >
+    /** The jobs `pubkey` wrote a request or a proposal for, newest first, at most `maxKeyJobs`. */
+    readonly ofParty: (pubkey: string) => Effect.Effect<ReadonlyArray<KeyJob>, Unavailable>
   }
 >()('Sidequest/Index/Jobs') {
   /** Over the D1 tables; needs the database's `SqlClient`, the `EventStore` and `ChainFacts`. */
@@ -153,6 +205,7 @@ export class Jobs extends Context.Service<
       const facts = yield* ChainFacts
       const query = jobQueries(sql)
       const scan = candidates(sql)
+      const party = keyJobQueries(sql)
 
       /** The job's events, bounded per kind (`jobReadLimits`), with those that decide its stage always included. */
       const eventsOf = (job: string, buyer: string, chain: ReadonlyArray<ChainFact>) =>
@@ -214,7 +267,13 @@ export class Jobs extends Context.Service<
         return { items: items.map(({ item }) => item), next }
       })
 
-      return Jobs.of({ job, open })
+      const ofParty = Effect.fn('Sidequest.Index.keyJobs')(function* (pubkey: string) {
+        const requests = yield* stored(party.requests(pubkey))
+        const proposed = yield* stored(party.proposed(pubkey))
+        return keyJobsOf(requests, proposed)
+      })
+
+      return Jobs.of({ job, open, ofParty })
     }),
   )
 }

@@ -34,7 +34,9 @@ export const edgeWorker = {
  * that must not be called. Settlement is bound only when `settlement` names it (see `Settlement/SettlementStage.ts`):
  * the keys as secrets, the rest as plain variables. The index's relays are bound only when `index` names them (see
  * `Index/IndexConfig.ts`); without them it connects to no relay at all. The edge's relay pipe dials public relays only;
- * `relayPolicy: 'local'` lets it reach the test relay on 127.0.0.1, and only the native tests pass it. */
+ * `relayPolicy: 'local'` lets it reach the test relay on 127.0.0.1, and only the native tests pass it. `gatewayUrl` is the
+ * stage's agent gateway (`SIDEQUEST_GATEWAY_URL`), which the edge proxies the website's `/gateway` requests to; the
+ * website needs it too, which its caller binds. */
 export const sidequestWorkers = <R>(
   release: string,
   website: (api: Cloudflare.Worker) => Effect.Effect<Cloudflare.Worker, never, R>,
@@ -42,6 +44,7 @@ export const sidequestWorkers = <R>(
   settlement: SettlementVariables = {},
   index: IndexVariables = {},
   relayPolicy: RelayUrlPolicy = 'public',
+  gatewayUrl = '',
 ) =>
   Effect.gen(function* () {
     const stage = yield* Stage
@@ -51,7 +54,12 @@ export const sidequestWorkers = <R>(
     const site = yield* website(api)
     const edge = yield* Cloudflare.Worker('SidequestEdge', {
       ...edgeWorker,
-      env: { API: api, WEBSITE: site, ...(relayPolicy === 'local' ? { SIDEQUEST_RELAY_POLICY: 'local' } : {}) },
+      env: {
+        API: api,
+        WEBSITE: site,
+        ...(relayPolicy === 'local' ? { SIDEQUEST_RELAY_POLICY: 'local' } : {}),
+        ...(gatewayUrl === '' ? {} : { SIDEQUEST_GATEWAY_URL: gatewayUrl }),
+      },
       workersDev: true,
       observability,
     })

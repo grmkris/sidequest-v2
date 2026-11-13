@@ -1,16 +1,19 @@
 import { Effect, Logger } from 'effect'
 import { apiPolicy, documentPolicy, withSecurityHeaders } from './EdgeSecurity.ts'
+import { gatewayOrigin, isGatewayPath, proxyToGateway } from './GatewayProxy.ts'
 import { makeAdmissions } from './RelayPipe/PipeAdmission.ts'
 import { pipeLimits } from './RelayPipe/PipePolicy.ts'
 import { openRelayPipe } from './RelayPipe/RelayPipe.ts'
 
 type FetchService = { readonly fetch: (request: Request) => Promise<Response> }
 /** The edge's bindings. `SIDEQUEST_RELAY_POLICY` is set to `local` by the native tests alone; unset, the relay pipe
- * dials only public relays (see `Index/RelayUrls.ts`). */
+ * dials only public relays (see `Index/RelayUrls.ts`). `SIDEQUEST_GATEWAY_URL` is the stage's agent gateway, which
+ * `/gateway/api/agents…` reaches (`GatewayProxy.ts`); unset, there is none. */
 export type EdgeEnvironment = {
   readonly API: FetchService
   readonly WEBSITE: FetchService
   readonly SIDEQUEST_RELAY_POLICY?: string
+  readonly SIDEQUEST_GATEWAY_URL?: string
 }
 
 const apiNamespaces = ['/api', '/rpc', '/mcp', '/oauth', '/.well-known', '/out', '/cdn'] as const
@@ -36,6 +39,10 @@ export default {
   async fetch(request: Request, env: EdgeEnvironment): Promise<Response> {
     const path = new URL(request.url).pathname
     if (path === relayPipePath) return withSecurityHeaders(await relayPipe(request, env), apiPolicy)
+    if (isGatewayPath(path)) {
+      const proxied = proxyToGateway(request, gatewayOrigin(env.SIDEQUEST_GATEWAY_URL), (forwarded) => fetch(forwarded))
+      return withSecurityHeaders(await Effect.runPromise(proxied), apiPolicy)
+    }
     const headers = new Headers(request.headers)
     for (const name of request.headers.keys()) if (name.startsWith('x-sidequest-')) headers.delete(name)
     headers.set('x-sidequest-correlation-id', crypto.randomUUID())

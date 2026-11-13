@@ -166,11 +166,23 @@ export const PersonName = Schema.Struct({
 export type PersonName = typeof PersonName.Type
 
 /**
+ * A job a key is a party to, as a client's inbox finds it: the job (its request event's id), whether the key wrote the
+ * request (`buyer`) or a proposal for it (`bidder`), and when it last did (the request's or its newest proposal's
+ * `created_at`).
+ */
+export const KeyJob = Schema.Struct({ job: Hex32, role: Schema.Literals(['buyer', 'bidder']), at: Schema.Int })
+export type KeyJob = typeof KeyJob.Type
+
+/** The most jobs one read of a key's jobs answers, newest first. */
+export const maxKeyJobs = 25
+
+/**
  * The index over signed Nostr events. Anyone publishes one signed event through it (the event authenticates itself,
  * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
  * of a key, the names of up to {@link maxPeoplePerLookup} keys at once (one answer for each key asked for), which
- * key a wallet is linked to, and sellers' NIP-99 listings (searched newest first, or one by its seller
- * and slug). Publishing is limited per client and per key.
+ * key a wallet is linked to, the jobs a key wrote a request or a proposal for (newest first, at most
+ * {@link maxKeyJobs}: what a client computes its inbox from), and sellers' NIP-99 listings (searched newest first, or
+ * one by its seller and slug). Publishing is limited per client and per key.
  */
 export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.post('publish', '/api/events', {
@@ -187,6 +199,11 @@ export class EventsApi extends HttpApiGroup.make('events').add(
     params: { pubkey: Hex32 },
     success: Person,
     error: [NotIndexed, Unavailable],
+  }),
+  HttpApiEndpoint.get('personJobs', '/api/people/:pubkey/jobs', {
+    params: { pubkey: Hex32 },
+    success: Schema.Struct({ items: Schema.Array(KeyJob) }),
+    error: Unavailable,
   }),
   HttpApiEndpoint.get('people', '/api/people', {
     query: { pubkeys: Pubkeys },

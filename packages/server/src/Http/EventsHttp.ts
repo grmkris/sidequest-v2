@@ -17,6 +17,7 @@ import { grantStatus, type WalletLinkRow } from '../Index/Derived.ts'
 import type { Known, KnownGrant } from '../Index/EventStore.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { Ingest, nowSeconds } from '../Index/Ingest.ts'
+import { Jobs } from '../Index/Jobs.ts'
 import { Listings } from '../Index/Listings.ts'
 import { Outbox } from '../Index/Outbox.ts'
 import { RateLimiter } from '@sidequest/serving/RateLimiter'
@@ -121,6 +122,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const limiter = yield* RateLimiter
     const outbox = yield* Outbox
     const listings = yield* Listings
+    const jobs = yield* Jobs
     return handlers
       .handle('publish', ({ payload }) =>
         Effect.gen(function* () {
@@ -148,6 +150,14 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           if (nothingKnown(known)) return yield* new NotIndexed()
           yield* publicFor(60)
           return personOf(params.pubkey, known, yield* nowSeconds)
+        }),
+      )
+      .handle('personJobs', ({ params }) =>
+        Effect.gen(function* () {
+          const items = yield* jobs.ofParty(params.pubkey)
+          // A key's jobs change with each request or proposal it signs: caches keep the answer for seconds only.
+          yield* publicFor(10)
+          return { items }
         }),
       )
       .handle('people', ({ query }) =>

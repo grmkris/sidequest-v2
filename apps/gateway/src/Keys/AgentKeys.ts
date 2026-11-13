@@ -16,6 +16,19 @@ export const AgentRecord = Schema.Struct({
 })
 export type AgentRecord = typeof AgentRecord.Type
 
+/**
+ * An agent as the operator's list shows it: its record, whether its rooms are paused, and how many MCP clients are
+ * connected to it (OAuth connections whose code was redeemed and that are not revoked).
+ */
+export const AgentOverview = Schema.Struct({
+  ...AgentRecord.fields,
+  paused: Schema.Boolean,
+  connections: Schema.Int,
+})
+export type AgentOverview = typeof AgentOverview.Type
+
+const OverviewRow = Schema.Struct({ ...AgentRecord.fields, paused: Schema.Literals([0, 1]), connections: Schema.Int })
+
 /** The longest label an operator gives an agent. */
 export const maxLabelLength = 120
 
@@ -44,6 +57,8 @@ export class AgentKeys extends Context.Service<
       now: UnixSeconds,
     ) => Effect.Effect<AgentRecord, TooManyAgents | Unavailable>
     readonly list: (operator: PublicKey) => Effect.Effect<ReadonlyArray<AgentRecord>, Unavailable>
+    /** The operator's agents, each with its pause and its live connections. */
+    readonly overview: (operator: PublicKey) => Effect.Effect<ReadonlyArray<AgentOverview>, Unavailable>
     readonly find: (agent: PublicKey) => Effect.Effect<Option.Option<AgentRecord>, Unavailable>
     /** Destroys the operator's agent and its key, and ends its connections; answers whether there was one. */
     readonly remove: (operator: PublicKey, agent: PublicKey, now: UnixSeconds) => Effect.Effect<boolean, Unavailable>
@@ -66,6 +81,16 @@ export class AgentKeys extends Context.Service<
         Result: AgentRecord,
         execute: (operator) =>
           sql`SELECT ${columns} FROM agents WHERE operator = ${operator} ORDER BY created_at, pubkey`,
+      })
+      const overviewOf = SqlSchema.findAll({
+        Request: Schema.String,
+        Result: OverviewRow,
+        execute: (operator) => sql`
+          SELECT a.pubkey AS agent, a.operator, a.label, a.created_at AS createdAt,
+            EXISTS (SELECT 1 FROM agent_pauses AS p WHERE p.agent = a.pubkey) AS paused,
+            (SELECT COUNT(*) FROM oauth_connections AS c
+              WHERE c.agent = a.pubkey AND c.revoked_at IS NULL AND c.code_used_at IS NOT NULL) AS connections
+          FROM agents AS a WHERE a.operator = ${operator} ORDER BY a.created_at, a.pubkey`,
       })
       const byKey = SqlSchema.findOneOption({
         Request: Schema.String,
@@ -95,6 +120,10 @@ export class AgentKeys extends Context.Service<
           return { agent, operator, label, createdAt: now }
         }),
         list: (operator) => stored(byOperator(operator)),
+        overview: (operator) =>
+          stored(overviewOf(operator)).pipe(
+            Effect.map((rows) => rows.map(({ paused, ...row }) => ({ ...row, paused: paused === 1 }))),
+          ),
         find: (agent) => stored(byKey(agent)),
         remove: Effect.fn('Sidequest.Gateway.AgentKeys.remove')(function* (operator, agent, now) {
           const deleted = yield* stored(

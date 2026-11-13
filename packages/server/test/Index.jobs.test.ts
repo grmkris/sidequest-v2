@@ -1,6 +1,6 @@
 import { it } from '@effect/vitest'
 import type { NostrEvent } from '@sidequest/nostr'
-import type { Cursor } from '@sidequest/protocol'
+import { type Cursor, maxKeyJobs } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
 import { TestClock } from 'effect/testing'
 import { describe, expect } from 'vitest'
@@ -8,7 +8,7 @@ import { ChainFacts } from '../src/Index/ChainFacts.ts'
 import { Ingest } from '../src/Index/Ingest.ts'
 import { jobReadLimits } from '../src/Index/JobEvents.ts'
 import { Jobs, openJobLimits } from '../src/Index/Jobs.ts'
-import { alice, bob, carol, grant, indexWorld, keyOf, revocation } from './IndexWorld.ts'
+import { alice, bob, carol, grant, indexWorld, keyOf, pubkeyOf, revocation } from './IndexWorld.ts'
 import { acceptBy, fundedFact, onArc, proposalBy, requestBy, statementBy, termsFrom, walletOfKey } from './JobWorld.ts'
 
 const at = 1_800_000_000
@@ -234,5 +234,42 @@ describe('a job read with agents', () => {
           expect(yield* allOpen()).toEqual([notClosed.id])
         }),
       ),
+  )
+})
+
+describe('a key’s jobs', () => {
+  it.effect('are the requests it wrote and the requests it proposed on, newest first, each once', () =>
+    inIndex(
+      Effect.gen(function* () {
+        const mine = yield* promised(() => requestBy(alice, at - 30, undefined, 'Mine'))
+        const theirs = yield* promised(() => requestBy(carol, at - 20, undefined, 'Theirs'))
+        const untouched = yield* promised(() => requestBy(carol, at - 10, undefined, 'Untouched'))
+        const first = yield* promised(() => proposalBy(alice, theirs, at - 5))
+        const revised = yield* promised(() => proposalBy(alice, theirs, at - 2))
+        const strangerBid = yield* promised(() => proposalBy(bob, mine, at - 1))
+        yield* ingestAll([mine, theirs, untouched, first, revised, strangerBid])
+        const jobs = yield* Jobs
+        expect(yield* jobs.ofParty(pubkeyOf(alice))).toEqual([
+          { job: theirs.id, role: 'bidder', at: at - 2 },
+          { job: mine.id, role: 'buyer', at: at - 30 },
+        ])
+        expect(yield* jobs.ofParty(pubkeyOf(bob))).toEqual([{ job: mine.id, role: 'bidder', at: at - 1 }])
+        expect(yield* jobs.ofParty('0'.repeat(64))).toEqual([])
+      }),
+    ),
+  )
+
+  it.effect('stop at the most one read answers, however many the key wrote', () =>
+    inIndex(
+      Effect.gen(function* () {
+        const requests = yield* promised(() =>
+          Promise.all(Array.from({ length: maxKeyJobs + 5 }, (_, index) => requestBy(alice, at - 100 + index))),
+        )
+        yield* ingestAll(requests)
+        const found = yield* Effect.flatMap(Jobs, (jobs) => jobs.ofParty(pubkeyOf(alice)))
+        expect(found.length).toBe(maxKeyJobs)
+        expect(found[0]?.at).toBe(at - 100 + maxKeyJobs + 4)
+      }),
+    ),
   )
 })
