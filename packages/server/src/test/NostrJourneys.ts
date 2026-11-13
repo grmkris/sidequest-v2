@@ -1,4 +1,5 @@
 import { expect } from 'bun:test'
+import { JobView as FoldedJob } from '@sidequest/fold'
 import { LinkedWallet, Person } from '@sidequest/protocol'
 import { Effect } from 'effect'
 import * as HttpClient from 'effect/http/HttpClient'
@@ -20,7 +21,7 @@ import {
   useExtension,
   walletContext,
 } from './ChromiumWorld.ts'
-import { signedProfile, until } from './EdgeWorld.ts'
+import { postJson, signedProfile, signedRequestAndProposal, until } from './EdgeWorld.ts'
 import { pipeTo, upgradeStatus } from './PipeWorld.ts'
 
 // The Nostr journeys of the native acceptance test (Runtime.native.test.ts), each against the edge at `url`: a
@@ -113,4 +114,17 @@ export const refusesForeignPipes = (url: string) =>
     expect(relay.requests).toEqual([])
     for (const disallowed of ['ws://10.0.0.8:4848', 'wss://relay.damus.io:8443', 'https://relay.damus.io'])
       expect(yield* upgradeStatus(url, disallowed, url)).toBe(400)
+  })
+
+/** A request and a proposal published through the edge fold into a job the index reads as proposed. */
+export const foldsPublishedJob = (url: string) =>
+  Effect.gen(function* () {
+    const { request, proposal } = yield* signedRequestAndProposal
+    for (const event of [request, proposal]) expect((yield* postJson(`${url}/api/events`, event)).status).toBe(200)
+    const job = yield* until(
+      HttpClient.get(`${url}/api/index/jobs/${request.id}`),
+      FoldedJob,
+      (view) => view.stage === 'proposed',
+    )
+    expect(job).toMatchObject({ job: request.id, buyer: request.pubkey, proposals: [{ id: proposal.id }] })
   })

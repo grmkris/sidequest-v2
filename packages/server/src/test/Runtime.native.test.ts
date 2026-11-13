@@ -180,6 +180,12 @@ test(
 )
 
 test(
+  'folds a job from a request and a proposal published through the edge: proposed',
+  Effect.flatMap(stack, ({ url }) => foldsPublishedJob(url)).pipe(Effect.provide(FetchHttpClient.layer)),
+  { timeout: 30000 },
+)
+
+test(
   'answers an unknown API path with 404',
   Effect.gen(function* () {
     const { url } = yield* stack

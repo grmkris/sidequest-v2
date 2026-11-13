@@ -12,11 +12,13 @@ import {
   RoomRef,
   SessionView,
   SignInChallenge,
+  Terms,
+  termsDigest as digestOfTerms,
   UsdcOnArcTestnet,
 } from '@sidequest/protocol'
 import { Entropy, finalizeEvent, publicKeyOf, SecretKey } from '@sidequest/nostr'
-import { profileTemplate } from '@sidequest/nostr/vocabulary'
-import { DateTime, Effect, Schedule, Schema } from 'effect'
+import { buildSidequestEvent, jobProposal, jobRequest, profileTemplate } from '@sidequest/nostr/vocabulary'
+import { Clock, DateTime, Effect, Schedule, Schema } from 'effect'
 import * as HttpClient from 'effect/http/HttpClient'
 import type * as HttpClientError from 'effect/http/HttpClientError'
 import * as HttpClientRequest from 'effect/http/HttpClientRequest'
@@ -121,6 +123,27 @@ const offer = (amount: string) => ({
   disputeWindowSeconds: 2 * day,
   arbitrationWindowSeconds: 7 * day,
   rail: 'escrow',
+})
+
+/** A request by a fresh key, and a proposal for it by another, both signed now. */
+export const signedRequestAndProposal = Effect.gen(function* () {
+  const zeros = yield* Schema.decodeEffect(Entropy)(new Uint8Array(32))
+  const buyer = yield* Schema.decodeEffect(SecretKey)(generatePrivateKey().slice(2))
+  const bidder = yield* Schema.decodeEffect(SecretKey)(generatePrivateKey().slice(2))
+  const createdAt = Math.floor((yield* Clock.currentTimeMillis) / 1000)
+  const content = { title: 'A logo', description: 'Small, warm.', expiresAt: createdAt + 7 * day }
+  const request = finalizeEvent(yield* buildSidequestEvent(jobRequest, content, { createdAt }), buyer, zeros)
+  const terms = yield* Schema.decodeUnknownEffect(Terms)(offer('100000000'))
+  const bid = yield* Schema.decodeUnknownEffect(jobProposal.content)({
+    job: request.id,
+    buyer: request.pubkey,
+    terms: yield* Schema.encodeEffect(Terms)(terms),
+    termsDigest: yield* digestOfTerms(terms),
+    payTo: `${UsdcOnArcTestnet.network}:0x${publicKeyOf(bidder).slice(0, 40)}`,
+    validUntil: createdAt + 3 * day,
+  })
+  const proposal = finalizeEvent(yield* buildSidequestEvent(jobProposal, bid, { createdAt }), bidder, zeros)
+  return { request, proposal }
 })
 
 /** The versions the buyer's view of `job` names, once it holds `count`. */

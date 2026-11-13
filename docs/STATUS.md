@@ -15,7 +15,9 @@ Built beside phase 1 and not yet used by the website, MCP or settlement, which s
 | The index: stored events, profiles, relay lists, wallet links, agent grants; `POST /api/events` and public reads | built; tested on SQLite and in workerd; the same events in any order give the same rows |
 | Outbox and relay poller                                                                                          | built; tested against an in-process relay only; no relay is configured on any stage     |
 | The relay pipe: `GET /relay?url=` on the edge, a same-origin WebSocket to a public relay                         | built (server half); tested in workerd against an in-process relay; no page uses it yet |
-| `packages/fold`: a job's state from signed events and chain facts                                                | built and tested; nothing calls it yet                                                  |
+| `packages/fold`: a job's state from signed events and chain facts                                                | built and tested; the index's job read calls it                                         |
+| The index's listings (NIP-99) and jobs: `GET /api/index/listings`, `/api/index/jobs`, `/api/index/jobs/:id`      | built; tested on SQLite and (one job read) in workerd; the website does not read them   |
+| Chain facts: a poller of the operator's and the escrow's logs into `chain_facts`, every minute where settled     | built; tested against Anvil; not run against Arc testnet or on Cloudflare               |
 | Rooms                                                                                                            | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                    |
 
 Not proven for these: a connection from a deployed Worker to a public relay (the index's or the pipe's), the pipe's per-address bounds on Cloudflare, where each isolate counts alone, the scheduled runs firing on Cloudflare, the index's queries on a deployed D1, and whether public relays keep Sidequest's kinds. A contract wallet's link is stored as unverified: checking it needs a chain call the index does not make.
