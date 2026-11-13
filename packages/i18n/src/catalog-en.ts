@@ -505,6 +505,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'money.refused.notDelivered': 'Nothing is delivered on chain yet, so there is nothing to approve or reject.',
   'money.refused.unpayable':
     "These terms cannot be paid through this network's escrow: the amount, the asset, the network or the deadlines are outside what it takes.",
+  'money.refused.launchCap':
+    "This stage is in its launch period and does not relay this step: the job is above its largest amount, one of you is not on its list yet, or today's budget for relayed steps is spent. Nothing was sent.",
   'money.refused.chainRefused': 'The chain refused this step when Sidequest tried it, so nothing was sent.',
   'money.wrongWallet':
     'Your wallet is connected with another account than the one this step needs: the wallet linked to your key. Switch accounts in your wallet, then try again. Nothing was signed.',

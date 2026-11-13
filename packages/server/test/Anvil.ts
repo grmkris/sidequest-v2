@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
 import { arcTestnet, type SettlementChain } from '@sidequest/settlement/SettlementChain'
+import { chainProfiles } from '@sidequest/settlement/Chains'
 import { Option, Redacted, Schema } from 'effect'
 import {
   type Address,
@@ -171,8 +172,10 @@ export const startChain = async (): Promise<LocalChain> => {
       treasury,
       config: {
         chain,
+        profile: chainProfiles['arc-testnet'],
         relayerKey: Redacted.make(relayerKey),
         arbitratorKey: Option.some(Redacted.make(arbitratorKey)),
+        lowRelayerBalance: chainProfiles['arc-testnet'].lowRelayerBalance,
       },
       mint: async (to, amount) => {
         const hash = await wallet.writeContract({

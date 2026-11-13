@@ -61,6 +61,7 @@ export const refusalKeys: Readonly<Record<EscrowRefusalReason, PlainKey>> = {
   NotFunded: 'money.refused.notFunded',
   NotDelivered: 'money.refused.notDelivered',
   Unpayable: 'money.refused.unpayable',
+  LaunchCap: 'money.refused.launchCap',
   ChainRefused: 'money.refused.chainRefused',
 }
 

@@ -23,6 +23,9 @@ export const testChain = arcTestnet({
   arbitrator: '0x00000000000000000000000000000000000a4b17',
 })
 
+/** The fake relayer's address. */
+export const testRelayer = getAddress('0x00000000000000000000000000000000000000e1')
+
 /** One call the fake relayer was asked to send. */
 export interface Sent {
   readonly id: string
@@ -38,12 +41,16 @@ interface Database {
  * asking again under an id it holds resumes that intent and sends nothing new. `reverts` makes every new call fail
  * its simulation with that reason, before any intent is recorded.
  */
-export const fakeChain = (sqlite: Database, clock: { now: number }, reverts?: string) => {
+export const fakeChain = (sqlite: Database, clock: { now: number; relayerBalance?: bigint }, reverts?: string) => {
   const sent: Array<Sent> = []
   const held = new Set<string>()
   const chain: EscrowChain = {
     chain: testChain,
+    relayer: testRelayer,
+    mainnet: false,
+    lowRelayerBalance: 1_000_000_000_000_000_000n,
     chainTime: Effect.sync(() => clock.now),
+    relayerBalance: Effect.sync(() => clock.relayerBalance ?? 10_000_000_000_000_000_000n),
     relay: (id, call) =>
       Effect.suspend(() => {
         if (held.has(id)) return Effect.succeed({ id, transactionHash: keccak256(toHex(id)) })

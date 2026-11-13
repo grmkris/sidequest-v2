@@ -134,6 +134,7 @@ describe('the money panel', () => {
       NotFunded: /is not funded yet/u,
       NotDelivered: /Nothing is delivered on chain yet/u,
       Unpayable: /cannot be paid through this network's escrow/u,
+      LaunchCap: /in its launch period and does not relay this step/u,
       ChainRefused: /The chain refused this step/u,
     }
     for (const reason of EscrowRefusalReason.literals) {

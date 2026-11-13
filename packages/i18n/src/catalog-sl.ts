@@ -511,6 +511,8 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'money.refused.notDelivered': 'V verigi še ni nič oddano, zato ni česa potrditi ali zavrniti.',
   'money.refused.unpayable':
     'Teh pogojev ni mogoče plačati prek skrbniške pogodbe tega omrežja: znesek, sredstvo, omrežje ali roki so zunaj njenih meja.',
+  'money.refused.launchCap':
+    'Ta postaja je v zagonskem obdobju in tega koraka ne posreduje: posel presega njen največji znesek, eden od vaju še ni na njenem seznamu ali pa je današnji proračun za posredovane korake porabljen. Nič ni bilo poslano.',
   'money.refused.chainRefused': 'Veriga je ta korak zavrnila, ko ga je Sidequest poskusil, zato ni bilo nič poslano.',
   'money.wrongWallet':
     'Denarnica je povezana z drugim računom, kot ga potrebuje ta korak: z denarnico, povezano z vašim ključem. V denarnici zamenjajte račun in poskusite znova. Nič ni bilo podpisano.',

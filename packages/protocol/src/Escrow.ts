@@ -85,8 +85,9 @@ export type EscrowFunding = typeof EscrowFunding.Type
  * request or the proposal is not indexed or not valid, or the proposal names another buyer; the payment's receiver is
  * not the proposal's `payTo`; the payer's wallet has no current verified link to the request's author; the proposal
  * has expired, or its author withdrew or superseded it, or an agent signed it under a grant that does not authorise it; the chain funded the job already, or has not funded it, or has
- * no delivery to approve or reject; the terms cannot be paid through this chain's escrow; or the chain refuses the
- * call in simulation (`detail` says why).
+ * no delivery to approve or reject; the terms cannot be paid through this chain's escrow; the stage's launch caps
+ * refuse it (`LaunchCap`, `detail` says which: `MaxJobAmount`, `PartyNotAllowed` or `DailyGasBudget`); or the chain
+ * refuses the call in simulation (`detail` says why).
  */
 export const EscrowRefusalReason = Schema.Literals([
   'RequestNotIndexed',
@@ -102,6 +103,7 @@ export const EscrowRefusalReason = Schema.Literals([
   'NotFunded',
   'NotDelivered',
   'Unpayable',
+  'LaunchCap',
   'ChainRefused',
 ])
 export type EscrowRefusalReason = typeof EscrowRefusalReason.Type

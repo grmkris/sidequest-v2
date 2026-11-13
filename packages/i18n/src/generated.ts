@@ -363,6 +363,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'money.reclaimable': Readonly<Record<string, never>>
   'money.refused.alreadyFunded': Readonly<Record<string, never>>
   'money.refused.chainRefused': Readonly<Record<string, never>>
+  'money.refused.launchCap': Readonly<Record<string, never>>
   'money.refused.notDelivered': Readonly<Record<string, never>>
   'money.refused.notFunded': Readonly<Record<string, never>>
   'money.refused.payerNotLinked': Readonly<Record<string, never>>
@@ -623,4 +624,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '193dbf4593c2308dd1a99ed7f96270b173eeea36baac8e70d144cb239b392d7d'
+export const catalogVersion = '994d4d1b99ac45dd4fb2f74ea6aad0ac40dbf71e20e92adf6d42b35682c3065c'

@@ -25,7 +25,9 @@ import {
   walletTwo,
 } from './IndexWorld.ts'
 import { onArc, proposalBy, requestBy, statementBy, termsFrom, walletOfKey } from './JobWorld.ts'
-import { fakeChain, fundingOf, testChain } from './EscrowWorld.ts'
+import { fakeChain, fundingOf, testChain, testRelayer } from './EscrowWorld.ts'
+import { LaunchCapSettings, noLaunchCaps } from '../src/Escrow/LaunchCaps.ts'
+import { privateKeyToAccount } from 'viem/accounts'
 
 // Funding a job through the server: what the server checks before it relays the buyer's ERC-3009
 // signature, each rule shown refusing on its own (every other rule holding), and the relay when all hold.
@@ -43,7 +45,12 @@ type Needs = Layer.Success<World['layer']>
 
 /** The index holding `events` (and `facts`), the clock at `now`, and the escrow over a fake chain. */
 const funding = <A, E>(
-  setup: { readonly events: ReadonlyArray<NostrEvent>; readonly now?: number; readonly reverts?: string },
+  setup: {
+    readonly events: ReadonlyArray<NostrEvent>
+    readonly now?: number
+    readonly reverts?: string
+    readonly prepare?: (sqlite: World['sqlite']) => void
+  },
   use: (
     escrow: Effect.Success<ReturnType<typeof escrowStepsWith>>,
     sent: ReturnType<typeof fakeChain>['sent'],
@@ -51,6 +58,7 @@ const funding = <A, E>(
 ) => {
   const world = indexWorld()
   const { chain, sent } = fakeChain(world.sqlite, { now: at }, setup.reverts)
+  setup.prepare?.(world.sqlite)
   return Effect.gen(function* () {
     yield* TestClock.setTime((setup.now ?? at + 60) * 1000)
     const index = yield* Ingest
@@ -197,6 +205,7 @@ describe('the funding rules', () => {
       request: Option.some(parsedRequest),
       proposal: Option.some(parsedProposal),
       bidderGrant: null,
+      bidder: Option.some(proposal.pubkey),
       withdrawn: false,
       superseded: false,
       payerHolder: Option.some(request.pubkey),
@@ -279,6 +288,95 @@ describe('funding a proposal an agent made under its operator’s grant', () => 
       const unscopedResult = (yield* fundAgents([], unscoped, [discussing])).result
       expect(reasonOf(unscopedResult)).toBe('ProposalNotAuthorised')
       expect(JSON.stringify(unscopedResult)).toContain('scopeMissing')
+    }),
+  )
+})
+
+// The stage's launch caps, off unless set: the most a job may escrow, the keys whose jobs the stage funds, and the gas
+// relayed requests may commit in a UTC day. Each refuses before anything is relayed, with the cap it ran into.
+const capped = <A, E, R>(caps: Partial<typeof noLaunchCaps>, effect: Effect.Effect<A, E, R>) =>
+  Effect.provideService(effect, LaunchCapSettings, { ...noLaunchCaps, ...caps })
+const detailOf = (exit: Exit.Exit<unknown, unknown>) => JSON.stringify(exit).match(/"detail":"(\w+)"/u)?.[1]
+
+describe('funding under launch caps', () => {
+  it.effect('refuses a job above the most one job may escrow, and relays one at it', () =>
+    Effect.gen(function* () {
+      const amount = BigInt(terms.amount)
+      const above = yield* capped({ maxJobAmount: Option.some(amount - 1n) }, fund(all))
+      expect([reasonOf(above.result), detailOf(above.result)]).toEqual(['LaunchCap', 'MaxJobAmount'])
+      expect(above.sent).toEqual([])
+      const atCap = yield* capped({ maxJobAmount: Option.some(amount) }, fund(all))
+      expect(reasonOf(atCap.result)).toBe('relayed')
+    }),
+  )
+
+  it.effect('funds only jobs whose buyer and bidder are both on the list', () =>
+    Effect.gen(function* () {
+      const onlyBuyer = yield* capped({ allowedPubkeys: Option.some(new Set([pubkeyOf(alice)])) }, fund(all))
+      expect([reasonOf(onlyBuyer.result), detailOf(onlyBuyer.result)]).toEqual(['LaunchCap', 'PartyNotAllowed'])
+      const both = yield* capped({ allowedPubkeys: Option.some(new Set([pubkeyOf(alice), pubkeyOf(bob)])) }, fund(all))
+      expect(reasonOf(both.result)).toBe('relayed')
+    }),
+  )
+
+  it.effect('counts an agent’s proposal as its operator’s: the operator must be listed, not the agent', () =>
+    Effect.gen(function* () {
+      const operatorListed = yield* capped(
+        { allowedPubkeys: Option.some(new Set([pubkeyOf(alice), pubkeyOf(bob)])) },
+        fundAgents([]),
+      )
+      expect(reasonOf(operatorListed.result)).toBe('relayed')
+      const agentListed = yield* capped(
+        { allowedPubkeys: Option.some(new Set([pubkeyOf(alice), pubkeyOf(agent)])) },
+        fundAgents([]),
+      )
+      expect(detailOf(agentListed.result)).toBe('PartyNotAllowed')
+    }),
+  )
+
+  it.effect('refuses once the relayer committed the day’s gas budget, counting only today’s transactions', () =>
+    Effect.gen(function* () {
+      // One signed call of 100 000 gas at 20 gwei: 2e15 wei committed.
+      const raw = yield* Effect.promise(() =>
+        privateKeyToAccount(`0x${'71'.repeat(32)}`).signTransaction({
+          type: 'eip1559',
+          chainId: testChain.chainId,
+          nonce: 0,
+          to: testChain.operator,
+          gas: 100_000n,
+          maxFeePerGas: 20_000_000_000n,
+          maxPriorityFeePerGas: 1_000_000_000n,
+        }),
+      )
+      const signedAt = (millis: number) => (sqlite: World['sqlite']) => {
+        sqlite
+          .prepare(
+            `INSERT INTO relayer_intents (id, signer, nonce, target, data, state) VALUES (?, ?, 0, '0x', '0x', 'mined')`,
+          )
+          .run('earlier', testRelayer)
+        sqlite
+          .prepare(
+            `INSERT INTO relayer_transactions (hash, intent, nonce, sequence, kind, raw, max_fee_per_gas,
+              max_priority_fee_per_gas, signed_at) VALUES ('0x01', 'earlier', 0, 0, 'call', ?, '0', '0', ?)`,
+          )
+          .run(raw, millis)
+      }
+      const budget = { dailyGasWei: Option.some(2_000_000_000_000_000n) }
+      const today = yield* capped(
+        budget,
+        funding({ events: all, prepare: signedAt((at + 30) * 1000) }, (escrow) =>
+          escrow.fund(request.id, proposal.id, walletOne.address, signature),
+        ),
+      )
+      expect([reasonOf(today.result), detailOf(today.result)]).toEqual(['LaunchCap', 'DailyGasBudget'])
+      expect(today.sent).toEqual([])
+      const yesterday = yield* capped(
+        budget,
+        funding({ events: all, prepare: signedAt((at - 86_400) * 1000) }, (escrow) =>
+          escrow.fund(request.id, proposal.id, walletOne.address, signature),
+        ),
+      )
+      expect(reasonOf(yesterday.result)).toBe('relayed')
     }),
   )
 })

@@ -21,13 +21,14 @@ import {
   toProtocolTypedData,
 } from '@sidequest/settlement/TypedData'
 import { addressOn } from '@sidequest/settlement/Words'
-import { Effect, Match, Option, Predicate } from 'effect'
+import { Clock, Effect, Match, Option, Predicate } from 'effect'
 import { type Address, getAddress, type Hex, isHex } from 'viem'
 import { ChainFacts } from '../Index/ChainFacts.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { nowSeconds } from '../Index/Ingest.ts'
 import { moneyOf, paymentOfFunding } from './FundedPayment.ts'
 import { fundingRefusal, refusalDetail } from './FundingRules.ts'
+import { fundingCapBreach, gasCommitted, LaunchCapSettings, utcDayStart } from './LaunchCaps.ts'
 import { type EscrowChain, escrowChain, relayedReads } from './EscrowChain.ts'
 import { requestOf, standingReads } from './Standing.ts'
 
@@ -77,6 +78,8 @@ const wiring = (chain: Option.Option<EscrowChain>) =>
       events: yield* EventStore,
       facts: yield* ChainFacts,
       relayed: yield* relayedReads,
+      caps: yield* LaunchCapSettings,
+      gasCommitted: yield* gasCommitted,
     }
   })
 
@@ -92,8 +95,15 @@ const fundable = Effect.fnUntraced(function* (w: Wiring, job: string, proposal: 
   const receiver = offer === undefined ? undefined : addressOn(network, offer.content.payTo)
   const reason = fundingRefusal(standing, receiver === undefined ? '' : `${network}:${receiver}`, yield* nowSeconds)
   if (reason !== undefined) return yield* refused(reason, refusalDetail(standing, reason))
-  // The rules found the proposal and its receiver on this network; this only narrows their types.
-  if (offer === undefined || receiver === undefined) return yield* refused('ProposalNotIndexed')
+  // The rules found the request, the proposal and its receiver on this network; this only narrows their types.
+  if (offer === undefined || receiver === undefined || Option.isNone(standing.request))
+    return yield* refused('ProposalNotIndexed')
+  const breach = fundingCapBreach(w.caps, {
+    amount: offer.content.terms.amount,
+    buyer: standing.request.value.event.pubkey,
+    bidder: Option.getOrElse(standing.bidder, () => offer.event.pubkey),
+  })
+  if (breach !== undefined) return yield* refused('LaunchCap', breach)
   const payment = yield* termsPaymentOf(
     { job, termsDigest: offer.content.termsDigest, terms: offer.content.terms },
     { payer: getAddress(payer), receiver },
@@ -113,11 +123,29 @@ const funded = Effect.fnUntraced(function* (w: Wiring, job: string) {
   return { ...money, on, payment: payment.value }
 })
 
+/**
+ * Refuses once the relayer committed the stage's daily gas budget (a launch cap, off unless set): every relayed
+ * request counts, and the settler's deadline calls, which protect buyers and run bounded, do not ask.
+ */
+const withinGasBudget = Effect.fnUntraced(function* (w: Wiring, on: EscrowChain) {
+  if (Option.isNone(w.caps.dailyGasWei)) return
+  const committed = yield* w.gasCommitted(on.relayer, utcDayStart(yield* Clock.currentTimeMillis))
+  if (committed >= w.caps.dailyGasWei.value) {
+    yield* Effect.logWarning('Sidequest.Escrow.gasBudgetSpent').pipe(
+      Effect.annotateLogs({ alert: 'settlement-relayer', committed: String(committed) }),
+    )
+    return yield* refused('LaunchCap', 'DailyGasBudget')
+  }
+})
+
 /** Relays a call for the job's payment under the step's intent id (one per payment and step). */
-const relayFor = (on: EscrowChain, step: string, payment: Payment, call: OperatorCall) =>
-  on.relay(`${step}:${payment.hash}`, call).pipe(
-    Effect.map(({ transactionHash }) => ({ transactionHash })),
-    Effect.mapError(relayRefused),
+const relayFor = (w: Wiring, on: EscrowChain, step: string, payment: Payment, call: OperatorCall) =>
+  Effect.andThen(
+    withinGasBudget(w, on),
+    on.relay(`${step}:${payment.hash}`, call).pipe(
+      Effect.map(({ transactionHash }) => ({ transactionHash })),
+      Effect.mapError(relayRefused),
+    ),
   )
 
 /** The recorded delivery's hash, which approvals and rejections name. */
@@ -129,7 +157,7 @@ const deliveredHash = Effect.fnUntraced(function* (w: Wiring, job: string) {
 
 const verdict = (w: Wiring, job: string, kind: 'approve' | 'reject', signature: Hex) =>
   Effect.flatMap(deliveredHash(w, job), ({ on, payment }) =>
-    relayFor(on, kind === 'approve' ? 'approval' : 'rejection', payment, {
+    relayFor(w, on, kind === 'approve' ? 'approval' : 'rejection', payment, {
       function: kind,
       info: payment.info,
       signature,
@@ -177,7 +205,7 @@ export const escrowStepsWith = (chain: Option.Option<EscrowChain>) =>
       Effect.map(fundable(w, job, proposal, payer), ({ on, payment }) => fundingOf(job, proposal, payment, on)),
     fund: (job: string, proposal: string, payer: string, signature: Hex) =>
       Effect.flatMap(fundable(w, job, proposal, payer), ({ on, payment }) =>
-        relayFor(on, 'fund', payment, {
+        relayFor(w, on, 'fund', payment, {
           function: 'fund',
           info: payment.info,
           params: payment.params,
@@ -190,7 +218,7 @@ export const escrowStepsWith = (chain: Option.Option<EscrowChain>) =>
       ),
     deliver: (job: string, deliveryHash: Hex, signature: Hex) =>
       Effect.flatMap(funded(w, job), ({ on, payment }) =>
-        relayFor(on, 'delivery', payment, { function: 'deliver', info: payment.info, deliveryHash, signature }),
+        relayFor(w, on, 'delivery', payment, { function: 'deliver', info: payment.info, deliveryHash, signature }),
       ),
     /** What the worker's wallet signs to let `delegate` record the job's delivery until `expiry`. */
     delegationToSign: (job: string, delegate: Address, expiry: number) =>
@@ -203,7 +231,11 @@ export const escrowStepsWith = (chain: Option.Option<EscrowChain>) =>
      */
     deliverDelegated: (job: string, delivery: Omit<DeliverDelegatedCall, 'function' | 'info'>) =>
       Effect.flatMap(funded(w, job), ({ on, payment }) =>
-        relayFor(on, 'delegated-delivery', payment, { function: 'deliverDelegated', info: payment.info, ...delivery }),
+        relayFor(w, on, 'delegated-delivery', payment, {
+          function: 'deliverDelegated',
+          info: payment.info,
+          ...delivery,
+        }),
       ),
     verdictToSign: (job: string, kind: 'approve' | 'reject') =>
       Effect.map(deliveredHash(w, job), ({ on, payment, deliveryHash }) =>
@@ -221,7 +253,7 @@ export const escrowStepsWith = (chain: Option.Option<EscrowChain>) =>
           onSome: Effect.succeed,
         })
         const signature = yield* sign(payment.hash, workerShareBps)
-        return yield* relayFor(on, 'ruling', payment, {
+        return yield* relayFor(w, on, 'ruling', payment, {
           function: 'rule',
           info: payment.info,
           workerShareBps,

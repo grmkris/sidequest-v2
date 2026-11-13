@@ -31,6 +31,8 @@ export interface Standing {
    * none, or its grant authorises it and the bidder is that operator.
    */
   readonly bidderGrant: GrantRefusal | null
+  /** The proposal's bidder: its author, or the operator whose grant let the agent that signed it propose. */
+  readonly bidder: Option.Option<string>
   /** The proposal's bidder (its author, or the operator whose agent made it) withdrew it, themselves or by an agent. */
   readonly withdrawn: boolean
   /** A proposal by the same bidder names it as `previous`. */
@@ -69,7 +71,7 @@ export const standingReads = Effect.gen(function* () {
     execute: ({ id, kind, author, bidder }) => sql`
       SELECT id, pubkey, created_at, kind, tags, content, sig FROM events
       WHERE id IN (SELECT event_id FROM event_tags WHERE name = 'e' AND value = ${id})
-        AND kind = ${kind} AND (pubkey IN (${author}, ${bidder}) OR id IN (
+        AND +kind = ${kind} AND (pubkey IN (${author}, ${bidder}) OR id IN (
           SELECT t.event_id FROM event_tags AS t JOIN agent_grants AS g ON g.event_id = t.value
           WHERE t.name = ${envelopeTag.grant} AND g.operator = ${bidder}))
       ORDER BY created_at DESC, id LIMIT ${aboutLimit}`,
@@ -94,6 +96,7 @@ export const standingReads = Effect.gen(function* () {
     const revisions = yield* bidders(jobProposal, proposal, bidder)
     return {
       bidderGrant: acting.grantRefusal,
+      bidder: Option.some(bidder),
       withdrawn: statements.some(
         ({ content }) => content.type === 'withdraw_proposal' && content.about === proposal.event.id,
       ),
@@ -113,7 +116,7 @@ export const standingReads = Effect.gen(function* () {
     )
     const label = Option.isSome(proposal)
       ? yield* labels(proposal.value)
-      : { bidderGrant: null, withdrawn: false, superseded: false }
+      : { bidderGrant: null, bidder: Option.none(), withdrawn: false, superseded: false }
     const holder = Option.map(yield* events.wallet(payerAccount), ({ pubkey }) => pubkey)
     const chain = yield* facts.forJob(job)
     return {
