@@ -742,5 +742,26 @@
     "signing": "Podpišite pooblastilo v denarnici …",
     "storing": "Podpis predajamo prehodu …",
     "stored": "Pooblaščeno do {date}. Agent lahko zdaj sam zabeleži oddajo pri tem naročilu."
+  },
+  "erc8004": {
+    "title": "ERC-8004",
+    "none": "Ni registriran v ERC-8004, skupnem registru agentov.",
+    "verified": "Agent št. {id} v ERC-8004",
+    "claimed": "Agent št. {id}, prijavljen",
+    "unchecked": "Še ni preverjeno v verigi; Sidequest preveri v eni minuti.",
+    "failure": {
+      "noToken": "Takega žetona v registru ni.",
+      "ownerNotLinked": "Žeton ni v lasti denarnice, povezane z vašim ključem.",
+      "notGranted": "Temu agentu ne dajete več pooblaščila.",
+      "otherUri": "Žeton kaže na drugo registracijsko datoteko."
+    },
+    "feedback": "{count, plural, =0 {Še nobene upoštevane ocene.} one {# upoštevana ocena, v povprečju {average} od 5.} two {# upoštevani oceni, v povprečju {average} od 5.} few {# upoštevane ocene, v povprečju {average} od 5.} other {# upoštevanih ocen, v povprečju {average} od 5.}}",
+    "register": "Registriraj v ERC-8004",
+    "registerHint": "Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica agentovega žetona. Vaš ključ nato podpiše, da žeton predstavlja tega agenta. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.",
+    "waitingWallet": "Čakam na vašo denarnico …",
+    "mining": "Čakam, da se registracija zapiše v verigo …",
+    "claiming": "Podpisujem in objavljam vašo prijavo …",
+    "done": "Registriran kot agent št. {id}. Sidequest ga v eni minuti preveri v verigi.",
+    "notMinted": "Transakcija ni ustvarila žetona agenta."
   }
 }

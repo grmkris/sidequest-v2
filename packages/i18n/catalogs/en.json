@@ -742,5 +742,26 @@
     "signing": "Sign the delegation in your wallet…",
     "storing": "Handing the signature to the gateway…",
     "stored": "Delegated until {date}. The agent may now record this job’s delivery itself."
+  },
+  "erc8004": {
+    "title": "ERC-8004",
+    "none": "Not registered on ERC-8004, the shared registry of agents.",
+    "verified": "Agent #{id} on ERC-8004",
+    "claimed": "Agent #{id}, claimed",
+    "unchecked": "Not yet checked on chain; Sidequest checks within a minute.",
+    "failure": {
+      "noToken": "There is no such token on the registry.",
+      "ownerNotLinked": "The token is not owned by a wallet linked to your key.",
+      "notGranted": "You no longer grant this agent.",
+      "otherUri": "The token points to another registration file."
+    },
+    "feedback": "{count, plural, =0 {No counted reviews yet.} one {# counted review, {average} of 5 on average.} other {# counted reviews, {average} of 5 on average.}}",
+    "register": "Register on ERC-8004",
+    "registerHint": "Your wallet sends the registration and pays its gas, and owns the agent’s token. Your key then signs that the token stands for this agent. Its reviews stay Sidequest’s; ERC-8004 only shows them.",
+    "waitingWallet": "Waiting for your wallet…",
+    "mining": "Waiting for the registration to be mined…",
+    "claiming": "Signing and publishing your claim…",
+    "done": "Registered as agent #{id}. Sidequest checks it on chain within a minute.",
+    "notMinted": "The transaction minted no agent token."
   }
 }

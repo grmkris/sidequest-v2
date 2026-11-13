@@ -16,6 +16,7 @@ import { PublishFailure, PublishRefusal, publishEvent, publishFailureOf } from '
 import { SignerFailure, type Signers } from '../Signer.ts'
 import type { Wallet } from '../Wallet.ts'
 import * as Delegation from './Delegation.ts'
+import * as Erc8004 from './Erc8004.ts'
 
 // A person's agents at the stage's agent gateway (apps/gateway): the gateway makes each agent's key and keeps it
 // sealed; the person's key grants it scopes until a date with a signed event published through the index, and may
@@ -101,6 +102,7 @@ export const Model = Schema.Struct({
   maybePanel: Schema.Option(Panel),
   action: Action,
   delegation: Delegation.Model,
+  erc8004: Erc8004.Model,
 })
 export type Model = typeof Model.Type
 
@@ -130,6 +132,7 @@ export const Message = defineMessageUnion({
   ClickedConfirmDelete: {},
   ClickedKeep: {},
   GotDelegationMessage: { message: Delegation.Message },
+  GotErc8004Message: { message: Erc8004.Message },
 })
 export type Message = typeof Message.Type
 
@@ -294,6 +297,7 @@ export const init = (
     maybePanel: Option.none(),
     action: Action.Idle(),
     delegation: Delegation.init(language),
+    erc8004: Erc8004.init(language),
   })
 
 /** Who the person is changed: a new key's agents are read. */
@@ -402,12 +406,25 @@ const forCurrent = (model: Model, pubkey: string, apply: () => UpdateReturn): Up
 
 type Group = Partial<Handlers<Message, UpdateReturn>>
 
+const erc8004Fold = {
+  read: (model: Model) => Option.some(model.erc8004),
+  write: (model: Model, nextErc8004: Erc8004.Model) => modifyFields(model, { erc8004: () => nextErc8004 }),
+  toParentMessage: (message: Erc8004.Message) => Message.GotErc8004Message({ message }),
+}
+
+/** The agents' ERC-8004 summaries, read whenever the list is, and the stage's registries once. */
+const readErc8004 = (agents: ReadonlyArray<string>, model: Model): UpdateReturn =>
+  Update.foldChildStep({ update: (erc8004: Erc8004.Model) => Erc8004.readFor(erc8004, agents), ...erc8004Fold })(model)
+
 const readHandlers = (model: Model) =>
   ({
     SucceededListAgents: ({ pubkey, agents }) =>
-      forCurrent(model, pubkey, () => ({
-        model: modifyFields(model, { agents: () => AgentsData.Success({ data: agents }) }),
-      })),
+      forCurrent(model, pubkey, () =>
+        readErc8004(
+          agents.map((entry) => entry.agent),
+          modifyFields(model, { agents: () => AgentsData.Success({ data: agents }) }),
+        ),
+      ),
     FailedListAgents: ({ pubkey, failure }) =>
       forCurrent(model, pubkey, () => ({
         model: modifyFields(model, { agents: () => AgentsData.Failure({ error: failure }) }),
@@ -527,10 +544,13 @@ const foldDelegation = Update.foldChild({
   toParentMessage: (message) => Message.GotDelegationMessage({ message }),
 })
 
+const foldErc8004 = Update.foldChild({ update: Erc8004.update, ...erc8004Fold })
+
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
     ...readHandlers(model),
     ...draftHandlers(model),
     ...panelHandlers(model),
     GotDelegationMessage: ({ message: delegationMessage }) => foldDelegation(model, delegationMessage),
+    GotErc8004Message: ({ message: erc8004Message }) => foldErc8004(model, erc8004Message),
   })

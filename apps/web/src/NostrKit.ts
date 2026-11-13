@@ -7,6 +7,7 @@ import {
   deliveryHashOf,
   deliveryNote,
   DeliveryNoteContent,
+  erc8004Claim,
   grantRevocation,
   jobAccept,
   jobProposal,
@@ -198,6 +199,10 @@ export const reviewTemplate = (input: unknown, createdAt: number) => templateOf(
 
 /** An operator lets one agent key act for them with these scopes, from `notBefore` until `expiresAt`, under a label. */
 export const grantTemplate = (input: unknown, createdAt: number) => templateOf(agentGrant, input, { createdAt })
+
+/** The owner of an ERC-8004 token says it stands for `subject` (themselves, or an agent they granted), on `registry`. */
+export const erc8004ClaimTemplate = (input: unknown, createdAt: number) =>
+  templateOf(erc8004Claim, input, { createdAt })
 
 /** An operator ends one of their grants. */
 export const revocationTemplate = (grant: string, createdAt: number) =>

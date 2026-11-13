@@ -6,7 +6,7 @@ import { Context, Effect, Layer, Option, Predicate, Schema } from 'effect'
 import { arcChainHex, arcChainId, arcChainParameters } from './Chain.ts'
 
 // The wallet the person's browser injects, spoken to through EIP-1193 only: `window.ethereum`, or the first wallet
-// that answers an EIP-6963 discovery. No wallet library: the site needs five requests.
+// that answers an EIP-6963 discovery. No wallet library: the site needs seven requests.
 
 /** An EIP-1193 provider: one `request` method. */
 export interface Eip1193Provider {
@@ -25,6 +25,17 @@ export type WalletError = NoWallet | WalletRejected | WalletFailed
 
 /** The wallet does not know the chain it was asked to switch to (EIP-3326 code 4902). */
 class UnknownChain extends Schema.TaggedError<UnknownChain>()('UnknownChain', {}) {}
+
+/** A transaction the server prepared for the wallet to send itself: on `chainId`, to `to`, with calldata `data`. */
+export interface PreparedCall {
+  readonly chainId: number
+  readonly to: string
+  readonly data: string
+}
+
+/** One log of a mined transaction: the contract that emitted it and its topics. */
+export const ReceiptLog = Schema.Struct({ address: Schema.String, topics: Schema.Array(Schema.String) })
+export type ReceiptLog = typeof ReceiptLog.Type
 
 /** The account a wallet connected and the chain it is on. */
 export const Connection = Schema.Struct({ address: WalletAddress, chainId: Schema.Int })
@@ -46,6 +57,11 @@ export class Wallet extends Context.Service<
       chainId: number,
       json: string,
     ) => Effect.Effect<WalletSignature, WalletError>
+    /** `eth_sendTransaction` of a call the server prepared, from `address`, on its chain; answers the hash. */
+    readonly sendTransaction: (address: WalletAddress, call: PreparedCall) => Effect.Effect<string, WalletError>
+    /** A transaction's logs once it is mined (`eth_getTransactionReceipt`), none while it is pending; reverted, it
+     * fails. */
+    readonly receiptLogs: (hash: string) => Effect.Effect<Option.Option<ReadonlyArray<ReceiptLog>>, WalletError>
   }
 >()('@sidequest/web/Wallet') {}
 
@@ -68,6 +84,8 @@ const ChainIdHex = Schema.String.check(Schema.isPattern(/^0x[0-9a-fA-F]+$/u))
 const decodeAccounts = decodeOr(Schema.NonEmptyArray(WalletAddress))
 const decodeChain = decodeOr(ChainIdHex)
 const decodeSignature = decodeOr(WalletSignature)
+const decodeHash = decodeOr(Schema.String.check(Schema.isPattern(/^0x[0-9a-fA-F]{64}$/u)))
+const decodeReceipt = decodeOr(Schema.NullOr(Schema.Struct({ status: Schema.String, logs: Schema.Array(ReceiptLog) })))
 
 const domainType = [
   { name: 'name', type: 'string' },
@@ -127,6 +145,24 @@ export const makeWallet = (findProvider: Effect.Effect<Option.Option<Eip1193Prov
       ),
     signTypedDataJson: (address, onChain, json) =>
       signJson(address, onChain, json).pipe(Effect.withSpan('Sidequest.Web.Wallet.signTypedDataJson')),
+    sendTransaction: (address, { chainId: onChain, to, data }) =>
+      ensureChain(onChain).pipe(
+        Effect.andThen(call('eth_sendTransaction', [{ from: address, to, data }])),
+        Effect.flatMap(decodeHash),
+        Effect.withSpan('Sidequest.Web.Wallet.sendTransaction'),
+      ),
+    receiptLogs: (hash) =>
+      call('eth_getTransactionReceipt', [hash]).pipe(
+        Effect.flatMap(decodeReceipt),
+        Effect.flatMap((receipt) => {
+          if (receipt === null) {
+            return Effect.succeed(Option.none())
+          }
+          return receipt.status === '0x1'
+            ? Effect.succeed(Option.some(receipt.logs))
+            : Effect.fail(new WalletFailed({}))
+        }),
+      ),
   })
 }
 

@@ -26,6 +26,7 @@ import {
 } from './Agents.ts'
 import * as as from './Agents.styles.ts'
 import * as DelegationView from './DelegationView.ts'
+import * as Erc8004View from './Erc8004View.ts'
 
 type Reader = { readonly model: Model; readonly language: Language; readonly timeZone: string; readonly me: string }
 
@@ -338,6 +339,16 @@ const agentRow = (h: Html.HtmlBuilder<Message>, reader: Reader, agent: AgentEntr
       Ui.chip(h, format(language, 'agents.connections', { count: agent.connections })),
     ]),
     grantLine(h, reader, maybeGrant),
+    h.submodel({
+      slotId: `erc8004-${agent.agent}`,
+      model: model.erc8004,
+      view: Erc8004View.view,
+      viewInputs: {
+        agent: agent.agent,
+        maybeMcp: Option.map(model.maybeGatewayUrl, (gateway) => `${gateway}/mcp`),
+      },
+      toParentMessage: (message) => Message.GotErc8004Message({ message }),
+    }),
     actionNotice(h, language, model.action, Option.some(agent.agent)),
     Option.match(maybePanel, {
       onNone: () => h.empty,

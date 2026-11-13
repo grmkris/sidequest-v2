@@ -75,6 +75,23 @@ export interface MessageArgumentsByKey<_T = string> {
   'delegation.title': Readonly<Record<string, never>>
   'delegation.validFor': Readonly<Record<string, never>>
   'delegation.wrongWallet': Readonly<Record<string, never>>
+  'erc8004.claimed': { readonly id: string | number }
+  'erc8004.claiming': Readonly<Record<string, never>>
+  'erc8004.done': { readonly id: string | number }
+  'erc8004.failure.noToken': Readonly<Record<string, never>>
+  'erc8004.failure.notGranted': Readonly<Record<string, never>>
+  'erc8004.failure.otherUri': Readonly<Record<string, never>>
+  'erc8004.failure.ownerNotLinked': Readonly<Record<string, never>>
+  'erc8004.feedback': { readonly count: number; readonly average: string | number }
+  'erc8004.mining': Readonly<Record<string, never>>
+  'erc8004.none': Readonly<Record<string, never>>
+  'erc8004.notMinted': Readonly<Record<string, never>>
+  'erc8004.register': Readonly<Record<string, never>>
+  'erc8004.registerHint': Readonly<Record<string, never>>
+  'erc8004.title': Readonly<Record<string, never>>
+  'erc8004.unchecked': Readonly<Record<string, never>>
+  'erc8004.verified': { readonly id: string | number }
+  'erc8004.waitingWallet': Readonly<Record<string, never>>
   'evidence.author': Readonly<Record<string, never>>
   'evidence.bundleLabel': Readonly<Record<string, never>>
   'evidence.check': Readonly<Record<string, never>>
@@ -624,4 +641,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '994d4d1b99ac45dd4fb2f74ea6aad0ac40dbf71e20e92adf6d42b35682c3065c'
+export const catalogVersion = '7559ac730a943dff89ebc681d50373fa6d70cc6c244dd8e355bef7a9b7a2c57a'

@@ -127,4 +127,31 @@ describe('the wallet adapter over EIP-1193', () => {
       })
     }),
   )
+
+  it.effect('sends a prepared call on its chain, and reads its logs once mined; a pending one has none', () =>
+    Effect.gen(function* () {
+      const hash = `0x${'7e'.repeat(32)}`
+      const receipts: Array<unknown> = [null, { status: '0x1', logs: [{ address, topics: ['0x01'] }] }]
+      const { provider, calls } = fakeProvider({
+        ...onArc,
+        eth_sendTransaction: () => hash,
+        eth_getTransactionReceipt: () => receipts.shift(),
+      })
+      const wallet = walletOver(provider)
+      expect(yield* wallet.sendTransaction(address, { chainId: 5042002, to: address, data: '0xf2c298be' })).toBe(hash)
+      expect(calls.at(-1)).toEqual({
+        method: 'eth_sendTransaction',
+        params: [{ from: address, to: address, data: '0xf2c298be' }],
+      })
+      expect(yield* wallet.receiptLogs(hash)).toEqual(Option.none())
+      expect(yield* wallet.receiptLogs(hash)).toEqual(Option.some([{ address, topics: ['0x01'] }]))
+    }),
+  )
+
+  it.effect('fails a reverted transaction’s receipt', () =>
+    Effect.gen(function* () {
+      const { provider } = fakeProvider({ eth_getTransactionReceipt: () => ({ status: '0x0', logs: [] }) })
+      expect(yield* Effect.flip(walletOver(provider).receiptLogs(`0x${'7e'.repeat(32)}`))).toBeInstanceOf(WalletFailed)
+    }),
+  )
 })

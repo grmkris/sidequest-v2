@@ -23,6 +23,7 @@ import {
   SetPause,
   update,
 } from '../../src/page/Agents.ts'
+import * as Erc8004 from '../../src/page/Erc8004.ts'
 import { Problem } from '../../src/Problem.ts'
 import { PublishRefusal } from '../../src/Publishing.ts'
 import { SignerFailed } from '../../src/Signer.ts'
@@ -59,6 +60,7 @@ const listed = (grants: ReadonlyArray<AgentGrantView> = [grantFor('active')]): M
 const relisted = [
   Command.resolve(ListAgents, Message.SucceededListAgents({ pubkey: buyerKey, agents: [entry] })),
   Command.resolve(ReadGrants, Message.SucceededReadGrants({ pubkey: buyerKey, grants: [] })),
+  Command.resolve(Erc8004.ReadSummaries, Erc8004.Message.SucceededReadSummaries({ summaries: [] })),
 ]
 const regranted = Command.resolve(ReadGrants, Message.SucceededReadGrants({ pubkey: buyerKey, grants: [] }))
 
@@ -168,6 +170,7 @@ describe('the agents page', () => {
       Command.resolve(PublishGrant, Message.FailedAct({ maybeAgent: Option.some(agent), act: 'create', failure })),
       Command.expectExact(ListAgents({ pubkey: buyerKey })),
       Command.resolve(ListAgents, Message.SucceededListAgents({ pubkey: buyerKey, agents: [entry] })),
+      Command.resolve(Erc8004.ReadSummaries, Erc8004.Message.SucceededReadSummaries({ summaries: [] })),
       model((page) =>
         expect(page.action).toEqual(Action.Failed({ maybeAgent: Option.some(agent), act: 'create', failure })),
       ),

@@ -693,4 +693,23 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'delegation.signing': 'Sign the delegation in your wallet…',
   'delegation.storing': 'Handing the signature to the gateway…',
   'delegation.stored': 'Delegated until {date}. The agent may now record this job’s delivery itself.',
+  'erc8004.title': 'ERC-8004',
+  'erc8004.none': 'Not registered on ERC-8004, the shared registry of agents.',
+  'erc8004.verified': 'Agent #{id} on ERC-8004',
+  'erc8004.claimed': 'Agent #{id}, claimed',
+  'erc8004.unchecked': 'Not yet checked on chain; Sidequest checks within a minute.',
+  'erc8004.failure.noToken': 'There is no such token on the registry.',
+  'erc8004.failure.ownerNotLinked': 'The token is not owned by a wallet linked to your key.',
+  'erc8004.failure.notGranted': 'You no longer grant this agent.',
+  'erc8004.failure.otherUri': 'The token points to another registration file.',
+  'erc8004.feedback':
+    '{count, plural, =0 {No counted reviews yet.} one {# counted review, {average} of 5 on average.} other {# counted reviews, {average} of 5 on average.}}',
+  'erc8004.register': 'Register on ERC-8004',
+  'erc8004.registerHint':
+    'Your wallet sends the registration and pays its gas, and owns the agent’s token. Your key then signs that the token stands for this agent. Its reviews stay Sidequest’s; ERC-8004 only shows them.',
+  'erc8004.waitingWallet': 'Waiting for your wallet…',
+  'erc8004.mining': 'Waiting for the registration to be mined…',
+  'erc8004.claiming': 'Signing and publishing your claim…',
+  'erc8004.done': 'Registered as agent #{id}. Sidequest checks it on chain within a minute.',
+  'erc8004.notMinted': 'The transaction minted no agent token.',
 }

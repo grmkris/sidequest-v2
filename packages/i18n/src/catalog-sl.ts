@@ -699,4 +699,23 @@ export const catalog: Readonly<Record<MessageKey, string>> = {
   'delegation.signing': 'Podpišite pooblastilo v denarnici …',
   'delegation.storing': 'Podpis predajamo prehodu …',
   'delegation.stored': 'Pooblaščeno do {date}. Agent lahko zdaj sam zabeleži oddajo pri tem naročilu.',
+  'erc8004.title': 'ERC-8004',
+  'erc8004.none': 'Ni registriran v ERC-8004, skupnem registru agentov.',
+  'erc8004.verified': 'Agent št. {id} v ERC-8004',
+  'erc8004.claimed': 'Agent št. {id}, prijavljen',
+  'erc8004.unchecked': 'Še ni preverjeno v verigi; Sidequest preveri v eni minuti.',
+  'erc8004.failure.noToken': 'Takega žetona v registru ni.',
+  'erc8004.failure.ownerNotLinked': 'Žeton ni v lasti denarnice, povezane z vašim ključem.',
+  'erc8004.failure.notGranted': 'Temu agentu ne dajete več pooblaščila.',
+  'erc8004.failure.otherUri': 'Žeton kaže na drugo registracijsko datoteko.',
+  'erc8004.feedback':
+    '{count, plural, =0 {Še nobene upoštevane ocene.} one {# upoštevana ocena, v povprečju {average} od 5.} two {# upoštevani oceni, v povprečju {average} od 5.} few {# upoštevane ocene, v povprečju {average} od 5.} other {# upoštevanih ocen, v povprečju {average} od 5.}}',
+  'erc8004.register': 'Registriraj v ERC-8004',
+  'erc8004.registerHint':
+    'Vaša denarnica pošlje registracijo, plača njen strošek in je lastnica agentovega žetona. Vaš ključ nato podpiše, da žeton predstavlja tega agenta. Ocene ostanejo Sidequestove; ERC-8004 jih le prikaže.',
+  'erc8004.waitingWallet': 'Čakam na vašo denarnico …',
+  'erc8004.mining': 'Čakam, da se registracija zapiše v verigo …',
+  'erc8004.claiming': 'Podpisujem in objavljam vašo prijavo …',
+  'erc8004.done': 'Registriran kot agent št. {id}. Sidequest ga v eni minuti preveri v verigi.',
+  'erc8004.notMinted': 'Transakcija ni ustvarila žetona agenta.',
 }
