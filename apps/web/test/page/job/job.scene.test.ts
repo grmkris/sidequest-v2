@@ -70,14 +70,14 @@ describe('the job page', () => {
     )
   })
 
-  test('a bidder may revise and withdraw only their own proposal that stands, and is told funding comes next', () => {
+  test('a bidder may revise and withdraw only their own proposal that stands, and waits for the buyer to fund', () => {
     scene(
       { update, view: page() },
       given(opened(ready(bidderKey, [bidderAccount]))),
       expectAll(all.role('button', { name: 'Revise' })).toHaveCount(1),
       expectAll(all.role('button', { name: 'Withdraw' })).toHaveCount(1),
       expect(role('button', { name: 'Accept this proposal' })).not.toExist(),
-      expect(text('Funding the escrow, delivering and approving arrive on this site in the next release.')).toExist(),
+      expect(text('The buyer accepted your proposal. Start the work once they fund the escrow.')).toExist(),
       expect(role('button', { name: 'Make a proposal' })).toExist(),
     )
   })

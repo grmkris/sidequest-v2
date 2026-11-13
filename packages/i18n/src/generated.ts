@@ -148,17 +148,36 @@ export interface MessageArgumentsByKey<_T = string> {
   }
   'job.buyer': Readonly<Record<string, never>>
   'job.chain.amount': Readonly<Record<string, never>>
+  'job.chain.call.approval': Readonly<Record<string, never>>
+  'job.chain.call.deadline': Readonly<Record<string, never>>
+  'job.chain.call.delivery': Readonly<Record<string, never>>
+  'job.chain.call.fund': Readonly<Record<string, never>>
+  'job.chain.call.rejection': Readonly<Record<string, never>>
+  'job.chain.call.ruling': Readonly<Record<string, never>>
   'job.chain.deadline': Readonly<Record<string, never>>
+  'job.chain.deadlines': Readonly<Record<string, never>>
   'job.chain.delivered': { readonly date: string | number; readonly until: string | number }
+  'job.chain.fee': Readonly<Record<string, never>>
+  'job.chain.label.arbitrationOpen': Readonly<Record<string, never>>
+  'job.chain.label.deliveryOverdue': Readonly<Record<string, never>>
+  'job.chain.label.reclaimable': Readonly<Record<string, never>>
+  'job.chain.label.reviewWindowOpen': Readonly<Record<string, never>>
+  'job.chain.outcome.approved': Readonly<Record<string, never>>
+  'job.chain.outcome.ruled': { readonly share: string | number }
+  'job.chain.outcome.silence': Readonly<Record<string, never>>
+  'job.chain.outcome.undelivered': Readonly<Record<string, never>>
+  'job.chain.outcome.unruled': Readonly<Record<string, never>>
   'job.chain.payment': Readonly<Record<string, never>>
   'job.chain.reclaimed': { readonly amount: string | number }
   'job.chain.rejected': { readonly date: string | number; readonly until: string | number }
-  'job.chain.settled': { readonly captured: string | number; readonly refunded: string | number }
   'job.chain.terms': Readonly<Record<string, never>>
   'job.chain.termsDiffer': Readonly<Record<string, never>>
   'job.chain.termsMatch': Readonly<Record<string, never>>
   'job.chain.termsUnknown': Readonly<Record<string, never>>
   'job.chain.title': Readonly<Record<string, never>>
+  'job.chain.toBuyer': Readonly<Record<string, never>>
+  'job.chain.toWorker': Readonly<Record<string, never>>
+  'job.chain.transactions': Readonly<Record<string, never>>
   'job.close': Readonly<Record<string, never>>
   'job.closeConfirm': Readonly<Record<string, never>>
   'job.closeStatement': Readonly<Record<string, never>>
@@ -172,6 +191,7 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.digest': Readonly<Record<string, never>>
   'job.expired': Readonly<Record<string, never>>
   'job.fromBidder': { readonly bidder: string | number }
+  'job.fund': Readonly<Record<string, never>>
   'job.keep': Readonly<Record<string, never>>
   'job.label.accepted': Readonly<Record<string, never>>
   'job.label.expired': Readonly<Record<string, never>>
@@ -182,7 +202,6 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.labels': Readonly<Record<string, never>>
   'job.linkWallet': Readonly<Record<string, never>>
   'job.loading': Readonly<Record<string, never>>
-  'job.moneyNext': Readonly<Record<string, never>>
   'job.needsWallet': Readonly<Record<string, never>>
   'job.noProposals': Readonly<Record<string, never>>
   'job.openUntil': Readonly<Record<string, never>>
@@ -193,11 +212,17 @@ export interface MessageArgumentsByKey<_T = string> {
   'job.published.accept': Readonly<Record<string, never>>
   'job.published.close': Readonly<Record<string, never>>
   'job.published.proposal': Readonly<Record<string, never>>
+  'job.published.review': Readonly<Record<string, never>>
   'job.published.withdraw': Readonly<Record<string, never>>
   'job.publishing': Readonly<Record<string, never>>
   'job.record': Readonly<Record<string, never>>
   'job.recordNote': Readonly<Record<string, never>>
   'job.request': Readonly<Record<string, never>>
+  'job.reviews.fromBuyer': Readonly<Record<string, never>>
+  'job.reviews.fromWorker': Readonly<Record<string, never>>
+  'job.reviews.none': Readonly<Record<string, never>>
+  'job.reviews.title': Readonly<Record<string, never>>
+  'job.reviews.yours': Readonly<Record<string, never>>
   'job.revise': Readonly<Record<string, never>>
   'job.reviseTitle': Readonly<Record<string, never>>
   'job.stage.accepted': Readonly<Record<string, never>>
@@ -253,6 +278,80 @@ export interface MessageArgumentsByKey<_T = string> {
   'me.detecting': Readonly<Record<string, never>>
   'me.needSigner': Readonly<Record<string, never>>
   'me.setUpLink': Readonly<Record<string, never>>
+  'money.approve': Readonly<Record<string, never>>
+  'money.approveExplain': Readonly<Record<string, never>>
+  'money.approveLabel': Readonly<Record<string, never>>
+  'money.chainSaid': Readonly<Record<string, never>>
+  'money.checkAgain': Readonly<Record<string, never>>
+  'money.checking': Readonly<Record<string, never>>
+  'money.connected': Readonly<Record<string, never>>
+  'money.deliver': Readonly<Record<string, never>>
+  'money.deliverBy': { readonly date: string | number }
+  'money.deliverIntro': Readonly<Record<string, never>>
+  'money.deliveryInvalid': Readonly<Record<string, never>>
+  'money.deliveryNote': Readonly<Record<string, never>>
+  'money.deliveryNoteHint': Readonly<Record<string, never>>
+  'money.deliveryUrl': Readonly<Record<string, never>>
+  'money.deliveryUrlHint': Readonly<Record<string, never>>
+  'money.done.approve': Readonly<Record<string, never>>
+  'money.done.deliver': Readonly<Record<string, never>>
+  'money.done.fund': Readonly<Record<string, never>>
+  'money.done.reject': Readonly<Record<string, never>>
+  'money.escrow': Readonly<Record<string, never>>
+  'money.fundAny': Readonly<Record<string, never>>
+  'money.fundIntro': { readonly bidder: string | number; readonly amount: string | number }
+  'money.fundNeedsLink': Readonly<Record<string, never>>
+  'money.linkWallet': Readonly<Record<string, never>>
+  'money.needed': Readonly<Record<string, never>>
+  'money.notIndexed': Readonly<Record<string, never>>
+  'money.notYet': Readonly<Record<string, never>>
+  'money.overdue': Readonly<Record<string, never>>
+  'money.progress.connecting': Readonly<Record<string, never>>
+  'money.progress.preparing': Readonly<Record<string, never>>
+  'money.progress.publishing': Readonly<Record<string, never>>
+  'money.progress.signing': Readonly<Record<string, never>>
+  'money.progress.submitting': Readonly<Record<string, never>>
+  'money.progress.switching': Readonly<Record<string, never>>
+  'money.rateLimited': { readonly seconds: number }
+  'money.readAgain': Readonly<Record<string, never>>
+  'money.reason': Readonly<Record<string, never>>
+  'money.reasonHint': Readonly<Record<string, never>>
+  'money.reasonInvalid': { readonly max: string | number }
+  'money.reclaimable': Readonly<Record<string, never>>
+  'money.refused.alreadyFunded': Readonly<Record<string, never>>
+  'money.refused.chainRefused': Readonly<Record<string, never>>
+  'money.refused.notDelivered': Readonly<Record<string, never>>
+  'money.refused.notFunded': Readonly<Record<string, never>>
+  'money.refused.payerNotLinked': Readonly<Record<string, never>>
+  'money.refused.proposalExpired': Readonly<Record<string, never>>
+  'money.refused.proposalForOtherBuyer': Readonly<Record<string, never>>
+  'money.refused.proposalNotIndexed': Readonly<Record<string, never>>
+  'money.refused.proposalSuperseded': Readonly<Record<string, never>>
+  'money.refused.proposalWithdrawn': Readonly<Record<string, never>>
+  'money.refused.receiverNotPayTo': Readonly<Record<string, never>>
+  'money.refused.requestNotIndexed': Readonly<Record<string, never>>
+  'money.refused.unpayable': Readonly<Record<string, never>>
+  'money.reject': Readonly<Record<string, never>>
+  'money.rejectExplain': Readonly<Record<string, never>>
+  'money.reviewFunding': Readonly<Record<string, never>>
+  'money.reviewOver': Readonly<Record<string, never>>
+  'money.sent': Readonly<Record<string, never>>
+  'money.signApproval': Readonly<Record<string, never>>
+  'money.signDelivery': Readonly<Record<string, never>>
+  'money.signRejection': Readonly<Record<string, never>>
+  'money.step.approve': Readonly<Record<string, never>>
+  'money.step.deliver': Readonly<Record<string, never>>
+  'money.step.fund': Readonly<Record<string, never>>
+  'money.step.reject': Readonly<Record<string, never>>
+  'money.stopped': { readonly step: string | number }
+  'money.switchChain': Readonly<Record<string, never>>
+  'money.title': Readonly<Record<string, never>>
+  'money.transaction': Readonly<Record<string, never>>
+  'money.waitingDelivery': { readonly date: string | number }
+  'money.waitingFunding': Readonly<Record<string, never>>
+  'money.waitingReview': Readonly<Record<string, never>>
+  'money.wrongChain': { readonly chain: string | number }
+  'money.wrongWallet': Readonly<Record<string, never>>
   'newListing.lede': Readonly<Record<string, never>>
   'newListing.publish': Readonly<Record<string, never>>
   'newListing.publishing': Readonly<Record<string, never>>
@@ -342,6 +441,10 @@ export interface MessageArgumentsByKey<_T = string> {
   'request.title': Readonly<Record<string, never>>
   'request.titleHint': Readonly<Record<string, never>>
   'request.titleLabel': Readonly<Record<string, never>>
+  'review.rating': Readonly<Record<string, never>>
+  'review.stars': { readonly count: number }
+  'review.submit': Readonly<Record<string, never>>
+  'review.text': Readonly<Record<string, never>>
   'shell.account': { readonly address: string | number }
   'shell.agents': Readonly<Record<string, never>>
   'shell.checking': Readonly<Record<string, never>>
@@ -420,6 +523,18 @@ export interface MessageArgumentsByKey<_T = string> {
   'signer.unlock.lede': Readonly<Record<string, never>>
   'signer.unlock.submit': Readonly<Record<string, never>>
   'signer.useExtension': Readonly<Record<string, never>>
+  'slip.binds': Readonly<Record<string, never>>
+  'slip.escrow': Readonly<Record<string, never>>
+  'slip.expiry': { readonly date: string | number }
+  'slip.fee': { readonly percent: string | number; readonly fee: string | number; readonly worker: string | number }
+  'slip.notNow': Readonly<Record<string, never>>
+  'slip.reject': { readonly window: string | number }
+  'slip.review': { readonly review: string | number }
+  'slip.sign': Readonly<Record<string, never>>
+  'slip.title': Readonly<Record<string, never>>
+  'slip.undelivered': Readonly<Record<string, never>>
+  'slip.wallet': { readonly date: string | number }
+  'slip.worker': { readonly deadline: string | number }
   'terms.amount': Readonly<Record<string, never>>
   'terms.arbitration': Readonly<Record<string, never>>
   'terms.deadline': Readonly<Record<string, never>>
@@ -432,4 +547,4 @@ export interface MessageArgumentsByKey<_T = string> {
 }
 export type MessageKey = keyof MessageArgumentsByKey
 export type MessageValues<K extends MessageKey, _T = string> = MessageArgumentsByKey<_T>[K]
-export const catalogVersion = '767ddeac23c9b4d062f6e6d929d1dde8e3a0541dbc46a1c851c11a0f156ffcd9'
+export const catalogVersion = '0fd3852cbd7398de008b42a0c3e43b4c7822aa6ce48fa33f6ac287468785a51f'

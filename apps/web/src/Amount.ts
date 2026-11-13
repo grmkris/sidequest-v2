@@ -60,3 +60,14 @@ export const formatAmount = (amount: string, asset: AssetId, language: Language)
     onNone: () => `${amount} ${asset}`,
     onSome: (registered) => `${formatUnits(amount, registered.decimals, language)} ${registered.symbol}`,
   })
+
+/** The fee and the worker's part of a captured amount: `floor(amount × feeBps / 10 000)` to the fee receiver and the
+ * rest to the worker, as the escrow splits it. */
+export const splitFee = (amount: string, feeBps: number): { readonly fee: string; readonly worker: string } => {
+  const total = BigInt(amount)
+  const fee = (total * BigInt(feeBps)) / 10_000n
+  return { fee: fee.toString(), worker: (total - fee).toString() }
+}
+
+/** What the worker received of a settlement: the captured amount less the fee that went to the fee receiver. */
+export const workerPart = (captured: string, fee: string): string => (BigInt(captured) - BigInt(fee)).toString()

@@ -306,7 +306,7 @@
     "digest": "Terms digest",
     "accept": "Accept this proposal",
     "confirmAcceptLabel": "Confirm the acceptance",
-    "confirmAccept": "Accept the proposal from {bidder} for {amount}, delivered by {deadline}? Accepting tells everyone which proposal you mean to fund. It is a signal, not a contract: nothing binds you or {bidder} until you fund the escrow, which arrives in the next release.",
+    "confirmAccept": "Accept the proposal from {bidder} for {amount}, delivered by {deadline}? Accepting tells everyone which proposal you mean to fund. It is a signal, not a contract: nothing binds you or {bidder} until you fund the escrow.",
     "keep": "Keep it open",
     "withdrawStatement": "I withdraw this proposal.",
     "closeStatement": "I have closed this request.",
@@ -331,7 +331,8 @@
       "proposal": "Your proposal is published.",
       "accept": "Your acceptance is published. It is a signal: nothing binds anyone until the escrow is funded.",
       "withdraw": "Your proposal is withdrawn.",
-      "close": "The request is closed."
+      "close": "The request is closed.",
+      "review": "Your review is published. Thank you."
     },
     "labels": "Labels",
     "label": {
@@ -374,13 +375,45 @@
       "termsDiffer": "They differ from the funded proposal.",
       "payment": "Payment",
       "delivered": "Delivered on {date}; the buyer may reject until {until}.",
-      "rejected": "Rejected on {date}; the arbitrator may rule until {until}.",
-      "settled": "Settled: {captured} paid out, {refunded} back to the buyer.",
-      "reclaimed": "The buyer took back {amount}."
+      "rejected": "The buyer rejected the delivery on {date}. An arbitrator will rule by {until}; without a ruling, the buyer is refunded.",
+      "reclaimed": "The buyer took back {amount}.",
+      "outcome": {
+        "approved": "The buyer approved the work, and the worker was paid.",
+        "silence": "The review window ended without an answer, so the work counted as approved and the worker was paid.",
+        "ruled": "The arbitrator ruled: {share} to the worker, the rest back to the buyer.",
+        "unruled": "No ruling came in time, so the buyer was refunded.",
+        "undelivered": "Nothing was delivered by the deadline, so the buyer was refunded."
+      },
+      "toWorker": "Paid to the worker",
+      "fee": "Sidequest's fee",
+      "toBuyer": "Back to the buyer",
+      "deadlines": "Deadlines",
+      "label": {
+        "deliveryOverdue": "Delivery overdue",
+        "reviewWindowOpen": "Review window open",
+        "arbitrationOpen": "Arbitration open",
+        "reclaimable": "Reclaimable by the buyer"
+      },
+      "transactions": "Transactions",
+      "call": {
+        "fund": "Funding",
+        "delivery": "Delivery",
+        "approval": "Approval",
+        "rejection": "Rejection",
+        "ruling": "Ruling",
+        "deadline": "After a deadline"
+      }
     },
-    "moneyNext": "Funding the escrow, delivering and approving arrive on this site in the next release.",
     "close": "Close the request",
-    "closeConfirm": "Close this request? Bidders see that you closed it, and it leaves the open requests. It is a signed statement, like everything before funding."
+    "closeConfirm": "Close this request? Bidders see that you closed it, and it leaves the open requests. It is a signed statement, like everything before funding.",
+    "fund": "Fund this proposal",
+    "reviews": {
+      "title": "Reviews",
+      "none": "No reviews yet.",
+      "yours": "Your review",
+      "fromBuyer": "From the buyer",
+      "fromWorker": "From the worker"
+    }
   },
   "connect": {
     "title": "Connect an app",
@@ -524,5 +557,109 @@
     "detecting": "Looking for your Nostr signer…",
     "needSigner": "Here you act as your Nostr key. Set it up first; you come back here afterwards.",
     "setUpLink": "Set up your identity"
+  },
+  "money": {
+    "title": "Payment",
+    "step": {
+      "fund": "Funding",
+      "deliver": "Delivery",
+      "approve": "Approval",
+      "reject": "Rejection"
+    },
+    "progress": {
+      "connecting": "asking your wallet which account it signs with…",
+      "publishing": "signing and publishing your note on the record…",
+      "preparing": "preparing what you will sign…",
+      "switching": "asking your wallet to switch to Arc testnet…",
+      "signing": "confirm in your wallet…",
+      "submitting": "sending your signature to the chain…"
+    },
+    "sent": "sent to the chain. The job moves on once the index sees it on chain.",
+    "transaction": "Transaction",
+    "checking": "Reading the job again shortly…",
+    "notYet": "The index does not show it yet. It can take a few minutes.",
+    "checkAgain": "Check again",
+    "done": {
+      "fund": "The escrow is funded. The terms now bind you both.",
+      "deliver": "Your delivery is on chain. The buyer's review window has started.",
+      "approve": "You approved the work. The escrow paid the worker.",
+      "reject": "You rejected the delivery. An arbitrator will rule."
+    },
+    "stopped": "{step} stopped.",
+    "chainSaid": "The chain said:",
+    "linkWallet": "Link your wallet on the identity page",
+    "readAgain": "Read the job again",
+    "rateLimited": "Too many requests from your address. Try again in {seconds, plural, one {# second} other {# seconds}}.",
+    "notIndexed": "The index does not know this job yet. Try again in a moment.",
+    "refused": {
+      "requestNotIndexed": "The index does not hold this request as a valid one, so Sidequest will not relay this step.",
+      "proposalNotIndexed": "The index does not hold this proposal for this job. Read the job again and pick a proposal it lists.",
+      "proposalForOtherBuyer": "This proposal names another buyer, so you cannot fund it.",
+      "receiverNotPayTo": "The payment would not go to the wallet the proposal names, so Sidequest will not relay it.",
+      "payerNotLinked": "The wallet you fund from is not linked to your key. Link it to your key, then fund again.",
+      "proposalExpired": "This proposal has expired. Ask the bidder for a new one.",
+      "proposalWithdrawn": "The bidder withdrew this proposal.",
+      "proposalSuperseded": "The bidder revised this proposal. Fund the revision instead.",
+      "alreadyFunded": "This job is already funded.",
+      "notFunded": "The escrow for this job is not funded yet.",
+      "notDelivered": "Nothing is delivered on chain yet, so there is nothing to approve or reject.",
+      "unpayable": "These terms cannot be paid through this network's escrow: the amount, the asset, the network or the deadlines are outside what it takes.",
+      "chainRefused": "The chain refused this step when Sidequest tried it, so nothing was sent."
+    },
+    "wrongWallet": "Your wallet is connected with another account than the one this step needs: the wallet linked to your key. Switch accounts in your wallet, then try again. Nothing was signed.",
+    "connected": "Connected",
+    "needed": "Needed",
+    "wrongChain": "Your wallet is on another network (chain {chain}). Switch it to Arc testnet to sign.",
+    "switchChain": "Switch to Arc testnet",
+    "fundAny": "Funding the escrow is the step that binds. Accept a proposal to fund it, or fund one that stands directly.",
+    "fundNeedsLink": "Funding needs a wallet linked to your key: the escrow takes the money from it and pays any refund back to it.",
+    "fundIntro": "You accepted the proposal from {bidder} for {amount}. Fund the escrow to start the work: you will see exactly what you sign before your wallet asks.",
+    "reviewFunding": "Review the payment",
+    "waitingFunding": "The buyer accepted your proposal. Start the work once they fund the escrow.",
+    "waitingDelivery": "Funded. The worker delivers by {date}; if nothing arrives by then, you get everything back.",
+    "overdue": "The delivery deadline has passed, so the buyer gets everything back.",
+    "deliverBy": "The escrow is funded. Deliver by {date}.",
+    "deliver": "Deliver the work",
+    "deliverIntro": "Say where the work is, with an address, a note or both. Your key signs it as a delivery note on the record, and its hash goes on chain from your wallet, which starts the buyer's review window. Check the funded terms first: delivering accepts them.",
+    "deliveryUrl": "Where the buyer gets it",
+    "deliveryUrlHint": "An address that starts with https://.",
+    "deliveryInvalid": "Give an address that starts with https://, a note of up to 4000 characters, or both.",
+    "deliveryNote": "Note for the buyer",
+    "deliveryNoteHint": "What you delivered, and anything the buyer needs to know.",
+    "signDelivery": "Publish and sign the delivery",
+    "waitingReview": "Delivered. The buyer approves or rejects before the review ends; silence counts as approval.",
+    "reviewOver": "The review window has ended, so the work counts as approved. The escrow pays the worker shortly.",
+    "approve": "Approve and pay",
+    "reject": "Reject",
+    "approveLabel": "Confirm the approval",
+    "approveExplain": "Approving pays the worker now: the escrow releases the full amount, and Sidequest's fee comes out of it. It can't be undone.",
+    "signApproval": "Sign the approval",
+    "rejectExplain": "Rejecting opens a dispute. Your reason is published on the record first; then your wallet signs the rejection. An arbitrator decides how the money is split; without a ruling in time, you are refunded. You can't approve afterwards.",
+    "reason": "Why you reject it",
+    "reasonHint": "Everyone who reads the job sees it, the arbitrator first.",
+    "reasonInvalid": "Give a reason of up to {max} characters.",
+    "signRejection": "Publish and sign the rejection",
+    "reclaimable": "Nobody settled this job before the escrow's authorization expired, so you can take the money back yourself: call reclaim on the escrow contract from the wallet that funded it.",
+    "escrow": "Escrow contract"
+  },
+  "slip": {
+    "title": "What you sign",
+    "binds": "This is the step that binds: once the escrow is funded, the proposal's terms hold for you and the worker.",
+    "escrow": "The money moves from your wallet into this escrow contract on Arc testnet; Sidequest never holds it:",
+    "worker": "It is for the worker, who delivers by {deadline}, at this wallet:",
+    "review": "When the work is delivered, you have {review} to approve or reject it. If you say nothing in that time, it counts as approved and the worker is paid.",
+    "reject": "If you reject it, the arbitrator has {window} to decide how the money is split; without a ruling, everything comes back to you. Arbitrator:",
+    "undelivered": "If nothing is delivered by the deadline, everything comes back to you.",
+    "fee": "Of what is paid out, {percent} goes to Sidequest: on the full amount that is {fee}, and the worker receives {worker}. Fee receiver:",
+    "expiry": "If nobody settles the job by {date}, you can take the money back from the escrow yourself.",
+    "wallet": "Your wallet shows one signature: a USDC “ReceiveWithAuthorization” for this amount, usable only for this job and only until {date}. Nothing moves until Sidequest relays it.",
+    "sign": "Sign and fund",
+    "notNow": "Not now"
+  },
+  "review": {
+    "rating": "How did it go? 5 is best.",
+    "stars": "{count, plural, one {# star} other {# stars}}",
+    "text": "Your review",
+    "submit": "Publish review"
   }
 }

@@ -20,3 +20,14 @@ export const slip = style({
   backgroundColor: 'sealWash',
   '& > h3': { color: 'seal' },
 })
+/** The slip's amount, large and in tabular figures. */
+export const slipAmount = style({
+  fontSize: 'figure',
+  fontWeight: 700,
+  lineHeight: 1,
+  letterSpacing: '-0.02em',
+  fontVariantNumeric: 'tabular-nums',
+  overflowWrap: 'anywhere',
+})
+/** What the slip binds, listed plainly beneath the amount. */
+export const slipTerms = style({ display: 'grid', gap: '10px', paddingInlineStart: '20px' })

@@ -306,7 +306,7 @@
     "digest": "Odtis pogojev",
     "accept": "Sprejmi ta predlog",
     "confirmAcceptLabel": "Potrdite sprejem",
-    "confirmAccept": "Sprejmete predlog, ki ga je poslal(a) {bidder}, za {amount} z oddajo do {deadline}? S sprejemom vsem poveste, kateri predlog nameravate vplačati. To je znak, ne pogodba: nič ne zavezuje ne vas ne {bidder}, dokler ne vplačate zneska v skrbniško pogodbo, kar pride v naslednji izdaji.",
+    "confirmAccept": "Sprejmete predlog, ki ga je poslal(a) {bidder}, za {amount} z oddajo do {deadline}? S sprejemom vsem poveste, kateri predlog nameravate vplačati. To je znak, ne pogodba: nič ne zavezuje ne vas ne {bidder}, dokler ne vplačate zneska v skrbniško pogodbo.",
     "keep": "Pusti odprto",
     "withdrawStatement": "Ta predlog umikam.",
     "closeStatement": "To naročilo sem zaprl(a).",
@@ -331,7 +331,8 @@
       "proposal": "Vaš predlog je objavljen.",
       "accept": "Vaš sprejem je objavljen. Je le znak: nikogar nič ne zavezuje, dokler znesek ni vplačan v skrbniško pogodbo.",
       "withdraw": "Vaš predlog je umaknjen.",
-      "close": "Naročilo je zaprto."
+      "close": "Naročilo je zaprto.",
+      "review": "Vaša ocena je objavljena. Hvala."
     },
     "labels": "Oznake",
     "label": {
@@ -374,13 +375,45 @@
       "termsDiffer": "Razlikujejo se od vplačanega predloga.",
       "payment": "Plačilo",
       "delivered": "Oddano {date}; naročnik lahko zavrne do {until}.",
-      "rejected": "Zavrnjeno {date}; razsodnik lahko odloči do {until}.",
-      "settled": "Poravnano: izplačanih {captured}, naročniku vrnjenih {refunded}.",
-      "reclaimed": "Naročnik je prevzel nazaj {amount}."
+      "rejected": "Naročnik je oddajo zavrnil {date}. Razsodnik bo odločil do {until}; če ne odloči, naročnik dobi denar nazaj.",
+      "reclaimed": "Naročnik je prevzel nazaj {amount}.",
+      "outcome": {
+        "approved": "Naročnik je delo potrdil in izvajalec je bil plačan.",
+        "silence": "Čas za pregled se je iztekel brez odgovora, zato je delo veljalo za potrjeno in izvajalec je bil plačan.",
+        "ruled": "Razsodnik je odločil: {share} izvajalcu, preostanek nazaj naročniku.",
+        "unruled": "Razsodba ni prišla pravočasno, zato je naročnik dobil denar nazaj.",
+        "undelivered": "Do roka ni bilo nič oddano, zato je naročnik dobil denar nazaj."
+      },
+      "toWorker": "Izplačano izvajalcu",
+      "fee": "Sidequestova provizija",
+      "toBuyer": "Vrnjeno naročniku",
+      "deadlines": "Roki",
+      "label": {
+        "deliveryOverdue": "Rok oddaje je potekel",
+        "reviewWindowOpen": "Pregled poteka",
+        "arbitrationOpen": "Razsojanje poteka",
+        "reclaimable": "Naročnik lahko prevzame nazaj"
+      },
+      "transactions": "Transakcije",
+      "call": {
+        "fund": "Vplačilo",
+        "delivery": "Oddaja",
+        "approval": "Potrditev",
+        "rejection": "Zavrnitev",
+        "ruling": "Razsodba",
+        "deadline": "Po izteku roka"
+      }
     },
-    "moneyNext": "Vplačilo v skrbniško pogodbo, oddaja in potrditev pridejo na to stran v naslednji izdaji.",
     "close": "Zapri naročilo",
-    "closeConfirm": "Zaprete to naročilo? Ponudniki vidijo, da ste ga zaprli, in izgine z odprtih naročil. To je podpisana izjava, kot vse pred vplačilom."
+    "closeConfirm": "Zaprete to naročilo? Ponudniki vidijo, da ste ga zaprli, in izgine z odprtih naročil. To je podpisana izjava, kot vse pred vplačilom.",
+    "fund": "Vplačaj ta predlog",
+    "reviews": {
+      "title": "Ocene",
+      "none": "Ocen še ni.",
+      "yours": "Vaša ocena",
+      "fromBuyer": "Od naročnika",
+      "fromWorker": "Od izvajalca"
+    }
   },
   "connect": {
     "title": "Povežite aplikacijo",
@@ -524,5 +557,109 @@
     "detecting": "Iščemo vaš podpisnik Nostr …",
     "needSigner": "Tukaj delujete kot svoj ključ Nostr. Najprej ga nastavite, nato se vrnete sem.",
     "setUpLink": "Nastavite svojo identiteto"
+  },
+  "money": {
+    "title": "Plačilo",
+    "step": {
+      "fund": "Vplačilo",
+      "deliver": "Oddaja",
+      "approve": "Potrditev",
+      "reject": "Zavrnitev"
+    },
+    "progress": {
+      "connecting": "denarnico sprašujemo, s katerim računom podpisuje …",
+      "publishing": "podpisujemo in objavljamo vaš zapis …",
+      "preparing": "pripravljamo, kar boste podpisali …",
+      "switching": "denarnico prosimo, naj preklopi na testno omrežje Arc …",
+      "signing": "potrdite v denarnici …",
+      "submitting": "pošiljamo vaš podpis na verigo …"
+    },
+    "sent": "poslano na verigo. Naročilo se premakne naprej, ko ga indeks vidi v verigi.",
+    "transaction": "Transakcija",
+    "checking": "Kmalu znova preberemo naročilo …",
+    "notYet": "Indeks tega še ne kaže. Lahko traja nekaj minut.",
+    "checkAgain": "Preveri znova",
+    "done": {
+      "fund": "Skrbniška pogodba je vplačana. Pogoji zdaj zavezujejo oba.",
+      "deliver": "Vaša oddaja je v verigi. Naročnikov čas za pregled se je začel.",
+      "approve": "Delo ste potrdili. Skrbniška pogodba je izplačala izvajalca.",
+      "reject": "Oddajo ste zavrnili. Odločil bo razsodnik."
+    },
+    "stopped": "{step} se je ustavilo.",
+    "chainSaid": "Veriga je odgovorila:",
+    "linkWallet": "Povežite denarnico na strani identitete",
+    "readAgain": "Znova preberi naročilo",
+    "rateLimited": "Z vašega naslova je preveč zahtev. Poskusite znova čez {seconds, plural, one {# sekundo} two {# sekundi} few {# sekunde} other {# sekund}}.",
+    "notIndexed": "Indeks tega naročila še ne pozna. Poskusite znova čez trenutek.",
+    "refused": {
+      "requestNotIndexed": "Indeks tega naročila nima kot veljavnega, zato Sidequest tega koraka ne posreduje.",
+      "proposalNotIndexed": "Indeks tega predloga za to naročilo nima. Znova preberite naročilo in izberite predlog, ki ga navaja.",
+      "proposalForOtherBuyer": "Ta predlog navaja drugega naročnika, zato ga ne morete vplačati.",
+      "receiverNotPayTo": "Plačilo ne bi šlo na denarnico, ki jo navaja predlog, zato ga Sidequest ne posreduje.",
+      "payerNotLinked": "Denarnica, iz katere vplačujete, ni povezana z vašim ključem. Povežite jo s ključem in znova vplačajte.",
+      "proposalExpired": "Ta predlog je potekel. Ponudnika prosite za novega.",
+      "proposalWithdrawn": "Ponudnik je ta predlog umaknil.",
+      "proposalSuperseded": "Ponudnik je ta predlog popravil. Vplačajte popravek.",
+      "alreadyFunded": "To naročilo je že vplačano.",
+      "notFunded": "Skrbniška pogodba za to naročilo še ni vplačana.",
+      "notDelivered": "V verigi še ni nič oddano, zato ni česa potrditi ali zavrniti.",
+      "unpayable": "Teh pogojev ni mogoče plačati prek skrbniške pogodbe tega omrežja: znesek, sredstvo, omrežje ali roki so zunaj njenih meja.",
+      "chainRefused": "Veriga je ta korak zavrnila, ko ga je Sidequest poskusil, zato ni bilo nič poslano."
+    },
+    "wrongWallet": "Denarnica je povezana z drugim računom, kot ga potrebuje ta korak: z denarnico, povezano z vašim ključem. V denarnici zamenjajte račun in poskusite znova. Nič ni bilo podpisano.",
+    "connected": "Povezano",
+    "needed": "Potrebno",
+    "wrongChain": "Denarnica je v drugem omrežju (veriga {chain}). Za podpis jo preklopite na testno omrežje Arc.",
+    "switchChain": "Preklopi na testno omrežje Arc",
+    "fundAny": "Vplačilo v skrbniško pogodbo je korak, ki zavezuje. Za vplačilo sprejmite predlog ali neposredno vplačajte enega, ki še velja.",
+    "fundNeedsLink": "Za vplačilo potrebujete denarnico, povezano z vašim ključem: skrbniška pogodba vzame denar iz nje in vanjo vrne morebitno vračilo.",
+    "fundIntro": "Sprejeli ste predlog, ki ga je poslal(a) {bidder}, za {amount}. Za začetek dela vplačajte znesek v skrbniško pogodbo: preden vas vpraša denarnica, boste natančno videli, kaj podpisujete.",
+    "reviewFunding": "Preglejte plačilo",
+    "waitingFunding": "Naročnik je sprejel vaš predlog. Z delom začnite, ko vplača znesek v skrbniško pogodbo.",
+    "waitingDelivery": "Vplačano. Izvajalec odda delo do {date}; če do takrat ne prispe nič, dobite vse nazaj.",
+    "overdue": "Rok oddaje je potekel, zato naročnik dobi vse nazaj.",
+    "deliverBy": "Skrbniška pogodba je vplačana. Delo oddajte do {date}.",
+    "deliver": "Oddajte delo",
+    "deliverIntro": "Povejte, kje je delo: z naslovom, zapisom ali obojim. Vaš ključ ga podpiše kot zapis o oddaji, njegov odtis pa iz vaše denarnice gre v verigo, s čimer se začne naročnikov čas za pregled. Najprej preverite vplačane pogoje: z oddajo jih sprejmete.",
+    "deliveryUrl": "Kje ga naročnik prevzame",
+    "deliveryUrlHint": "Naslov, ki se začne s https://.",
+    "deliveryInvalid": "Vpišite naslov, ki se začne s https://, zapis z največ 4000 znaki ali oboje.",
+    "deliveryNote": "Zapis za naročnika",
+    "deliveryNoteHint": "Kaj ste oddali in kar mora naročnik vedeti.",
+    "signDelivery": "Objavi in podpiši oddajo",
+    "waitingReview": "Oddano. Naročnik delo potrdi ali zavrne pred koncem pregleda; molk šteje kot potrditev.",
+    "reviewOver": "Čas za pregled se je iztekel, zato delo velja za potrjeno. Skrbniška pogodba kmalu izplača izvajalca.",
+    "approve": "Potrdi in plačaj",
+    "reject": "Zavrni",
+    "approveLabel": "Potrdite potrditev",
+    "approveExplain": "S potrditvijo izvajalcu takoj plačate: skrbniška pogodba sprosti celoten znesek, od njega pa se odšteje Sidequestova provizija. Tega ni mogoče razveljaviti.",
+    "signApproval": "Podpiši potrditev",
+    "rejectExplain": "Zavrnitev odpre spor. Najprej se objavi vaš razlog, nato denarnica podpiše zavrnitev. Razsodnik odloči, kako se denar razdeli; če pravočasno ne odloči, dobite denar nazaj. Pozneje dela ne morete več potrditi.",
+    "reason": "Zakaj ga zavračate",
+    "reasonHint": "Vidi ga vsak, ki bere naročilo, najprej razsodnik.",
+    "reasonInvalid": "Vpišite razlog z največ {max} znaki.",
+    "signRejection": "Objavi in podpiši zavrnitev",
+    "reclaimable": "Nihče ni poravnal tega naročila, preden je pooblastilo skrbniške pogodbe poteklo, zato lahko denar prevzamete nazaj sami: iz denarnice, s katero ste vplačali, pokličite reclaim na skrbniški pogodbi.",
+    "escrow": "Skrbniška pogodba"
+  },
+  "slip": {
+    "title": "Kaj podpisujete",
+    "binds": "To je korak, ki zavezuje: ko je skrbniška pogodba vplačana, pogoji predloga veljajo za vas in za izvajalca.",
+    "escrow": "Denar se prenese iz vaše denarnice v to skrbniško pogodbo v testnem omrežju Arc; Sidequest ga nikoli ne hrani:",
+    "worker": "Namenjen je izvajalcu, ki odda delo do {deadline}, na to denarnico:",
+    "review": "Ko je delo oddano, imate {review}, da ga potrdite ali zavrnete. Če se v tem času ne odzovete, šteje kot potrjeno in izvajalec je plačan.",
+    "reject": "Če ga zavrnete, ima razsodnik {window}, da odloči, kako se denar razdeli; brez razsodbe dobite vse nazaj. Razsodnik:",
+    "undelivered": "Če do roka ni nič oddano, dobite vse nazaj.",
+    "fee": "Od izplačanega gre {percent} Sidequestu: pri celotnem znesku je to {fee}, izvajalec pa prejme {worker}. Prejemnik provizije:",
+    "expiry": "Če naročila do {date} nihče ne poravna, lahko denar iz skrbniške pogodbe prevzamete nazaj sami.",
+    "wallet": "Denarnica pokaže en podpis: USDC »ReceiveWithAuthorization« za ta znesek, ki ga je mogoče uporabiti samo za to naročilo in samo do {date}. Nič se ne premakne, dokler ga Sidequest ne posreduje.",
+    "sign": "Podpiši in vplačaj",
+    "notNow": "Ne zdaj"
+  },
+  "review": {
+    "rating": "Kako je šlo? 5 je najboljše.",
+    "stars": "{count, plural, one {# zvezdica} two {# zvezdici} few {# zvezdice} other {# zvezdic}}",
+    "text": "Vaša ocena",
+    "submit": "Objavi oceno"
   }
 }

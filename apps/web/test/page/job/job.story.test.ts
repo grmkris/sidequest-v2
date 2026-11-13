@@ -1,5 +1,6 @@
 import { Amount, UsdcOnArcTestnet } from '@sidequest/protocol'
 import { Option } from 'effect'
+import { AsyncData } from 'foldkit'
 import { Command, expectNoOutMessage, expectOutMessage, given, message, model, story } from 'foldkit/story'
 import { describe, expect, test } from 'vitest'
 import { FormStatus } from '../../../src/Forms.ts'
@@ -8,18 +9,25 @@ import {
   Action,
   init,
   Message,
+  type Model,
   OutMessage,
   PublishAccept,
   PublishProposal,
+  PublishReview,
   PublishStatement,
   ReadJob,
   ReadNames,
   update,
 } from '../../../src/page/job/Job.ts'
+import { Flow, Message as MoneyMessage, Work } from '../../../src/page/job/money/message.ts'
+import { ReadWalletAccount, ReadMoneyJob, ReadPayment } from '../../../src/page/job/money/update.ts'
 import * as Propose from '../../../src/page/job/Propose.ts'
+import * as Review from '../../../src/page/job/Review.ts'
 import { Preload } from '../../../src/Preload.ts'
+import { Problem } from '../../../src/Problem.ts'
 import { PublishFailure, PublishRefusal } from '../../../src/Publishing.ts'
 import { bidderAccount, bidderKey, buyerKey, foldedJob, proposalFrom, requestId } from '../../Fixtures.ts'
+import { buyerAccount, buyerWallet, moneyJob, payment } from './MoneyFixtures.ts'
 
 const ready = (pubkey: string, wallets: ReadonlyArray<string> = []) =>
   Me.Ready({
@@ -218,6 +226,75 @@ describe('the job page', () => {
         expect(page.action).toEqual(Action.Failed({ failure: refusal }))
         expect(Option.map(page.maybePropose, (form) => form.status)).toEqual(Option.some(FormStatus.Editing()))
       }),
+    )
+  })
+
+  test('a job the server read funded asks for its payment, and so does every read that finds it funded', () => {
+    const served = init('en', requestId, buyer, Option.some(Preload.Job({ view: moneyJob('funded'), names: [] })))
+    expect(served.commands?.map((command) => command.name)).toEqual([ReadPayment.name])
+    story(
+      update,
+      given(served.model),
+      message(Message.SucceededReadJob({ view: moneyJob('delivered') })),
+      Command.expectExact(ReadPayment({ job: requestId })),
+      Command.resolve(ReadPayment, MoneyMessage.SucceededReadPayment({ status: payment(['fund']) })),
+      model((page) => expect(Option.isSome(page.money.maybePayment)).toBe(true)),
+    )
+  })
+
+  test('the buyer funds a proposal from its card, from the wallet linked to their key', () => {
+    story(
+      update,
+      given(opened(ready(buyerKey, [buyerAccount]), [first])),
+      message(Message.ClickedFund({ proposal: first.id, payer: buyerWallet })),
+      Command.expectExact(ReadWalletAccount()),
+      model((page) =>
+        expect(page.money.flow).toEqual(
+          Flow.Connecting({ attempt: { work: Work.Fund({ proposal: first.id }), signer: buyerWallet } }),
+        ),
+      ),
+      Command.resolve(ReadWalletAccount, MoneyMessage.FailedReadWalletAccount({ problem: Problem.NoWallet() })),
+    )
+  })
+
+  test('a job the money panel read while following a step is the job the page shows', () => {
+    const following: Model = {
+      ...opened(buyer, [first]),
+      money: {
+        ...opened(buyer, [first]).money,
+        flow: Flow.Following({ step: 'fund', transactionHash: `0x${'7e'.repeat(32)}`, attempt: 0 }),
+      },
+    }
+    story(
+      update,
+      given(following),
+      message(Message.GotMoneyMessage({ message: MoneyMessage.CompletedWaitBeforeCheck() })),
+      Command.resolve(ReadMoneyJob, MoneyMessage.SucceededReadJob({ view: moneyJob('funded') })),
+      model((page) => expect(page.view).toEqual(AsyncData.Success({ data: moneyJob('funded') }))),
+      Command.resolve(ReadPayment, MoneyMessage.SucceededReadPayment({ status: payment(['fund']) })),
+      Command.expectNone(),
+    )
+  })
+
+  test('once settled, a side reviews the other: the worker, from the buyer, with the rating and text they gave', () => {
+    const settled = Preload.Job({ view: moneyJob('released'), names: [] })
+    const page = init('en', requestId, ready(buyerKey, [buyerAccount]), Option.some(settled)).model
+    story(
+      update,
+      given(page),
+      message(Message.GotReviewMessage({ message: Review.Message.UpdatedText({ value: ' ' }) })),
+      message(Message.GotReviewMessage({ message: Review.Message.SubmittedReview() })),
+      Command.expectNone(),
+      message(Message.GotReviewMessage({ message: Review.Message.SelectedRating({ value: '4' }) })),
+      message(Message.GotReviewMessage({ message: Review.Message.UpdatedText({ value: ' On time, clean SVG. ' }) })),
+      message(Message.GotReviewMessage({ message: Review.Message.SubmittedReview() })),
+      Command.expectExact(
+        PublishReview({ job: requestId, subject: bidderKey, rating: 4, text: 'On time, clean SVG.' }),
+      ),
+      model((current) => expect(current.action).toEqual(Action.Publishing({ act: 'review' }))),
+      Command.resolve(PublishReview, Message.SucceededPublish({ act: 'review' })),
+      model((current) => expect(current.review).toEqual(Review.init('en'))),
+      readAgain,
     )
   })
 })

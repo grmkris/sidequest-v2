@@ -1,6 +1,6 @@
 import { format } from '@sidequest/i18n'
-import type { AcceptView, ChainEnding, FundingView, JobView, ProposalView, Stage, StatementView } from '@sidequest/fold'
-import { Array, Option, Predicate } from 'effect'
+import type { AcceptView, JobView, ProposalView, Stage, StatementView } from '@sidequest/fold'
+import { Array, Option } from 'effect'
 import { AsyncData, type Html, Submodel } from 'foldkit'
 import { formatAmount } from '../../Amount.ts'
 import { signerOnly } from '../../Gate.ts'
@@ -12,9 +12,27 @@ import { styled } from '../../Styled.ts'
 import { formatInstant, type PlainKey, say } from '../../Text.ts'
 import * as Ui from '../../Ui.ts'
 import * as s from '../../Ui.styles.ts'
-import { type Act, Action, isBuyer, isMine, Message, type Model, negotiable, payToOf, standing } from './Job.ts'
+import { walletOn } from '../../Me.ts'
+import { chainSection } from './ChainView.ts'
+import {
+  type Act,
+  Action,
+  isBuyer,
+  isMine,
+  Message,
+  type Model,
+  negotiable,
+  payToOf,
+  reviewSubject,
+  standing,
+} from './Job.ts'
 import * as js from './Job.styles.ts'
+import { addressOf, settledFlow } from './money/message.ts'
+import * as MoneyView from './money/view.ts'
+import { panelShown } from './money/view.ts'
 import * as Propose from './Propose.ts'
+import * as Review from './Review.ts'
+import { reviewsSection } from './ReviewsView.ts'
 import { termsView } from './TermsView.ts'
 
 // The job as its signed events and the chain's facts fold it: the request, every proposal with its labels, the
@@ -80,6 +98,7 @@ const publishedKeys: Readonly<Record<Act, PlainKey>> = {
   accept: 'job.published.accept',
   withdraw: 'job.published.withdraw',
   close: 'job.published.close',
+  review: 'job.published.review',
 }
 
 const actionNotice = (h: Html.HtmlBuilder<Message>, model: Model, language: Language) =>
@@ -139,6 +158,18 @@ const confirmAccept = (h: Html.HtmlBuilder<Message>, { model, language, timeZone
     ],
   )
 
+/** The buyer may fund any proposal that stands, accepted or not, from the wallet linked to their key. */
+const fundButton = (h: Html.HtmlBuilder<Message>, { model, language }: Reader, proposal: ProposalView) =>
+  Option.match(Option.flatMap(walletOn(model.me, proposal.content.terms.network), addressOf), {
+    onNone: () => h.empty,
+    onSome: (payer) =>
+      Ui.button(h, {
+        label: say(language, 'job.fund'),
+        onClick: Message.ClickedFund({ proposal: proposal.id, payer }),
+        disabled: !settledFlow(model.money.flow),
+      }),
+  })
+
 const proposalActions = (h: Html.HtmlBuilder<Message>, reader: Reader, proposal: ProposalView) => {
   const { model, view, language } = reader
   if (!negotiable(view) || !standing(proposal)) {
@@ -158,6 +189,7 @@ const proposalActions = (h: Html.HtmlBuilder<Message>, reader: Reader, proposal:
             kind: 'primary',
             busy,
           }),
+          fundButton(h, reader, proposal),
         ])
   }
   return isMine(model, proposal.author)
@@ -319,80 +351,44 @@ const recordSection = (h: Html.HtmlBuilder<Message>, reader: Reader) =>
         ],
       )
 
-const fundingFacts = (h: Html.HtmlBuilder<Message>, { language, timeZone }: Reader, funding: FundingView) =>
-  Ui.facts(h, [
-    Ui.fact(h, say(language, 'job.chain.amount'), formatAmount(funding.fact.amount, funding.fact.asset, language)),
-    Ui.fact(h, say(language, 'job.chain.deadline'), formatInstant(funding.fact.deliveryDeadline, language, timeZone)),
-    Ui.fact(
-      h,
-      say(language, 'job.chain.terms'),
-      say(
-        language,
-        funding.terms === 'unknown'
-          ? 'job.chain.termsUnknown'
-          : funding.termsMatchChain
-            ? 'job.chain.termsMatch'
-            : 'job.chain.termsDiffer',
-      ),
-    ),
-    Ui.fact(h, say(language, 'job.chain.payment'), Ui.dataText(h, funding.fact.paymentHash)),
-  ])
-
-const endingText = (language: Language, asset: FundingView['fact']['asset'], ending: ChainEnding): string =>
-  Predicate.isTagged(ending, 'Settled')
-    ? format(language, 'job.chain.settled', {
-        captured: formatAmount(ending.capturedAmount, asset, language),
-        refunded: formatAmount(ending.refundedAmount, asset, language),
-      })
-    : format(language, 'job.chain.reclaimed', { amount: formatAmount(ending.amount, asset, language) })
-
-/** What the chain recorded of the escrow, read-only. */
-const chainSection = (h: Html.HtmlBuilder<Message>, reader: Reader) => {
-  const { view, language, timeZone } = reader
-  return Option.match(Option.fromNullishOr(view.funding), {
-    onNone: () => h.empty,
-    onSome: (funding) =>
-      h.section(
-        [h.AriaLabelledBy('job-chain'), ...styled(h, s.panel())],
-        [
-          h.h2([h.Id('job-chain')], [say(language, 'job.chain.title')]),
-          fundingFacts(h, reader, funding),
-          view.delivery === null
-            ? h.empty
-            : h.p(
-                [],
-                [
-                  format(language, 'job.chain.delivered', {
-                    date: formatInstant(view.delivery.deliveredAt, language, timeZone),
-                    until: formatInstant(view.delivery.reviewEndsAt, language, timeZone),
-                  }),
-                ],
-              ),
-          view.rejection === null
-            ? h.empty
-            : h.p(
-                [],
-                [
-                  format(language, 'job.chain.rejected', {
-                    date: formatInstant(view.rejection.rejectedAt, language, timeZone),
-                    until: formatInstant(view.rejection.arbitrationEndsAt, language, timeZone),
-                  }),
-                ],
-              ),
-          view.ending === null ? h.empty : h.p([], [endingText(language, funding.fact.asset, view.ending)]),
-        ],
-      ),
-  })
-}
-
-/** Where phase 1 had money buttons: for the job's parties, a plain note that they arrive in the next release. */
-const moneyNote = (h: Html.HtmlBuilder<Message>, { model, view, language }: Reader) => {
-  const party =
-    isBuyer(model, view) || Option.exists(Option.fromNullishOr(view.worker), (worker) => isMine(model, worker))
-  const accepted = Array.some(view.proposals, (proposal) => proposal.accepted && isMine(model, proposal.author))
-  return (party || accepted) && view.stage !== 'open' && view.stage !== 'proposed' && view.stage !== 'closed'
-    ? Ui.notice(h, 'neutral', [h.p([], [say(language, 'job.moneyNext')])])
+/** The money panel, for the job's parties. */
+const moneySection = (h: Html.HtmlBuilder<Message>, { model, view, timeZone }: Reader) =>
+  panelShown(model.money, view, model.me)
+    ? signerOnly(h, { language: model.language, me: model.me, route: jobRoute(model) }, () =>
+        h.submodel({
+          slotId: 'money',
+          model: model.money,
+          view: MoneyView.view,
+          viewInputs: {
+            job: view,
+            me: model.me,
+            names: model.names,
+            timeZone,
+            identityHref: identityHref(jobRoute(model)),
+          },
+          toParentMessage: (message) => Message.GotMoneyMessage({ message }),
+        }),
+      )
     : h.empty
+
+/** The person's review form, once the job settled, when the fold would count their review: they are its buyer or its
+ * worker, and the escrow's wallet on their side is linked to their key. */
+const reviewForm = (h: Html.HtmlBuilder<Message>, { model, view }: Reader): Option.Option<Html.Html> => {
+  const funding = view.funding
+  const linked =
+    funding !== null &&
+    ((isBuyer(model, view) && funding.payerLinked) ||
+      (view.worker !== null && isMine(model, view.worker) && funding.receiverLinked))
+  return view.ending !== null && linked && Option.isSome(reviewSubject(model, view))
+    ? Option.some(
+        h.submodel({
+          slotId: 'review',
+          model: model.review,
+          view: Review.view,
+          toParentMessage: (message) => Message.GotReviewMessage({ message }),
+        }),
+      )
+    : Option.none()
 }
 
 const closeControls = (h: Html.HtmlBuilder<Message>, { model, view, language }: Reader) => {
@@ -443,11 +439,22 @@ export const view = Submodel.defineView<Model, Message, ViewInputs>((model, { ti
         h.div(styled(h, js.main()), [
           requestPanel(h, reader),
           actionNotice(h, model, model.language),
-          moneyNote(h, reader),
-          chainSection(h, reader),
+          moneySection(h, reader),
+          chainSection(h, {
+            view: jobView,
+            maybePayment: model.money.maybePayment,
+            language: model.language,
+            timeZone,
+          }),
           proposalsSection(h, reader),
           proposeSection(h, reader),
           recordSection(h, reader),
+          reviewsSection(h, {
+            view: jobView,
+            language: model.language,
+            names: model.names,
+            maybeForm: reviewForm(h, reader),
+          }),
           closeControls(h, reader),
         ]),
       ])

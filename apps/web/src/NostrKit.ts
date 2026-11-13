@@ -13,9 +13,14 @@ import {
 import {
   type BuildOptions,
   buildSidequestEvent,
+  type Delivered,
+  deliveryHashOf,
+  deliveryNote,
+  DeliveryNoteContent,
   jobAccept,
   jobProposal,
   jobRequest,
+  jobReview,
   type KindSpec,
   profileTemplate,
   ServiceListing,
@@ -25,7 +30,7 @@ import {
   walletLinkTypedData,
 } from '@sidequest/nostr/vocabulary'
 import { type NetworkRef, type Terms, termsDigest, webCrypto } from '@sidequest/protocol'
-import { Crypto, Effect, type Option, Schema } from 'effect'
+import { Crypto, Effect, Option, Schema } from 'effect'
 import type { KitSigner, Nip07Provider, SignerFailure } from './Signer.ts'
 
 // The Nostr code of the browser, loaded as one chunk the first time a signer is used (see `Signer.ts`): the two
@@ -148,8 +153,33 @@ export const acceptTemplate = (
   return templateOf(jobAccept, content, { createdAt, network })
 }
 
-/** A statement on the record about a job: withdrawing a request or a proposal. */
+/** A statement on the record about a job: withdrawing a request or a proposal, or the buyer's reason for a rejection. */
 export const statementTemplate = (input: unknown, createdAt: number) => templateOf(statement, input, { createdAt })
+
+const DeliveredInput = Schema.Struct({
+  job: DeliveryNoteContent.fields.job,
+  url: DeliveryNoteContent.fields.url,
+  note: DeliveryNoteContent.fields.note,
+})
+
+/** The hash the worker's note states and their wallet signs onto the escrow (see `deliveryHashOf`); none when the
+ * vocabulary would refuse what was delivered as a note's content. */
+export const deliveryHash = (input: {
+  readonly job: string
+  readonly url?: string
+  readonly note?: string
+}): Effect.Effect<Option.Option<string>> =>
+  Schema.decodeUnknownEffect(DeliveredInput)(input).pipe(
+    Effect.flatMap((delivered: Delivered) => deliveryHashOf(delivered)),
+    Effect.option,
+  )
+
+/** The worker's delivery note: the job's buyer, the hash of what was delivered and where it is, on the job's network. */
+export const deliveryNoteTemplate = (input: unknown, network: NetworkRef, createdAt: number) =>
+  templateOf(deliveryNote, input, { createdAt, network })
+
+/** One side's review of the other once the job settled: a rating from 1 to 5 and a text. */
+export const reviewTemplate = (input: unknown, createdAt: number) => templateOf(jobReview, input, { createdAt })
 
 /** A seller's NIP-99 listing; publishing it again under the same slug replaces the earlier version. */
 export const listingTemplate = (input: unknown, createdAt: number): Effect.Effect<Option.Option<EventTemplate>> =>

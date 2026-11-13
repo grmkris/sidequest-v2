@@ -1,5 +1,5 @@
 import { JobView, type ProposalView } from '@sidequest/fold'
-import { NetworkRef } from '@sidequest/protocol'
+import { NetworkRef, WalletAddress } from '@sidequest/protocol'
 import { Array, Effect, Option, Schema } from 'effect'
 import * as FetchHttpClient from 'effect/http/FetchHttpClient'
 import { AsyncData, Command, Update } from 'foldkit'
@@ -15,19 +15,24 @@ import { failedWith, Problem } from '../../Problem.ts'
 import { PublishFailure, publishEvent, publishFailureOf } from '../../Publishing.ts'
 import type { Signers } from '../../Signer.ts'
 import { say } from '../../Text.ts'
+import type { Wallet } from '../../Wallet.ts'
+import * as Money from './money/message.ts'
+import * as MoneyUpdate from './money/update.ts'
 import * as Propose from './Propose.ts'
+import * as Review from './Review.ts'
 
 // The job page: a request and everything signed about it, as the index folds it (`@sidequest/fold`'s `JobView`). Before
 // funding nothing binds: a bidder with a linked wallet proposes, revises and withdraws; the buyer accepts one proposal
-// or closes the request. Each is a signed event the person's signer makes; the page then reads the job again. Funding
-// and what follows are shown as the chain recorded them; the money steps arrive in a later release.
+// or closes the request. Each is a signed event the person's signer makes; the page then reads the job again. The money
+// steps (fund, deliver, approve, reject) are wallet signatures the API relays (`Money.ts`); once the job settled, each
+// side may review the other.
 
 // MODEL
 
 const ViewData = AsyncData.Schema(JobView, Problem)
 
 /** What the person publishes about the job. */
-export const Act = Schema.Literals(['proposal', 'accept', 'withdraw', 'close'])
+export const Act = Schema.Literals(['proposal', 'accept', 'withdraw', 'close', 'review'])
 export type Act = typeof Act.Type
 
 /** What the person is doing, one thing at a time. */
@@ -48,6 +53,8 @@ export const Model = Schema.Struct({
   view: ViewData.schema,
   action: Action,
   maybePropose: Schema.Option(Propose.Model),
+  money: Money.Model,
+  review: Review.Model,
   names: Names,
   askedNames: Schema.Array(Schema.String),
 })
@@ -62,6 +69,9 @@ export const Message = defineMessageUnion({
   ClickedRevise: { proposal: Schema.String },
   ClickedCancelPropose: {},
   GotProposeMessage: { message: Propose.Message },
+  GotMoneyMessage: { message: Money.Message },
+  ClickedFund: { proposal: Schema.String, payer: WalletAddress },
+  GotReviewMessage: { message: Review.Message },
   ClickedWithdraw: { proposal: Schema.String },
   ClickedAccept: { proposal: Schema.String },
   ClickedConfirmAccept: {},
@@ -171,23 +181,38 @@ export const PublishStatement = Command.define('PublishStatement', {
     ).pipe(published(type === 'withdraw_request' ? 'close' : 'withdraw')),
 })
 
+/** One side's review of the other, once the job settled. */
+export const PublishReview = Command.define('PublishReview', {
+  args: { job: Schema.String, subject: Schema.String, rating: Schema.Int, text: Schema.String },
+  messages: [Message.SucceededPublish, Message.FailedPublish],
+  execute: (review) =>
+    publishEvent((kit, createdAt) => kit.reviewTemplate(review, createdAt)).pipe(published('review')),
+})
+
 export const ReadNames = defineReadNames(Message.SucceededReadNames, Message.FailedReadNames)
 
 // INIT
 
-type Services = SidequestClient | Signers
+type Services = SidequestClient | Signers | Wallet
 type UpdateReturn = Update.ReturnWithOutMessage<Model, Message, OutMessage, Services>
 type Step = Update.StepWithOutMessage<Model, Message, OutMessage, Services>
 
 type JobPreload = Extract<Preload, { readonly _tag: 'Job' }>
 
-/** Every key the job shows: its buyer, the bidders and whoever signed an accept or a statement. */
+/** Every key the job shows: its buyer, the bidders and whoever signed an accept, a statement or a review. */
 export const keysIn = (view: JobView): ReadonlyArray<string> => [
   view.buyer,
   ...Array.map(view.proposals, (proposal) => proposal.author),
   ...Array.map(view.accepts, (accept) => accept.author),
   ...Array.map(view.statements, (statement) => statement.author),
+  ...Array.map(view.reviews, (review) => review.author),
 ]
+
+const toMoneyMessage = (message: Money.Message) => Message.GotMoneyMessage({ message })
+
+/** Once the chain funded the job: read its payment, for the escrow's address and the relayed transactions. */
+const paymentReads = (job: string, view: JobView) =>
+  view.funding === null ? [] : Command.mapMessages([MoneyUpdate.ReadPayment({ job })], toMoneyMessage)
 
 /** The job as the server read it, or a read of it. */
 export const init = (
@@ -196,13 +221,22 @@ export const init = (
   me: Me,
   maybePreload: Option.Option<JobPreload>,
 ): Update.Return<Model, Message, Services> => {
-  const base = { language, job, me, action: Action.Idle(), maybePropose: Option.none() }
+  const base = {
+    language,
+    job,
+    me,
+    action: Action.Idle(),
+    maybePropose: Option.none(),
+    money: MoneyUpdate.init(language, job),
+    review: Review.init(language),
+  }
   return Option.match(
     Option.filter(maybePreload, (preload) => preload.view.job === job),
     {
       onSome: ({ view, names }) => ({
         // The server asked for every name its view shows; one it did not find is not asked for again.
         model: { ...base, view: ViewData.Success({ data: view }), names, askedNames: keysIn(view) },
+        commands: paymentReads(job, view),
       }),
       onNone: () => ({
         model: { ...base, view: AsyncData.Loading(), names: [], askedNames: [] },
@@ -301,6 +335,58 @@ const askNames = (model: Model, view: JobView): UpdateReturn =>
     }),
   })
 
+/** The job as read: shown, with the names it needs asked for. */
+const jobRead = (model: Model, view: JobView): UpdateReturn =>
+  askNames(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view)
+
+const moneyFold = {
+  read: (model: Model) => Option.some(model.money),
+  write: (model: Model, nextMoney: Money.Model) => modifyFields(model, { money: () => nextMoney }),
+  toParentMessage: toMoneyMessage,
+  foldOutMessage: Money.OutMessage.match<Step>({
+    ReadJob:
+      ({ view }) =>
+      (model) =>
+        jobRead(model, view),
+  }),
+}
+
+const foldMoney = Update.foldChild({ update: MoneyUpdate.update, ...moneyFold })
+
+const foldFund = Update.foldChild({ update: MoneyUpdate.fund, ...moneyFold })
+
+/** The other side of a settled job, whom the person's review is about. */
+export const reviewSubject = (model: Model, view: JobView): Option.Option<string> => {
+  if (isBuyer(model, view)) {
+    return Option.fromNullishOr(view.worker)
+  }
+  return Option.exists(Option.fromNullishOr(view.worker), (worker) => isMine(model, worker))
+    ? Option.some(view.buyer)
+    : Option.none()
+}
+
+const foldReview = Update.foldChild({
+  update: Review.update,
+  read: (model: Model) => Option.some(model.review),
+  write: (model: Model, nextReview: Review.Model) => modifyFields(model, { review: () => nextReview }),
+  toParentMessage: (message) => Message.GotReviewMessage({ message }),
+  foldOutMessage: Review.OutMessage.match<Step>({
+    Submitted:
+      ({ rating, text }) =>
+      (model) =>
+        asSigner(model, () =>
+          Option.match(
+            Option.flatMap(AsyncData.getData(model.view), (view) => reviewSubject(model, view)),
+            {
+              onNone: () => ({ model: modifyFields(model, { review: Review.settled }) }),
+              onSome: (subject) =>
+                publishing(model, 'review', PublishReview({ job: model.job, subject, rating, text })),
+            },
+          ),
+        ),
+  }),
+})
+
 const confirmedAccept = (model: Model): UpdateReturn => {
   const action = model.action
   if (!Action.guards.ConfirmingAccept(action)) {
@@ -327,8 +413,10 @@ const confirmedAccept = (model: Model): UpdateReturn => {
 
 export const update = (model: Model, message: Message): UpdateReturn =>
   Message.match<UpdateReturn>(message, {
-    SucceededReadJob: ({ view }) =>
-      askNames(modifyFields(model, { view: () => ViewData.Success({ data: view }) }), view),
+    SucceededReadJob: ({ view }) => {
+      const read = jobRead(model, view)
+      return { ...read, commands: [...(read.commands ?? []), ...paymentReads(model.job, view)] }
+    },
     FailedReadJob: ({ problem }) => ({
       model: modifyFields(model, { view: () => ViewData.Failure({ error: problem }) }),
     }),
@@ -345,6 +433,9 @@ export const update = (model: Model, message: Message): UpdateReturn =>
       })),
     ClickedCancelPropose: () => ({ model: modifyFields(model, { maybePropose: () => Option.none() }) }),
     GotProposeMessage: ({ message: proposeMessage }) => foldPropose(model, proposeMessage),
+    GotMoneyMessage: ({ message: moneyMessage }) => foldMoney(model, moneyMessage),
+    ClickedFund: (funding) => foldFund(model, funding),
+    GotReviewMessage: ({ message: reviewMessage }) => foldReview(model, reviewMessage),
     ClickedWithdraw: ({ proposal }) =>
       asSigner(model, () =>
         publishing(
@@ -383,12 +474,14 @@ export const update = (model: Model, message: Message): UpdateReturn =>
         modifyFields(model, {
           action: () => Action.Published({ act }),
           maybePropose: (maybePropose) => (act === 'proposal' ? Option.none() : maybePropose),
+          review: (review) => (act === 'review' ? Review.init(model.language) : review),
         }),
       ),
     FailedPublish: ({ failure }) => ({
       model: modifyFields(model, {
         action: () => Action.Failed({ failure }),
         maybePropose: Option.map(Propose.settled),
+        review: Review.settled,
       }),
     }),
     SucceededReadNames: ({ names }) => ({ model: modifyFields(model, { names: (known) => withNames(known, names) }) }),
