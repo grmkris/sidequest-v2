@@ -87,8 +87,24 @@ export interface Gateway {
   readonly revoke: (key: SecretKey, grant: NostrEvent) => void
 }
 
-/** The NIP-98 header of a request, signed by `key`. */
-export const nip98 = (key: SecretKey, url: string, method: string, body?: string) =>
+/**
+ * The second a test signs NIP-98 authorizations at: the wall clock's when made, then moved only by `tick`. Two
+ * authorizations of one request signed at one second are one event, which the gateway spends once; the test decides
+ * when that holds instead of hoping two signatures fall in the same wall-clock second. The gateway accepts
+ * authorizations within a minute of its own clock, far longer than a test runs.
+ */
+export const signingClock = () => {
+  let at = now()
+  return {
+    now: () => at,
+    tick: () => {
+      at += 1
+    },
+  }
+}
+
+/** The NIP-98 header of a request, signed by `key` at `at` (now). */
+export const nip98 = (key: SecretKey, url: string, method: string, body?: string, at = now()) =>
   httpAuthHeader(
     sign(
       httpAuthTemplate(
@@ -97,7 +113,7 @@ export const nip98 = (key: SecretKey, url: string, method: string, body?: string
           method,
           ...(body === undefined ? {} : { payloadSha256: createHash('sha256').update(body).digest('hex') }),
         },
-        now(),
+        at,
       ),
       key,
     ),

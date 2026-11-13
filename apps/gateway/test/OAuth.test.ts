@@ -1,12 +1,9 @@
 import { Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
 import { allow, connect, exchange, mcp, startConnecting, Tokens, tool } from './Connect.ts'
-import { freshKey, loopback, nip98, origin, withGateway } from './GatewayWorld.ts'
+import { freshKey, loopback, nip98, origin, signingClock, withGateway } from './GatewayWorld.ts'
 
 const Decision = Schema.Struct({ redirect: Schema.String })
-
-/** Waits into the next second, so the operator's next NIP-98 authorization is a new event. */
-const nextSecond = () => new Promise((resolve) => setTimeout(resolve, 1100))
 
 describe('OAuth for MCP clients', () => {
   test('publishes its metadata as its own issuer', () =>
@@ -43,9 +40,10 @@ describe('OAuth for MCP clients', () => {
   test('lets only the operator allow, only an agent of theirs, only with an active grant', () =>
     withGateway(async (gateway) => {
       const operator = freshKey()
+      const clock = signingClock()
       const agent = await gateway.createAgent(operator)
       const { consent, cookie } = await startConnecting(gateway)
-      expect(await allow(gateway, operator, consent, cookie, agent)).toMatchObject({
+      expect(await allow(gateway, operator, consent, cookie, agent, clock.now())).toMatchObject({
         status: 403,
         body: { error: 'no_active_grant', reason: 'NoGrant' },
       })
@@ -60,21 +58,21 @@ describe('OAuth for MCP clients', () => {
         body: JSON.stringify({ agent }),
       })
       expect(unsigned.status).toBe(401)
-      // An authorization is spent once used: the same request signed in the same second is the same event.
-      expect(await allow(gateway, operator, consent, cookie, agent)).toMatchObject({
+      // An authorization is spent once used: the same request signed at the same second is the same event.
+      expect(await allow(gateway, operator, consent, cookie, agent, clock.now())).toMatchObject({
         status: 401,
         body: { reason: 'replayed' },
       })
-      await nextSecond()
-      expect(await allow(gateway, operator, consent, '', agent)).toMatchObject({ status: 410 })
-      await nextSecond()
-      const allowed = await allow(gateway, operator, consent, cookie, agent)
+      clock.tick()
+      expect(await allow(gateway, operator, consent, '', agent, clock.now())).toMatchObject({ status: 410 })
+      clock.tick()
+      const allowed = await allow(gateway, operator, consent, cookie, agent, clock.now())
       expect(allowed.status).toBe(200)
       const answered = new URL(Schema.decodeUnknownSync(Decision)(allowed.body).redirect)
       expect([answered.origin + answered.pathname, answered.searchParams.get('state')]).toEqual([loopback, 'st'])
       expect(answered.searchParams.get('iss')).toBe(origin)
-      await nextSecond()
-      expect(await allow(gateway, operator, consent, cookie, agent)).toMatchObject({ status: 410 })
+      clock.tick()
+      expect(await allow(gateway, operator, consent, cookie, agent, clock.now())).toMatchObject({ status: 410 })
     }))
 
   test('refuses a wrong PKCE verifier, and a code used twice revokes its connection', () =>

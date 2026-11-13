@@ -52,7 +52,14 @@ export const startConnecting = async (gateway: Gateway) => {
 }
 
 /** The operator allows `agent` on the consent page, signing the request with `key`; the gateway's answer. */
-export const allow = async (gateway: Gateway, key: SecretKey, consent: string, cookie: string, agent: PublicKey) => {
+export const allow = async (
+  gateway: Gateway,
+  key: SecretKey,
+  consent: string,
+  cookie: string,
+  agent: PublicKey,
+  at?: number,
+) => {
   const body = JSON.stringify({ agent })
   const path = `${consent}/allow`
   const response = await gateway.fetch(path, {
@@ -60,7 +67,7 @@ export const allow = async (gateway: Gateway, key: SecretKey, consent: string, c
     headers: {
       'content-type': 'application/json',
       cookie,
-      authorization: nip98(key, `${origin}${path}`, 'POST', body),
+      authorization: nip98(key, `${origin}${path}`, 'POST', body, at),
     },
     body,
   })
