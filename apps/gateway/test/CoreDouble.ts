@@ -207,6 +207,7 @@ export const coreDouble = (): CoreDouble => {
     payment: () =>
       Effect.succeed({
         escrow: '0x0000000000000000000000000000000000000001',
+        operator: '0x0000000000000000000000000000000000000002',
         paymentHash: null,
         chainTime: nowSeconds(),
         stage: 'Unfunded',

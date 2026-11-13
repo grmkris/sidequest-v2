@@ -131,10 +131,12 @@ export type RelayedCall = typeof RelayedCall.Type
 /**
  * Where a job's escrow payment stands, from the chain's facts the index recorded (the job's earliest
  * funding), the chain's time (the newest confirmed block's), and the calls the relayer took on for that payment.
- * `escrow` is the escrow contract the chain's payments are held in, where a payer reclaims after expiry.
+ * `escrow` is the escrow contract the chain's payments are held in, where a payer reclaims after expiry; `operator` is
+ * the `SidequestOperator` this stage funds and settles through, which a client can check before it signs.
  */
 export const EscrowPaymentStatus = Schema.Struct({
   escrow: WalletAddress,
+  operator: WalletAddress,
   paymentHash: Schema.NullOr(Bytes32),
   chainTime: UnixSeconds,
   stage: EscrowStage,

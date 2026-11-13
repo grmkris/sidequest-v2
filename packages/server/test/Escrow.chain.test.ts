@@ -1,4 +1,4 @@
-import { EscrowFunding, Relayed } from '@sidequest/protocol'
+import { EscrowFunding, EscrowPaymentStatus, Relayed } from '@sidequest/protocol'
 import { ChainRpc } from '@sidequest/settlement/ChainRpc'
 import { Effect, Layer, Option, Schema } from 'effect'
 import { isHex } from 'viem'
@@ -55,6 +55,9 @@ describe.skipIf(skipOnChain)('the escrow on chain', () => {
     if (!isHex(transactionHash)) throw new Error('No transaction hash')
     const receipt = await chain.client.waitForTransactionReceipt({ hash: transactionHash })
     expect(receipt.status).toBe('success')
+    // The payment's status names the escrow and the operator the stage settles through, for a client to check.
+    const status = await json(EscrowPaymentStatus, await api.fetch(`/api/index/jobs/${request.id}/payment`))
+    expect([status.escrow, status.operator]).toEqual([chain.chain.escrow, chain.chain.operator])
     return { request, block: receipt.blockNumber }
   }
 

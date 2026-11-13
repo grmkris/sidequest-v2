@@ -149,6 +149,7 @@ export const moneyJob = (
 export const payment = (intents: ReadonlyArray<string>): EscrowPaymentStatus =>
   Schema.decodeSync(EscrowPaymentStatus)({
     escrow,
+    operator: '0x979ef80b97702ebcfcf6b0d9f9fc015c50c15a99',
     paymentHash,
     chainTime: now + 3 * day,
     stage: 'Settled',

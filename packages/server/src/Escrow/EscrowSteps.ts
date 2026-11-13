@@ -156,6 +156,7 @@ const status = Effect.fnUntraced(function* (w: Wiring, job: string) {
   const paymentHash = money.funding?.paymentHash ?? null
   const answer: EscrowPaymentStatus = {
     escrow: on.chain.escrow,
+    operator: on.chain.operator,
     paymentHash,
     chainTime,
     ...stageOf(money),
