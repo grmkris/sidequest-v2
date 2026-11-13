@@ -4,6 +4,7 @@ import { type Terms, UsdcOnArcTestnet } from '@sidequest/protocol'
 import type { OperatorCall } from '@sidequest/settlement/OperatorCall'
 import { termsPaymentOf } from '@sidequest/settlement/Payment'
 import { CallReverted } from '@sidequest/settlement/Relayer'
+import { chainProfiles } from '@sidequest/settlement/Chains'
 import { arcTestnet } from '@sidequest/settlement/SettlementChain'
 import { Effect, Option, Schema } from 'effect'
 import { type Address, getAddress, type Hex, keccak256, toHex } from 'viem'
@@ -48,6 +49,7 @@ export const fakeChain = (sqlite: Database, clock: { now: number; relayerBalance
     chain: testChain,
     relayer: testRelayer,
     mainnet: false,
+    profile: chainProfiles['arc-testnet'],
     lowRelayerBalance: 1_000_000_000_000_000_000n,
     chainTime: Effect.sync(() => clock.now),
     relayerBalance: Effect.sync(() => clock.relayerBalance ?? 10_000_000_000_000_000_000n),

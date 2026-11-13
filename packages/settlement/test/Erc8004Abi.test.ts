@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs'
-import { Option } from 'effect'
 import { decodeFunctionData, parseAbi } from 'viem'
 import { describe, expect, test } from 'vitest'
 import { erc8004IdentityAbi, erc8004ReputationAbi } from '../src/abi/Erc8004.ts'
-import { erc8004RegistriesOn, giveFeedbackCalldata, registerCalldata } from '../src/Erc8004.ts'
+import { chainProfiles } from '../src/Chains.ts'
+import { erc8004RegistriesOf, giveFeedbackCalldata, registerCalldata } from '../src/Erc8004.ts'
 
 // The ERC-8004 text at ethereum/ERCs 503591a, vendored once, in the protocol package (`tools/provenance.json`).
 const spec = readFileSync(new URL('../../protocol/test/vectors/erc-8004.md', import.meta.url), 'utf8')
@@ -46,13 +46,19 @@ describe('the ERC-8004 ABI', () => {
     expect(feedback.args).toEqual([7n, 80n, 0, 'starred', 'sidequest', '', 'https://x.test/f', `0x${'ab'.repeat(32)}`])
   })
 
-  test('knows the registries on Arc testnet and Arc, and none on a chain where none was read', () => {
-    expect(Option.map(erc8004RegistriesOn(5_042_002), ({ identity }) => identity)).toEqual(
-      Option.some('0x8004A818BFB912233c491871b3d84c89A494BD9e'),
-    )
-    expect(Option.map(erc8004RegistriesOn(5042), ({ reputation }) => reputation)).toEqual(
-      Option.some('0x8004BAa17C55a88189AE136b182e5fdA19dE9b63'),
-    )
-    expect(erc8004RegistriesOn(31_337)).toEqual(Option.none())
+  test('knows the registries on every chain a stage can settle on, testnet and mainnet sets apart', () => {
+    expect(erc8004RegistriesOf(chainProfiles['arc-testnet'])).toEqual({
+      chainId: 5_042_002,
+      identity: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
+      reputation: '0x8004B663056A597Dffe9eCcC1965A193B7388713',
+    })
+    expect(erc8004RegistriesOf(chainProfiles['arc-mainnet'])).toMatchObject({
+      chainId: 5042,
+      identity: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432',
+    })
+    expect(erc8004RegistriesOf(chainProfiles['base-mainnet'])).toMatchObject({
+      chainId: 8453,
+      reputation: '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63',
+    })
   })
 })

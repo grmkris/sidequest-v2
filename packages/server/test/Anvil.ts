@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
-import { erc8004RegistriesOn } from '@sidequest/settlement/Erc8004'
+import { erc8004RegistriesOf } from '@sidequest/settlement/Erc8004'
 import { arcTestnet, type SettlementChain } from '@sidequest/settlement/SettlementChain'
 import { chainProfiles } from '@sidequest/settlement/Chains'
 import { Option, Redacted, Schema } from 'effect'
@@ -169,9 +169,7 @@ const installErc8004 = async (
     readonly args: readonly [Address]
   }) => Promise<unknown>,
 ) => {
-  const registries = erc8004RegistriesOn(5_042_002)
-  if (Option.isNone(registries)) throw new Error('No ERC-8004 registries on Arc testnet')
-  const { identity, reputation } = registries.value
+  const { identity, reputation } = erc8004RegistriesOf(chainProfiles['arc-testnet'])
   await anvilCall('anvil_setCode', [identity, code('identityRegistry', 'deployedBytecode')])
   await anvilCall('anvil_setCode', [reputation, code('reputationRegistry', 'deployedBytecode')])
   await write({ address: reputation, abi: initializeAbi, functionName: 'initialize', args: [identity] })

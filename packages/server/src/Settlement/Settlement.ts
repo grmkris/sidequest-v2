@@ -1,3 +1,4 @@
+import type { ChainProfile } from '@sidequest/settlement/Chains'
 import { Arbitrator } from '@sidequest/settlement/Arbitrator'
 import type { ChainUnavailable } from '@sidequest/settlement/ChainRpc'
 import type { OperatorCall } from '@sidequest/settlement/OperatorCall'
@@ -19,6 +20,8 @@ export interface SettlementService {
   readonly relayer: Address
   /** Whether the chain moves real money (a mainnet the stage opted in to). */
   readonly mainnet: boolean
+  /** The chain's profile, which a stage reaches only once any mainnet opt-in passed. */
+  readonly profile: ChainProfile
   /** Below this relayer balance (native wei) the stage warns. */
   readonly lowRelayerBalance: bigint
   readonly relay: (id: string, call: OperatorCall) => Effect.Effect<Relayed, RelayError>
@@ -51,6 +54,7 @@ export class Settlement extends Context.Service<Settlement, Option.Option<Settle
           chain: config.chain,
           relayer: relayer.address,
           mainnet: config.profile.mainnet,
+          profile: config.profile,
           lowRelayerBalance: config.lowRelayerBalance,
           relay: relayer.relay,
           repair: relayer.repair,

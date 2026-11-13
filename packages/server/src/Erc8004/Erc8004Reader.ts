@@ -1,6 +1,6 @@
 import type { Unavailable } from '@sidequest/protocol'
 import { type ChainUnavailable, rpcCall } from '@sidequest/settlement/ChainRpc'
-import { type Erc8004Registries, erc8004RegistriesOn, readToken } from '@sidequest/settlement/Erc8004'
+import { type Erc8004Registries, erc8004RegistriesOf, readToken } from '@sidequest/settlement/Erc8004'
 import { Context, Effect, Layer, Option } from 'effect'
 import { nowSeconds } from '../Index/Ingest.ts'
 import { ArcRpc } from '../Settlement/ArcRpc.ts'
@@ -21,15 +21,19 @@ export interface Erc8004Stage {
   readonly identity: string
 }
 
-/** The registries on the settlement chain the stage is configured with; none without settlement. */
+/**
+ * The registries on the chain the stage settles on, keyed by its profile; none without settlement. A mainnet's are used
+ * only on a stage whose mainnet opt-in passed, since only such a stage has settlement there.
+ */
 export const erc8004StageOf = (settlement: Settlement['Service']): Option.Option<Erc8004Stage> =>
-  Option.flatMap(settlement, ({ chain }) =>
-    Option.map(erc8004RegistriesOn(chain.chainId), (registries) => ({
+  Option.map(settlement, ({ chain, profile }) => {
+    const registries = erc8004RegistriesOf(profile)
+    return {
       registries,
       confirmations: chain.confirmations,
-      identity: `eip155:${chain.chainId}:${registries.identity.toLowerCase()}`,
-    })),
-  )
+      identity: `eip155:${registries.chainId}:${registries.identity.toLowerCase()}`,
+    }
+  })
 
 /**
  * Reads claimed tokens on the stage's identity registry into `erc8004_tokens`: never-read ones first, then the

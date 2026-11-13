@@ -10,6 +10,7 @@ import {
   zeroAddress,
 } from 'viem'
 import { erc8004IdentityAbi, erc8004ReputationAbi } from './abi/Erc8004.ts'
+import type { ChainName, ChainProfile } from './Chains.ts'
 import { ChainUnavailable } from './ChainRpc.ts'
 
 /** A chain's ERC-8004 registries: the identity registry tokens are minted on, and the reputation registry beside it. */
@@ -30,19 +31,24 @@ const mainnetSet = {
   reputation: getAddress('0x8004BAa17C55a88189AE136b182e5fdA19dE9b63'),
 }
 
-/** The chains whose registries were read on 2026-11-13: Arc testnet and Arc, Base Sepolia and Base, Sepolia and Ethereum. */
-const deployed: ReadonlyMap<number, typeof testnetSet> = new Map([
-  [5_042_002, testnetSet],
-  [84_532, testnetSet],
-  [11_155_111, testnetSet],
-  [5042, mainnetSet],
-  [8453, mainnetSet],
-  [1, mainnetSet],
-])
+/**
+ * The registries on each chain a stage can settle on (`Chains.ts`), keyed as its profiles are. Every one has them;
+ * Arc mainnet's are in Circle's contract-address page, not yet in the reference repository's list.
+ */
+export const erc8004Deployments: Readonly<Record<ChainName, typeof testnetSet>> = {
+  'arc-testnet': testnetSet,
+  'arc-mainnet': mainnetSet,
+  'base-mainnet': mainnetSet,
+}
 
-/** The canonical ERC-8004 registries on a chain, if it has them. */
-export const erc8004RegistriesOn = (chainId: number): Option.Option<Erc8004Registries> =>
-  Option.map(Option.fromUndefinedOr(deployed.get(chainId)), (set) => ({ chainId, ...set }))
+/**
+ * The registries on a stage's chain. A stage reaches a mainnet profile only once its mainnet opt-in passed
+ * (`chainRefusal`), so a mainnet registry is only ever used where real money may move.
+ */
+export const erc8004RegistriesOf = (profile: ChainProfile): Erc8004Registries => ({
+  chainId: profile.chainId,
+  ...erc8004Deployments[profile.name],
+})
 
 /** What the identity registry says of a token at one block: its owner (`None`: no such token) and its `agentURI`. */
 export interface TokenRead {
