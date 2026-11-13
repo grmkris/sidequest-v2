@@ -1,7 +1,7 @@
 // Sidequest's vocabulary on Nostr: its kinds, their content schemas and routing tags, one builder and one parser for
 // all of them, the NIP-99 listing, the standard kinds Sidequest reads, and the ids derived from events.
 export { agentGrant, AgentGrantContent } from './AgentGrant.ts'
-export { deliveryNote, DeliveryNoteContent } from './DeliveryNote.ts'
+export { type Delivered, deliveryHashOf, deliveryNote, DeliveryNoteContent } from './DeliveryNote.ts'
 export { jobIdWord, jobOfWord, roomIdOf } from './DerivedIds.ts'
 export { type Envelope, grantOf } from './Envelope.ts'
 export { grantRevocation, GrantRevocationContent } from './GrantRevocation.ts'
