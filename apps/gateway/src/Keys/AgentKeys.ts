@@ -32,7 +32,8 @@ const recordColumns = 'pubkey AS agent, operator, label, created_at AS createdAt
 /**
  * Agents' keys in the gateway's D1. A key is made here, sealed at once (`KeyEnvelope.ts`) and stored only sealed; it
  * is opened only inside {@link AgentKeys.withKey}, for the one signature a tool call needs, and never leaves the
- * Worker. Deleting an agent deletes its sealed key, so nothing can open it again, and revokes its OAuth connections.
+ * Worker. Deleting an agent deletes its sealed key, so nothing can open it again, revokes its OAuth connections and
+ * forgets its delivery delegations.
  */
 export class AgentKeys extends Context.Service<
   AgentKeys,
@@ -100,6 +101,7 @@ export class AgentKeys extends Context.Service<
             sql`DELETE FROM agents WHERE pubkey = ${agent} AND operator = ${operator} RETURNING pubkey`,
           )
           if (deleted.length === 0) return false
+          yield* stored(sql`DELETE FROM delivery_delegations WHERE agent = ${agent}`)
           yield* stored(
             sql`UPDATE oauth_connections SET revoked_at = ${now} WHERE agent = ${agent} AND revoked_at IS NULL`,
           )

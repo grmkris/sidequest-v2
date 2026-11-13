@@ -3,6 +3,7 @@ import { RateLimiter } from '@sidequest/serving/RateLimiter'
 import { Effect, Layer } from 'effect'
 import * as HttpRouter from 'effect/http/HttpRouter'
 import * as HttpServerResponse from 'effect/http/HttpServerResponse'
+import { Delegations } from './Delegations/Delegations.ts'
 import { GrantGate } from './Grants/GrantGate.ts'
 import { AgentKeys } from './Keys/AgentKeys.ts'
 import { mcpRoutes } from './Mcp/McpRoutes.ts'
@@ -32,6 +33,7 @@ const Services = Layer.mergeAll(
   OperatorAuth.layer,
   RateLimiter.layer,
   GrantGate.layer,
+  Delegations.layer,
 ).pipe(Layer.provideMerge(AgentKeys.layer))
 
 /**

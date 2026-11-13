@@ -1,8 +1,18 @@
 import { type EventId, type PublicKey, publicKeyOf, type SecretKey } from '@sidequest/nostr'
-import { deliveryNote, envelopeTag, jobAccept, jobProposal, jobRequest, statement } from '@sidequest/nostr/vocabulary'
+import {
+  deliveryDigestOfTypedData,
+  deliveryNote,
+  envelopeTag,
+  evmAddressOf,
+  jobAccept,
+  jobProposal,
+  jobRequest,
+  recoverAddress,
+  statement,
+} from '@sidequest/nostr/vocabulary'
 import { AccountRef, type GrantScope, Terms, termsDigest, UsdcOnArcTestnet } from '@sidequest/protocol'
-import { Effect, Schema } from 'effect'
-import { describe, expect, test } from 'vitest'
+import { Effect, Option, Schema } from 'effect'
+import { assert, describe, expect, test } from 'vitest'
 import { CoreRefused } from '../src/Core/Core.ts'
 import { agentLimits } from '../src/Mcp/Acting.ts'
 import { connect, mcp, tool } from './Connect.ts'
@@ -174,6 +184,77 @@ describe('the tools, against the core double', () => {
         value: { signedBy: agent, onChain: { signer: 'operator-wallet', typedData: { message: { deliveryHash } } } },
       })
       expect(await eventsOfKind(gateway.core, deliveryNote)).toMatchObject([{ content: { deliveryHash } }])
+    }))
+
+  test('under a stored delegation, deliver records the delivery on chain with the agent’s key, unattended', () =>
+    withGateway(async (gateway) => {
+      const { operatorKey, agent, job, call } = await setUp(gateway, ['propose', 'deliver'])
+      await call('propose', { job, terms, validUntil: now() + day })
+      const [proposal] = await eventsOfKind(gateway.core, jobProposal)
+      gateway.core.funded.set(job, proposal?.event.id ?? '')
+      const delegate = Option.getOrThrow(evmAddressOf(agent))
+      expect(await call('delivery_delegation', { job })).toMatchObject({
+        ok: true,
+        value: { job, delegate, held: false, expiry: null },
+      })
+      const delegation = { job, signature: `0x${'ab'.repeat(65)}`, expiry: now() + day }
+      const stored = await gateway.asOperator(operatorKey, 'POST', `/api/agents/${agent}/delegations`, delegation)
+      expect(stored).toMatchObject({ status: 201, body: { agent, job, delegate, expiry: delegation.expiry } })
+      expect(await call('delivery_delegation', { job })).toMatchObject({
+        value: { held: true, expiry: delegation.expiry },
+      })
+
+      const deliveryHash = `0x${'cd'.repeat(32)}`
+      const delivered = await call('deliver', { job, deliveryHash })
+      expect(delivered).toMatchObject({
+        ok: true,
+        value: {
+          signedBy: agent,
+          onChain: { signer: 'agent-delegate', delegate, delegationExpiry: delegation.expiry },
+        },
+      })
+      expect(await eventsOfKind(gateway.core, deliveryNote)).toMatchObject([{ content: { deliveryHash } }])
+      // The core was asked to relay the wallet's delegation as stored, and the agent key's signature of the delivery.
+      const [relayed] = gateway.core.relayed
+      assert(relayed !== undefined)
+      expect(relayed).toMatchObject({ job, deliveryHash, delegate, expiry: delegation.expiry })
+      expect(relayed.delegation).toBe(delegation.signature)
+      const digest = Option.getOrThrow(deliveryDigestOfTypedData(relayed.typedData))
+      expect(recoverAddress(digest, relayed.signature)).toEqual(Option.some(delegate))
+    }))
+
+  test('without a usable delegation, or when the core refuses its relay, deliver leaves it to the wallet', () =>
+    withGateway(async (gateway) => {
+      const { operatorKey, agent, job, call } = await setUp(gateway, ['propose', 'deliver'])
+      await call('propose', { job, terms, validUntil: now() + day })
+      const [proposal] = await eventsOfKind(gateway.core, jobProposal)
+      gateway.core.funded.set(job, proposal?.event.id ?? '')
+      const deliveryHash = `0x${'cd'.repeat(32)}`
+      expect(await call('deliver', { job, deliveryHash })).toMatchObject({
+        value: { onChain: { signer: 'operator-wallet', delegation: { held: false } } },
+      })
+      const path = `/api/agents/${agent}/delegations`
+      const signature = `0x${'ab'.repeat(65)}`
+      // An expiry already passed is refused when stored.
+      expect(await gateway.asOperator(operatorKey, 'POST', path, { job, signature, expiry: now() - 1 })).toMatchObject({
+        status: 400,
+      })
+      await gateway.asOperator(operatorKey, 'POST', path, { job, signature, expiry: now() + day })
+      gateway.core.nextRelay.refusal = new CoreRefused({
+        refusal: 'IndexSettlementRefused',
+        reason: 'ChainRefused',
+        detail: 'DelegationRevoked',
+      })
+      expect(await call('deliver', { job, deliveryHash })).toMatchObject({
+        ok: true,
+        value: {
+          onChain: {
+            signer: 'operator-wallet',
+            delegation: { held: true, refusal: { reason: 'ChainRefused', detail: 'DelegationRevoked' } },
+          },
+        },
+      })
+      expect(gateway.core.relayed).toEqual([])
     }))
 
   test('a core refusal comes back with the core’s own reason, and nothing is retried as success', () =>

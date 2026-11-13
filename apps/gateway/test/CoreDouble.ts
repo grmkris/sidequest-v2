@@ -11,7 +11,7 @@ import {
   parseSidequestEvent,
   statement,
 } from '@sidequest/nostr/vocabulary'
-import type { AccountRef, AgentGrantView, Cursor, Person, TypedData } from '@sidequest/protocol'
+import type { AccountRef, AgentGrantView, Cursor, DelegatedDelivery, Person, TypedData } from '@sidequest/protocol'
 import { Effect, Layer, Option, Schema } from 'effect'
 import { Core, CoreRefused, type CoreService } from '../src/Core/Core.ts'
 
@@ -19,12 +19,23 @@ import { Core, CoreRefused, type CoreService } from '../src/Core/Core.ts'
 // and what a test sets. Events are verified and read with the same vocabulary the core's index uses, jobs are folded
 // by the same fold, and grants carry the index's statuses. It is not the core: the native test proves the real one.
 
-/** What a test sets on the double: verified wallets per key, funded jobs, and a refusal the next publish answers. */
+/** A delegated delivery the double was asked to relay, with the typed data its delegate's signature is over. */
+interface RelayedDelivery extends DelegatedDelivery {
+  readonly job: string
+  readonly typedData: TypedData
+}
+
+/**
+ * What a test sets on the double: verified wallets per key, funded jobs, and a refusal the next publish (or relay)
+ * answers; and what it was asked to relay.
+ */
 export interface CoreDouble {
   readonly events: Array<NostrEvent>
   readonly wallets: Map<string, ReadonlyArray<AccountRef>>
   readonly funded: Map<string, string>
   readonly nextPublish: { refusal: CoreRefused | undefined }
+  readonly relayed: Array<RelayedDelivery>
+  readonly nextRelay: { refusal: CoreRefused | undefined }
   readonly layer: Layer.Layer<Core>
 }
 
@@ -101,17 +112,20 @@ const viewOf = (readings: Readings, funded: ReadonlyMap<string, string>, id: str
     },
   )
 
-/** Typed data as the core answers it for a worker's delivery; its values are a fixture. */
+/**
+ * Typed data as the core answers it for a worker's delivery: the operator's `Delivery`, with the job's id standing in
+ * for its payment's hash and a fixture operator.
+ */
 const deliveryTypedData = (job: string, deliveryHash: string): TypedData => ({
   domain: { name: 'SidequestOperator', version: '1', chainId: 5042002, verifyingContract: `0x${'11'.repeat(20)}` },
   types: {
     Delivery: [
-      { name: 'jobId', type: 'bytes32' },
+      { name: 'paymentInfoHash', type: 'bytes32' },
       { name: 'deliveryHash', type: 'bytes32' },
     ],
   },
   primaryType: 'Delivery',
-  message: { jobId: `0x${job}`, deliveryHash },
+  message: { paymentInfoHash: `0x${job}`, deliveryHash },
 })
 
 /** The last page's cursor. */
@@ -123,6 +137,8 @@ export const coreDouble = (): CoreDouble => {
   const wallets = new Map<string, ReadonlyArray<AccountRef>>()
   const funded = new Map<string, string>()
   const nextPublish: { refusal: CoreRefused | undefined } = { refusal: undefined }
+  const relayed: Array<RelayedDelivery> = []
+  const nextRelay: { refusal: CoreRefused | undefined } = { refusal: undefined }
   const person = ({ grants }: Readings, pubkey: string): Option.Option<Person> => {
     const agents = grants.filter(({ operator }) => operator === pubkey)
     const operators = grants.filter(({ agent, status }) => agent === pubkey && status !== 'revoked')
@@ -180,8 +196,16 @@ export const coreDouble = (): CoreDouble => {
       funded.has(job)
         ? Effect.succeed(deliveryTypedData(job, deliveryHash))
         : Effect.fail(new CoreRefused({ refusal: 'IndexSettlementRefused', reason: 'NotFunded' })),
+    deliverDelegated: (job, delivery) =>
+      Effect.suspend(() => {
+        const refusal = nextRelay.refusal
+        nextRelay.refusal = undefined
+        if (refusal !== undefined) return Effect.fail(refusal)
+        relayed.push({ job, typedData: deliveryTypedData(job, delivery.deliveryHash), ...delivery })
+        return Effect.succeed({ transactionHash: `0x${'7e'.repeat(32)}` })
+      }),
   }
-  return { events, wallets, funded, nextPublish, layer: Layer.succeed(Core, Core.of(service)) }
+  return { events, wallets, funded, nextPublish, relayed, nextRelay, layer: Layer.succeed(Core, Core.of(service)) }
 }
 
 /** The events of a kind the double holds, read. */

@@ -3,6 +3,7 @@ import type { JobView } from '@sidequest/fold'
 import type { NostrEvent } from '@sidequest/nostr'
 import {
   type Cursor,
+  type DelegatedDelivery,
   EventsApi,
   type IndexListing,
   type IndexPaymentStatus,
@@ -19,8 +20,9 @@ import { GatewaySettings } from '../Settings.ts'
 
 // The core, as the gateway reaches it: only its public API, exactly as any third party could. Publishing a signed
 // event (`POST /api/events`), the index's reads (people, listings, jobs as the fold shows them) and the session-less
-// escrow's reads (payment status, the typed data a worker's wallet signs to record a delivery). Nothing here holds or
-// sends a credential: every write is an event the agent's own key signed.
+// escrow's reads (payment status, the typed data a worker's wallet signs to record a delivery), and its relay of a
+// delivery the agent's key signed under its operator wallet's delegation. Nothing here holds or sends a credential:
+// every write is an event the agent's own key signed, or a delivery the contract checks the signatures of.
 
 /** The part of the core's API the gateway calls. */
 export class CoreApi extends HttpApi.make('core').add(EventsApi, IndexJobsApi, IndexSettlementApi) {}
@@ -59,6 +61,14 @@ export interface CoreService {
   ) => Effect.Effect<{ readonly items: ReadonlyArray<IndexListing>; readonly next: Cursor | null }, CoreError>
   readonly payment: (job: string) => Effect.Effect<IndexPaymentStatus, CoreError>
   readonly deliveryToSign: (job: string, deliveryHash: string) => Effect.Effect<TypedData, CoreError>
+  /**
+   * Relays a delivery the agent's key signed as the delegate, with the operator wallet's delegation. The contract
+   * checks both signatures; the core simulates first and answers the transaction.
+   */
+  readonly deliverDelegated: (
+    job: string,
+    delivery: DelegatedDelivery,
+  ) => Effect.Effect<{ readonly transactionHash: string }, CoreError>
 }
 
 export class Core extends Context.Service<Core, CoreService>()('Sidequest/Gateway/Core') {}
@@ -131,6 +141,10 @@ export const CoreLive = Layer.effect(
       deliveryToSign: (job, deliveryHash) =>
         client.indexSettlement
           .deliveryToSign({ params: { id: job }, query: { deliveryHash } })
+          .pipe(Effect.mapError(coreErrorOf)),
+      deliverDelegated: (job, delivery) =>
+        client.indexSettlement
+          .deliverDelegated({ params: { id: job }, payload: delivery })
           .pipe(Effect.mapError(coreErrorOf)),
     })
   }),

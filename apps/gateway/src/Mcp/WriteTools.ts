@@ -3,10 +3,12 @@ import type { EventId } from '@sidequest/nostr'
 import { deliveryNote, jobAccept, jobProposal, statement } from '@sidequest/nostr/vocabulary'
 import { type AccountRef, type Bytes32, type Terms, termsDigest, type UnixSeconds } from '@sidequest/protocol'
 import { Effect, Option } from 'effect'
-import { Core } from '../Core/Core.ts'
+import { Core, type CoreError } from '../Core/Core.ts'
+import { heldDelegation, relayDelegatedDelivery } from '../Delegations/DelegatedDelivery.ts'
+import { delegateOf } from '../Delegations/Delegations.ts'
 import type { Admitted } from '../Grants/GrantGate.ts'
 import { acting, publishAs, refusedByCore } from './Acting.ts'
-import { Refused } from './Tools.ts'
+import { howToDelegate, Refused } from './Tools.ts'
 
 // The tools that sign. Each passes the grant gate with its scope, checks what the gateway can know before signing (so
 // the agent never signs an event the fold would ignore for a reason it could have seen), signs with the agent's key
@@ -129,19 +131,64 @@ export const deliver = Effect.fnUntraced(function* (
     ...(input.url === undefined ? {} : { url: input.url }),
     ...(input.note === undefined ? {} : { note: input.note }),
   }
+  const delegate = Option.getOrUndefined(delegateOf(admitted.agent))
+  if (delegate === undefined) return yield* new Refused({ reason: 'KeyUnavailable' })
   const signed = yield* publishAs(admitted, deliveryNote, content, funded.content.terms.network)
-  return {
-    job: input.job,
-    note: signed.id,
-    signedBy: signed.signedBy,
-    grant: signed.grant,
+  const published = { job: input.job, note: signed.id, signedBy: signed.signedBy, grant: signed.grant }
+  /** The answer when the operator's wallet still has to record the delivery. */
+  const awaitingWallet = (held: boolean, refusal?: CoreError) => ({
+    ...published,
     onChain: {
       signer: 'operator-wallet' as const,
       typedData,
       submit: `POST ${coreUrl}/api/index/jobs/${input.job}/delivery with { deliveryHash, signature }`,
       explanation:
         'The delivery note is published; the escrow records the delivery only when your operator’s wallet (the ' +
-        'proposal’s payTo) signs this typed data and it is submitted. Ask your operator to sign it.',
+        'proposal’s payTo) signs this typed data and it is submitted. Ask your operator to sign it, or to delegate ' +
+        'the delivery to your key (see `delegation.howTo`).',
+      delegation: {
+        delegate,
+        held,
+        ...(refusal === undefined ? {} : { refusal: coreRefusalOf(refusal) }),
+        howTo: howToDelegate,
+      },
     },
+  })
+  // Under the operator wallet's delegation for this job, the agent's own key records the delivery, unattended.
+  const held = yield* heldDelegation(admitted.agent, input.job)
+  if (Option.isNone(held)) return awaitingWallet(false)
+  const delivery = { deliveryHash: input.deliveryHash, typedData }
+  return yield* relayDelegatedDelivery(admitted.agent, input.job, delivery, delegate, held.value).pipe(
+    Effect.map(({ transactionHash }) => ({
+      ...published,
+      onChain: {
+        signer: 'agent-delegate' as const,
+        delegate,
+        delegationExpiry: held.value.expiry,
+        transactionHash,
+      },
+    })),
+    Effect.catchTags({
+      CoreRefused: (refusal) => Effect.succeed(awaitingWallet(true, refusal)),
+      CoreUnavailable: (refusal) => Effect.succeed(awaitingWallet(true, refusal)),
+    }),
+  )
+})
+
+/** A core error as the tool shows it beside an answer: its tag, and its reason and detail where it has them. */
+const coreRefusalOf = (error: CoreError) => refusedByCore(error).core ?? { refusal: 'CoreUnavailable' }
+
+/** Whether the agent holds a delegation for the job's delivery, and the delegate address its operator names. */
+export const deliveryDelegation = Effect.fnUntraced(function* (input: { readonly job: EventId }) {
+  const admitted = yield* acting(null)
+  const delegate = Option.getOrUndefined(delegateOf(admitted.agent))
+  if (delegate === undefined) return yield* new Refused({ reason: 'KeyUnavailable' })
+  const held = yield* heldDelegation(admitted.agent, input.job)
+  return {
+    job: input.job,
+    delegate,
+    held: Option.isSome(held),
+    expiry: Option.getOrNull(Option.map(held, ({ expiry }) => expiry)),
+    howTo: howToDelegate,
   }
 })

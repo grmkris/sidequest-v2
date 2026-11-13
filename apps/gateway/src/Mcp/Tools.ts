@@ -16,6 +16,7 @@ import {
   ToolLimit,
   TypedData,
   UnixSeconds,
+  WalletAddress,
   writing,
 } from '@sidequest/protocol'
 import { Schema } from 'effect'
@@ -45,16 +46,17 @@ export const RefusalReason = Schema.Literals([
 ])
 export type RefusalReason = typeof RefusalReason.Type
 
+/** The core's own refusal, as a tool answers it: its error's tag, and its reason and detail where it has them. */
+const CoreRefusal = Schema.Struct({
+  refusal: Schema.String,
+  reason: Schema.optionalKey(Schema.String),
+  detail: Schema.optionalKey(Schema.String),
+})
+
 export class Refused extends Schema.TaggedError<Refused>()('Refused', {
   reason: RefusalReason,
   detail: Schema.optionalKey(Schema.String),
-  core: Schema.optionalKey(
-    Schema.Struct({
-      refusal: Schema.String,
-      reason: Schema.optionalKey(Schema.String),
-      detail: Schema.optionalKey(Schema.String),
-    }),
-  ),
+  core: Schema.optionalKey(CoreRefusal),
 }) {}
 
 const onJob = { job: EventId.annotate({ description: 'The job’s id: its request event’s id (64 hex).' }) }
@@ -165,12 +167,49 @@ const Accept = Tool.make('accept', {
   failure: Refused,
 }).annotateMerge(writing({ destructive: true }))
 
+/** Your key's EVM address, which an operator's wallet names to delegate a job's delivery to you. */
+const Delegate = WalletAddress.annotate({
+  description: 'Your key’s EVM address: the `delegate` your operator’s wallet names in a `DeliveryDelegate`.',
+})
+
+export const howToDelegate =
+  'To let you record a job’s delivery on chain yourself, your operator’s wallet (the job’s receiver) signs, once, ' +
+  'the typed data at `GET <core>/api/index/jobs/<job>/delivery-delegation?delegate=<your delegate>&expiry=<unix ' +
+  'seconds>`, and stores that signature at the gateway with `POST /api/agents/<you>/delegations` ({ job, signature, ' +
+  'expiry }). It lets your key record that one job’s delivery until the expiry, and nothing else.'
+
+/** The delivery was recorded on chain with your key's signature, under your operator wallet's delegation. */
+const DeliveredByDelegate = Schema.Struct({
+  signer: Schema.Literal('agent-delegate'),
+  delegate: Delegate,
+  delegationExpiry: UnixSeconds,
+  transactionHash: Bytes32,
+})
+
+/** Recording the delivery on chain waits for your operator's wallet. */
+const AwaitingWallet = Schema.Struct({
+  signer: Schema.Literal('operator-wallet'),
+  typedData: TypedData,
+  submit: Schema.String,
+  explanation: Schema.String,
+  delegation: Schema.Struct({
+    delegate: Delegate,
+    /** Whether the gateway holds a delegation for this job (an expired one counts as none). */
+    held: Schema.Boolean,
+    /** Why the core refused to relay the delivery under the delegation the gateway holds, if it did. */
+    refusal: Schema.optionalKey(CoreRefusal),
+    howTo: Schema.String,
+  }),
+})
+
 const Deliver = Tool.make('deliver', {
   description:
     'On a funded job whose funded proposal you signed, publish a delivery note: the delivery’s hash (0x and 64 hex) ' +
-    'and where to fetch it. Recording the delivery on chain needs your operator’s WALLET signature, which you do ' +
-    'not have: the answer carries the EIP-712 typed data your operator must sign and submit. Until they do, the ' +
-    `escrow sees no delivery. ${binds} Needs the \`deliver\` scope.`,
+    'and where to fetch it. If your operator delegated this job’s delivery to your key (see `delivery_delegation`), ' +
+    'your key also records the delivery on chain, unattended (`onChain.signer` is `agent-delegate`). Otherwise ' +
+    'recording it needs your operator’s WALLET signature, which you do not have: the answer carries the EIP-712 ' +
+    'typed data your operator must sign and submit, and how they could delegate instead. Until one of them happens, ' +
+    `the escrow sees no delivery. ${binds} Needs the \`deliver\` scope.`,
   parameters: Schema.Struct({
     ...onJob,
     deliveryHash: Bytes32,
@@ -181,15 +220,26 @@ const Deliver = Tool.make('deliver', {
     job: EventId,
     note: EventId,
     ...Signed,
-    onChain: Schema.Struct({
-      signer: Schema.Literal('operator-wallet'),
-      typedData: TypedData,
-      submit: Schema.String,
-      explanation: Schema.String,
-    }),
+    onChain: Schema.Union([DeliveredByDelegate, AwaitingWallet]),
   }),
   failure: Refused,
 }).annotateMerge(writing())
+
+const DeliveryDelegation = Tool.make('delivery_delegation', {
+  description:
+    'Whether you hold your operator’s delegation to record a job’s delivery on chain with your own key, until ' +
+    'when, and your delegate address (your key’s EVM address) for them to name. The delegation covers that one job ' +
+    'and only recording its delivery: never approving, rejecting, refunding or moving money. No scope.',
+  parameters: Schema.Struct(onJob),
+  success: Schema.Struct({
+    job: EventId,
+    delegate: Delegate,
+    held: Schema.Boolean,
+    expiry: Schema.NullOr(UnixSeconds),
+    howTo: Schema.String,
+  }),
+  failure: Refused,
+}).annotateMerge(reading)
 
 /** Every tool an agent reaches at the gateway's `/mcp`. */
 export const GatewayToolkit = Toolkit.make(
@@ -203,4 +253,5 @@ export const GatewayToolkit = Toolkit.make(
   WithdrawProposal,
   Accept,
   Deliver,
+  DeliveryDelegation,
 )

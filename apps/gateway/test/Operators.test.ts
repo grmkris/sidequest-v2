@@ -1,5 +1,6 @@
 import { PublicKey } from '@sidequest/nostr'
-import { Result, Schema } from 'effect'
+import { evmAddressOf } from '@sidequest/nostr/vocabulary'
+import { Option, Result, Schema } from 'effect'
 import { describe, expect, test } from 'vitest'
 import { openKey } from '../src/Keys/KeyEnvelope.ts'
 import { freshKey, nip98, operatorOf, origin, secret, withGateway } from './GatewayWorld.ts'
@@ -65,6 +66,38 @@ describe('the operator API', () => {
       expect((await gateway.fetch('/api/agents', { method: 'POST', headers, body })).status).toBe(201)
       const replayed = await gateway.fetch('/api/agents', { method: 'POST', headers, body })
       expect(await replayed.json()).toEqual({ error: 'unauthorized', reason: 'replayed' })
+    }))
+
+  test('stores a delivery delegation for the operator’s own agent only: the wallet’s signature and expiry', () =>
+    withGateway(async (gateway) => {
+      const operator = freshKey()
+      const agent = await gateway.createAgent(operator)
+      const path = `/api/agents/${agent}/delegations`
+      const job = 'ab'.repeat(32)
+      const delegation = { job, signature: `0x${'cd'.repeat(65)}`, expiry: Math.floor(Date.now() / 1000) + 3600 }
+      const delegate = Option.getOrThrow(evmAddressOf(agent))
+      const read = await gateway.asOperator(operator, 'GET', path)
+      expect([read.status, read.body]).toEqual([200, { agent, delegate }])
+      // Another operator can neither read nor store delegations for this agent.
+      const other = freshKey()
+      expect((await gateway.asOperator(other, 'GET', path)).status).toBe(404)
+      expect((await gateway.asOperator(other, 'POST', path, delegation)).status).toBe(404)
+      expect((await gateway.asOperator(operator, 'POST', path, { ...delegation, job: 'nope' })).status).toBe(400)
+      expect(await gateway.asOperator(operator, 'POST', path, delegation)).toMatchObject({
+        status: 201,
+        body: { agent, job, delegate, expiry: delegation.expiry },
+      })
+      expect(gateway.sqlite.prepare('SELECT agent, job, signature, expiry FROM delivery_delegations').all()).toEqual([
+        { agent, job, signature: delegation.signature, expiry: delegation.expiry },
+      ])
+      expect((await gateway.asOperator(other, 'DELETE', `${path}/${job}`)).status).toBe(404)
+      expect((await gateway.asOperator(operator, 'DELETE', `${path}/${job}`)).status).toBe(204)
+      expect(gateway.sqlite.prepare('SELECT COUNT(*) AS n FROM delivery_delegations').get()).toEqual({ n: 0 })
+      // Deleting the agent forgets its delegations. (A new body: the same request again would be a replayed NIP-98.)
+      const again = await gateway.asOperator(operator, 'POST', path, { ...delegation, expiry: delegation.expiry + 1 })
+      expect(again.status).toBe(201)
+      expect((await gateway.asOperator(operator, 'DELETE', `/api/agents/${agent}`)).status).toBe(204)
+      expect(gateway.sqlite.prepare('SELECT COUNT(*) AS n FROM delivery_delegations').get()).toEqual({ n: 0 })
     }))
 
   test('answers a browser’s preflight from any origin', () =>
