@@ -31,6 +31,7 @@ export default defineConfig({
       'packages/server/src/Index/RateLimiter.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/Listings.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/ChainFacts.ts': ['/[\\s\\S]*/'],
+      'packages/server/src/Index/PayPerCall.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/JobEvents.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/Jobs.ts': ['/[\\s\\S]*/'],
       // The escrow's SQL, and the reasons it gives operators and API clients in the protocol's English.
