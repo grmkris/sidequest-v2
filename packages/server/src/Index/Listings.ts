@@ -4,6 +4,7 @@ import {
   defaultPageSize,
   IndexListing,
   IndexListingDetail,
+  type ListingRail,
   type Unavailable,
 } from '@sidequest/protocol'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
@@ -12,6 +13,7 @@ import * as SqlSchema from 'effect/sql/SqlSchema'
 import { cursors, nextCursor, pageOf, type PageRequest, rowsFor } from '../Index/Pages.ts'
 import { stored } from '@sidequest/serving/Stored'
 import type { ListingRow } from './Derived.ts'
+import { receiptVerified } from './PayPerCall.ts'
 
 /**
  * Stores a listing row, replacing the seller's row under the same slug only when this event supersedes it: later, or
@@ -19,21 +21,23 @@ import type { ListingRow } from './Derived.ts'
  */
 export const putListing = (sql: SqlClient.SqlClient, row: ListingRow) => sql`
   INSERT INTO nostr_listings (pubkey, d, event_id, created_at, title, summary, description, topics, price_amount,
-    price_asset, network, status, published_at)
+    price_asset, network, status, published_at, x402_resource, x402_pay_to)
   VALUES (${row.pubkey}, ${row.slug}, ${row.eventId}, ${row.createdAt}, ${row.title}, ${row.summary},
     ${row.description}, ${JSON.stringify(row.topics)}, ${row.price?.amount ?? null}, ${row.price?.asset ?? null},
-    ${row.network}, ${row.status}, ${row.publishedAt})
+    ${row.network}, ${row.status}, ${row.publishedAt}, ${row.x402?.resource ?? null}, ${row.x402?.payTo ?? null})
   ON CONFLICT (pubkey, d) DO UPDATE SET event_id = excluded.event_id, created_at = excluded.created_at,
     title = excluded.title, summary = excluded.summary, description = excluded.description, topics = excluded.topics,
     price_amount = excluded.price_amount, price_asset = excluded.price_asset, network = excluded.network,
-    status = excluded.status, published_at = excluded.published_at
+    status = excluded.status, published_at = excluded.published_at, x402_resource = excluded.x402_resource,
+    x402_pay_to = excluded.x402_pay_to
   WHERE excluded.created_at > nostr_listings.created_at
     OR (excluded.created_at = nostr_listings.created_at AND excluded.event_id < nostr_listings.event_id)`
 
-/** A search of listings: text in the title or summary, a topic, and the page. */
+/** A search of listings: text in the title or summary, a topic, how it is paid, and the page. */
 export interface ListingSearch extends PageRequest {
   readonly q?: string | undefined
   readonly tag?: string | undefined
+  readonly rail?: ListingRail | undefined
 }
 
 /** Where a page of listings ends: newest first, so by `createdAt` descending, then event id. */
@@ -56,6 +60,10 @@ const ListingRecord = Schema.Struct({
   publishedAt: Schema.Int,
   authorName: Schema.NullOr(Schema.String),
   walletVerified: Schema.Literals([0, 1]),
+  x402Resource: Schema.NullOr(Schema.String),
+  x402PayTo: Schema.NullOr(Schema.String),
+  payToLinked: Schema.Literals([0, 1]),
+  verifiedReceipts: Schema.Int,
 })
 type ListingRecord = typeof ListingRecord.Type
 
@@ -65,6 +73,8 @@ const containing = (text: string) => `%${text.replaceAll(/[\\%_]/gu, (character)
 const listingReads = (sql: SqlClient.SqlClient) => {
   // The listing's columns, its author's profile name, and whether a verified link currently holds a wallet for the
   // author: one of their verified links that no other verified link of its account beats (the identity reads' rule).
+  // On a pay-per-call listing, whether its payTo's winning verified link is the seller's, and how many distinct
+  // transactions its verified receipts name.
   const columns = sql`
     l.pubkey, l.d AS slug, l.event_id AS event, l.created_at AS createdAt, l.title, l.summary, l.description,
     l.topics, l.price_amount AS priceAmount, l.price_asset AS priceAsset, l.network, l.status,
@@ -76,7 +86,17 @@ const listingReads = (sql: SqlClient.SqlClient) => {
         WHERE rival.account = link.account AND rival.verification = 'verified'
           AND (rival.issued_at > link.issued_at
             OR (rival.issued_at = link.issued_at AND rival.event_id < link.event_id)))
-    ) AS walletVerified
+    ) AS walletVerified,
+    l.x402_resource AS x402Resource, l.x402_pay_to AS x402PayTo,
+    COALESCE((
+      SELECT link.pubkey = l.pubkey FROM wallet_links AS link
+      WHERE link.account = l.x402_pay_to AND link.verification = 'verified'
+      ORDER BY link.issued_at DESC, link.event_id LIMIT 1
+    ), 0) AS payToLinked,
+    (
+      SELECT COUNT(DISTINCT r.network || ':' || r.tx_hash) FROM x402_receipts AS r
+      WHERE r.listing_pubkey = l.pubkey AND r.listing_d = l.d AND ${receiptVerified(sql)}
+    ) AS verifiedReceipts
     FROM nostr_listings AS l LEFT JOIN profiles AS p ON p.pubkey = l.pubkey`
   const one = SqlSchema.findOneOption({
     Request: Schema.Struct({ pubkey: Schema.String, slug: Schema.String }),
@@ -89,17 +109,19 @@ const listingReads = (sql: SqlClient.SqlClient) => {
     Request: Schema.Struct({
       q: Schema.NullOr(Schema.String),
       tag: Schema.NullOr(Schema.String),
+      rail: Schema.NullOr(Schema.String),
       after: Schema.NullOr(Position),
       rows: Schema.Int,
     }),
     Result: ListingRecord,
-    execute: ({ q, tag, after, rows }) => sql`
+    execute: ({ q, tag, rail, after, rows }) => sql`
       SELECT ${columns}
       WHERE (${after?.createdAt ?? null} IS NULL OR l.created_at < ${after?.createdAt ?? null}
           OR (l.created_at = ${after?.createdAt ?? null} AND l.event_id > ${after?.event ?? null}))
         AND (${q} IS NULL OR l.title LIKE ${q === null ? null : containing(q)} ESCAPE '\\'
           OR l.summary LIKE ${q === null ? null : containing(q)} ESCAPE '\\')
         AND (${tag} IS NULL OR EXISTS (SELECT 1 FROM json_each(l.topics) WHERE json_each.value = ${tag}))
+        AND (${rail} IS NULL OR (${rail} = 'x402') = (l.x402_resource IS NOT NULL))
       ORDER BY l.created_at DESC, l.event_id
       LIMIT ${rows}`,
   })
@@ -122,6 +144,16 @@ const listingOf = (record: ListingRecord) => ({
   status: record.status,
   publishedAt: record.publishedAt,
   author: { name: record.authorName, walletVerified: record.walletVerified === 1 },
+  rail: record.x402Resource === null ? 'escrow' : 'x402',
+  payPerCall:
+    record.x402Resource === null || record.x402PayTo === null
+      ? null
+      : {
+          resource: record.x402Resource,
+          payTo: record.x402PayTo,
+          payToLinked: record.payToLinked === 1,
+          verifiedReceipts: record.verifiedReceipts,
+        },
 })
 
 // Rows were written from listings `@sidequest/nostr` read, so they always decode; one that would not is left out.
@@ -153,6 +185,7 @@ export class Listings extends Context.Service<
             read.search({
               q: query.q ?? null,
               tag: query.tag ?? null,
+              rail: query.rail ?? null,
               after: after ?? null,
               rows: rowsFor(query.limit),
             }),

@@ -14,6 +14,7 @@ import {
   parseServiceListing,
   type ParsedEvent,
   parseSidequestEvent,
+  paymentReceipt,
   standardKinds,
   statement,
   type VocabularyRefused,
@@ -26,6 +27,7 @@ import {
   listingOf,
   messagingRelaysOf,
   profileOf,
+  receiptOf,
   relayListOf,
   revocationOf,
   walletLinkOf,
@@ -89,7 +91,7 @@ const sidequest = <C>(spec: KindSpec<C>): readonly [number, Reader] => [
   (event) => parseSidequestEvent(spec, event).pipe(Effect.as({ validation: 'sidequest', derived: nothingDerived })),
 ]
 
-/** A reader of a Sidequest kind whose events derive a row: a wallet link, a grant or a revocation. */
+/** A reader of a Sidequest kind whose events derive a row: a wallet link, a grant, a revocation or a receipt. */
 const sidequestDeriving = <C>(
   spec: KindSpec<C>,
   derive: (parsed: ParsedEvent<C>) => Derived,
@@ -137,6 +139,7 @@ const readers: ReadonlyMap<number, Reader> = new Map<number, Reader>([
   sidequest(jobReview),
   sidequestDeriving(agentGrant, grantOf),
   sidequestDeriving(grantRevocation, revocationOf),
+  sidequestDeriving(paymentReceipt, receiptOf),
 ])
 
 /** The kinds the index keeps, for relay filters. */

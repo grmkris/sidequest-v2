@@ -2,9 +2,11 @@ import type { NostrEvent } from '@sidequest/nostr'
 import {
   type AgentGrantContent,
   type GrantRevocationContent,
+  grantOf as grantNamed,
   type MessagingRelays,
   type ParsedEvent,
   type ParsedListing,
+  type PaymentReceiptContent,
   type ProfileName,
   type RelayList,
   recoverAddress,
@@ -80,6 +82,14 @@ export interface ListingRow extends Origin {
   readonly network: string | null
   readonly status: 'active' | 'sold'
   readonly publishedAt: number
+  /** A pay-per-call listing's resource and the CAIP-10 account paid, `null` on an escrow listing. */
+  readonly x402: { readonly resource: string; readonly payTo: string } | null
+}
+
+/** A buyer's receipt for one paid call, by its author, under the grant it names if an agent's key signed it. */
+export interface ReceiptRow extends Origin {
+  readonly grant: string | null
+  readonly content: PaymentReceiptContent
 }
 
 /** What an event derives: a profile, a relay list, a listing, a wallet link, a grant or a revocation. */
@@ -90,6 +100,7 @@ export type Derived =
   | { readonly table: 'wallet_links'; readonly row: WalletLinkRow }
   | { readonly table: 'agent_grants'; readonly row: GrantRow }
   | { readonly table: 'grant_revocations'; readonly row: RevocationRow }
+  | { readonly table: 'x402_receipts'; readonly row: ReceiptRow }
 
 /**
  * Whether `candidate` replaces `current` as a key's latest of a kind: NIP-01's rule for replaceable events, the
@@ -145,7 +156,14 @@ export const listingOf = (event: NostrEvent, { listing }: ParsedListing): Derive
     network: listing.price === undefined ? null : listing.price.asset.slice(0, listing.price.asset.indexOf('/')),
     status: listing.status,
     publishedAt: listing.publishedAt,
+    x402: listing.x402 === undefined ? null : { resource: listing.x402.resource, payTo: listing.x402.payTo },
   },
+})
+
+/** The receipt row of a payment receipt the vocabulary read. */
+export const receiptOf = ({ event, content }: ParsedEvent<PaymentReceiptContent>): Derived => ({
+  table: 'x402_receipts',
+  row: { ...originOf(event), grant: Option.getOrNull(grantNamed(event)), content },
 })
 
 /** The relay-list row of a NIP-65 list. */

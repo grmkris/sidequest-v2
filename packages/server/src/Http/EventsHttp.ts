@@ -19,6 +19,7 @@ import { EventStore } from '../Index/EventStore.ts'
 import { Ingest, nowSeconds } from '../Index/Ingest.ts'
 import { Jobs } from '../Index/Jobs.ts'
 import { Listings } from '../Index/Listings.ts'
+import { PayPerCall } from '../Index/PayPerCall.ts'
 import { Outbox } from '../Index/Outbox.ts'
 import { RateLimiter } from '@sidequest/serving/RateLimiter'
 import { publishLimits } from '../Index/PublishLimits.ts'
@@ -120,6 +121,7 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
     const limiter = yield* RateLimiter
     const outbox = yield* Outbox
     const listings = yield* Listings
+    const payPerCall = yield* PayPerCall
     const jobs = yield* Jobs
     return handlers
       .handle('publish', ({ payload }) =>
@@ -186,6 +188,14 @@ export const eventsHandlers = HttpApiBuilder.group(SidequestApi, 'events', (hand
           if (Option.isNone(found)) return yield* new NotIndexed()
           yield* publicFor(30)
           return found.value
+        }),
+      )
+      .handle('listingReceipts', ({ params }) =>
+        Effect.gen(function* () {
+          const items = yield* payPerCall.receipts(params.pubkey, params.slug)
+          // A receipt turns verified when the chain log poller records its transaction: seconds only.
+          yield* publicFor(10)
+          return { items }
         }),
       )
   }),

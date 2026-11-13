@@ -7,6 +7,8 @@ import type { SettlementChain } from '@sidequest/settlement/SettlementChain'
 import { Context, Effect, Layer, Option, Schema } from 'effect'
 import type { PublicClient } from 'viem'
 import { type ChainLog, ChainFacts } from './ChainFacts.ts'
+import { PayPerCall } from './PayPerCall.ts'
+import { checkReceipts } from './ReceiptChecks.ts'
 
 /**
  * How the poller reads: each pass re-reads `overlap` blocks below its cursor (an RPC node behind a load balancer may
@@ -48,7 +50,8 @@ const factsOf = (rpc: PublicClient, chain: SettlementChain, logs: ReadonlyArray<
 
 /**
  * The chain log poller: reads the operator's and the escrow's logs into `chain_facts`, through the settlement chain's
- * RPC. It reads only blocks at the chain's confirmation
+ * RPC, and then what the chain says of the transactions x402 receipts name (`ReceiptChecks.ts`). It reads only blocks
+ * at the chain's confirmation
  * depth and moves its per-chain cursor only past blocks it has read and recorded, so a pass cut short is redone by the
  * next. A reorganisation deeper than the confirmation depth is not handled: a fact it undid stays recorded (labelling
  * or removing it is later tooling's work).
@@ -62,7 +65,7 @@ export class ChainLogPoller extends Context.Service<
 
   /**
    * Polls `chain`. The first pass starts at `startBlock` (the operator's deployment, to read its history), or without
-   * one at the confirmed head. Needs `ChainRpc` and `ChainFacts`.
+   * one at the confirmed head. Needs `ChainRpc`, `ChainFacts` and `PayPerCall`.
    */
   static readonly layer = (chain: SettlementChain, startBlock: Option.Option<bigint>) =>
     Layer.effect(
@@ -70,6 +73,7 @@ export class ChainLogPoller extends Context.Service<
       Effect.gen(function* () {
         const rpc = yield* ChainRpc
         const facts = yield* ChainFacts
+        const payPerCall = yield* PayPerCall
         const network = chain.asset.network
         const readRange = (from: bigint, to: bigint) =>
           Effect.gen(function* () {
@@ -94,6 +98,7 @@ export class ChainLogPoller extends Context.Service<
             const to = from + maxLogRange - 1n < end ? from + maxLogRange - 1n : end
             yield* readRange(from, to)
           }
+          yield* checkReceipts(rpc, chain).pipe(Effect.provideService(PayPerCall, payPerCall))
         }).pipe(Effect.withSpan('Sidequest.Index.pollChain', { attributes: { 'sidequest.chain': network } }))
         return ChainLogPoller.of({ run })
       }),

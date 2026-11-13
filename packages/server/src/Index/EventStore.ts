@@ -6,6 +6,7 @@ import * as SqlClient from 'effect/sql/SqlClient'
 import * as SqlSchema from 'effect/sql/SqlSchema'
 import { stored } from '@sidequest/serving/Stored'
 import { putListing } from './Listings.ts'
+import { putListingVersion, putReceipt } from './PayPerCall.ts'
 import type { Derived, GrantRow, ProfileRow, RelayListRow, RevocationRow, WalletLinkRow } from './Derived.ts'
 import { validateEvent, type Validated } from './Validation.ts'
 
@@ -115,8 +116,8 @@ export class EventStore extends Context.Service<
     readonly authors: (limit: number) => Effect.Effect<ReadonlyArray<string>, Unavailable>
     /**
      * Rebuilds every derived table from `events` alone, as if every stored event had just arrived: profiles, relay
-     * lists, listings and the identity facts. `chain_facts` is not among them: it holds no event's content, and is
-     * rebuilt by re-reading the chain (the chain log poller from an earlier cursor).
+     * lists, listings (and their pay-per-call versions), receipts and the identity facts. `chain_facts` and the x402
+     * transaction checks are not among them: they hold no event's content, and are rebuilt by re-reading the chain.
      */
     readonly rebuild: Effect.Effect<void, Unavailable>
   }
@@ -170,7 +171,7 @@ const writes = (sql: SqlClient.SqlClient) => {
       case 'profiles':
         return profile(derived.row)
       case 'listings':
-        return putListing(sql, derived.row)
+        return Effect.andThen(putListing(sql, derived.row), putListingVersion(sql, derived.row))
       case 'relay_lists':
         return relayList(derived.row)
       case 'wallet_links':
@@ -179,6 +180,8 @@ const writes = (sql: SqlClient.SqlClient) => {
         return grant(derived.row)
       case 'grant_revocations':
         return revocation(derived.row)
+      case 'x402_receipts':
+        return putReceipt(sql, derived.row)
     }
   }
   return { insertEvent, indexTags, apply }
@@ -218,7 +221,8 @@ const reads = (sql: SqlClient.SqlClient) => {
     execute: (after) => sql`
       SELECT id, pubkey, created_at, kind, tags, content, sig FROM events
       WHERE (validation IN ('profile', 'relayList', 'messagingRelays', 'listing')
-          OR kind IN (${sidequestKinds.walletLink}, ${sidequestKinds.grant}, ${sidequestKinds.revocation}))
+          OR kind IN (${sidequestKinds.walletLink}, ${sidequestKinds.grant}, ${sidequestKinds.revocation},
+            ${sidequestKinds.paymentReceipt}))
         AND id > ${after}
       ORDER BY id LIMIT ${rebuildPage}`,
   })
@@ -399,6 +403,8 @@ export const D1EventStore = Layer.effect(
         yield* stored(sql`DELETE FROM wallet_links`)
         yield* stored(sql`DELETE FROM agent_grants`)
         yield* stored(sql`DELETE FROM grant_revocations`)
+        yield* stored(sql`DELETE FROM x402_listing_versions`)
+        yield* stored(sql`DELETE FROM x402_receipts`)
         yield* rebuildFrom('')
       }).pipe(Effect.withSpan('Sidequest.Index.rebuild')),
     })
