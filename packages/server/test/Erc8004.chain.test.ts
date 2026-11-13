@@ -23,6 +23,7 @@ import { Erc8004Reader } from '../src/Erc8004/Erc8004Reader.ts'
 import { entryDocument, entryHash, isoSeconds } from '../src/Erc8004/Feedback.ts'
 import { verifyFeedbackFile } from '../src/Erc8004/FeedbackVerifier.ts'
 import { ChainLogPoller } from '../src/Index/ChainLogPoller.ts'
+import { Moderation } from '../src/Index/Moderation.ts'
 import { type LocalChain, skipOnChain, suiteChain } from './Anvil.ts'
 import { type Api, json, post, withApi } from './HttpWorld.ts'
 import { accountOf, alice, bob, carol, linked, signed, walletOne, walletTwo } from './IndexWorld.ts'
@@ -288,6 +289,18 @@ describe.skipIf(skipOnChain)('ERC-8004 on chain', () => {
         expect(logged).toMatchObject([
           { eventName: 'NewFeedback', args: { feedbackURI: item.feedbackURI, feedbackHash: item.feedbackHash } },
         ])
+
+        // The stage's hide list takes a hidden review out of the file, as it takes hidden things out of every list.
+        const review = item.entry.sidequest.review.id
+        const hide = {
+          target: review,
+          kind: 'event',
+          reason: 'test',
+          hiddenAt: at,
+          hiddenBy: publicKeyOf(bob),
+        } as const
+        await api.run(Effect.flatMap(Moderation, (moderation) => moderation.hide(hide)))
+        expect((await fileOf(carolKey)).items).toEqual([])
       }),
     120_000,
   )

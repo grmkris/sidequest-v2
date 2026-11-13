@@ -15,6 +15,7 @@ import { ChainFacts } from '../Index/ChainFacts.ts'
 import { EventStore } from '../Index/EventStore.ts'
 import { nowSeconds } from '../Index/Ingest.ts'
 import { Jobs } from '../Index/Jobs.ts'
+import { Moderation } from '../Index/Moderation.ts'
 import { Settlement } from '../Settlement/Settlement.ts'
 import { feedbackFileOf, type JobEvidence } from './Feedback.ts'
 import { Erc8004Identities } from './Identities.ts'
@@ -95,7 +96,7 @@ const jobEvidenceOf =
 
 /**
  * The index's ERC-8004 files: a key's registration file and its feedback file, as served at `origin`. Needs the index
- * (`EventStore`, `Jobs`, `ChainFacts`, `Erc8004Identities`), `Settlement` and the database's `SqlClient`.
+ * (`EventStore`, `Jobs`, `ChainFacts`, `Erc8004Identities`, `Moderation`), `Settlement` and the database's `SqlClient`.
  */
 export const makeErc8004Files = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient
@@ -104,6 +105,7 @@ export const makeErc8004Files = Effect.gen(function* () {
   const facts = yield* ChainFacts
   const identities = yield* Erc8004Identities
   const settlement = yield* Settlement
+  const moderation = yield* Moderation
   const candidates = candidateJobs(sql)
 
   const evidenceOf = jobEvidenceOf(events, jobs, facts)
@@ -120,9 +122,13 @@ export const makeErc8004Files = Effect.gen(function* () {
       if (Option.isNone(operator)) return { subject: pubkey, registrations, count: 0, averageRating: null, items: [] }
       const found = yield* stored(candidates(pubkey))
       const evidence = yield* Effect.forEach(found, ({ job }) => evidenceOf(job))
+      const settled = evidence.flatMap(Option.toArray)
+      const counted = settled.flatMap(({ view }) => view.reviews.filter((review) => review.status === 'counted'))
+      const hidden = yield* Effect.filter(counted, (review) => moderation.covers([review.id, review.author]))
       return feedbackFileOf(
         { subject: pubkey, operator: operator.value, registrations, origin },
-        evidence.flatMap(Option.toArray),
+        settled,
+        new Set(hidden.map((review) => review.id)),
       )
     }).pipe(Effect.withSpan('Sidequest.Erc8004.feedback'))
 

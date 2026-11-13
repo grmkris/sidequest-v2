@@ -10,6 +10,7 @@ import { erc8004StageOf } from '../Erc8004/Erc8004Reader.ts'
 import { entryDocument, feedbackTags } from '../Erc8004/Feedback.ts'
 import { makeErc8004Files } from '../Erc8004/Files.ts'
 import { registrationPath } from '../Erc8004/Identities.ts'
+import { labelled, Moderation } from '../Index/Moderation.ts'
 import { Settlement } from '../Settlement/Settlement.ts'
 import { publicFor } from './EventsHttp.ts'
 
@@ -27,12 +28,14 @@ const addressOf = (account: string) => account.slice(account.lastIndexOf(':') + 
 
 /**
  * The `erc8004` group (ADR-0007): the stage's registries, a key's registration file (the `agentURI` its identity names,
- * cached five minutes), its feedback file (a minute), and the calldata of the two transactions a wallet sends itself:
+ * cached five minutes), its feedback file (a minute), each labelled `hidden` when the stage's hide list covers the
+ * key, as reads by id are; the feedback file, a list, leaves out hidden reviews and reviewers; and the calldata of the two transactions a wallet sends itself:
  * `register` for a key's file, and `giveFeedback` of one entry, which only that entry's client should send.
  */
 export const erc8004Handlers = HttpApiBuilder.group(SidequestApi, 'erc8004', (handlers) =>
   Effect.gen(function* () {
     const files = yield* makeErc8004Files
+    const moderation = yield* Moderation
     const stage = erc8004StageOf(yield* Settlement)
     const configured = Option.match(stage, {
       onNone: () => Effect.fail(new Unavailable()),
@@ -58,6 +61,7 @@ export const erc8004Handlers = HttpApiBuilder.group(SidequestApi, 'erc8004', (ha
         Effect.gen(function* () {
           const file = yield* files.registration(params.pubkey, yield* requestOrigin)
           if (Option.isNone(file)) return yield* new NotIndexed()
+          yield* labelled(yield* moderation.covers([params.pubkey]))
           yield* publicFor(300)
           return file.value
         }),
@@ -72,6 +76,7 @@ export const erc8004Handlers = HttpApiBuilder.group(SidequestApi, 'erc8004', (ha
       .handle('feedback', ({ params }) =>
         Effect.gen(function* () {
           const file = yield* files.feedback(params.pubkey, yield* requestOrigin)
+          yield* labelled(yield* moderation.covers([params.pubkey]))
           yield* publicFor(60)
           return file
         }),

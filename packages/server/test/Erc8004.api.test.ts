@@ -2,10 +2,12 @@ import { publicKeyOf } from '@sidequest/nostr'
 import {
   Erc8004Deployment,
   Erc8004RegistrationFile,
+  labelsHeader,
   SidequestFeedbackFile,
   SidequestRegistrationFile,
 } from '@sidequest/protocol'
-import { Schema } from 'effect'
+import { Effect, Schema } from 'effect'
+import { Moderation } from '../src/Index/Moderation.ts'
 import { describe, expect, test } from 'vitest'
 import { withApi } from './HttpWorld.ts'
 import { alice, bob, carol, grant, linked, profile, walletOne } from './IndexWorld.ts'
@@ -65,5 +67,25 @@ describe('ERC-8004 without a settlement chain', () => {
       expect(file.services.map(({ name }) => name)).toEqual(['nostr', 'wallet'])
       expect(file.services[1]?.endpoint).toBe(`eip155:5042002:${walletOne.address.toLowerCase()}`)
       expect((await fetch(`/api/erc8004/agents/${publicKeyOf(alice)}/registration`)).status).toBe(404)
+      expect(response.headers.get(labelsHeader)).toBeNull()
+    }))
+
+  test('labels a hidden key’s registration and feedback files, as the index labels its reads by id', () =>
+    withApi(async ({ fetch, run }) => {
+      const window = { createdAt: at - 10, notBefore: at - 10, expiresAt: at + 3600 }
+      expect((await post(fetch, grant(bob, carol, window, ['propose'], 'Translator'))).status).toBe(200)
+      const hide = {
+        target: publicKeyOf(carol),
+        kind: 'pubkey',
+        reason: 'test',
+        hiddenAt: at,
+        hiddenBy: publicKeyOf(bob),
+      } as const
+      await run(Effect.flatMap(Moderation, (moderation) => moderation.hide(hide)))
+      for (const file of ['registration', 'feedback']) {
+        const response = await fetch(`/api/erc8004/agents/${publicKeyOf(carol)}/${file}`)
+        expect(response.status).toBe(200)
+        expect(response.headers.get(labelsHeader)).toBe('hidden')
+      }
     }))
 })

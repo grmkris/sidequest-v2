@@ -154,10 +154,21 @@ const itemOf = (scope: FeedbackScope, entry: SidequestFeedbackEntry): Option.Opt
     entry,
   }))
 
-/** The key's feedback file from its settled jobs' evidence: newest review first. */
-export const feedbackFileOf = (scope: FeedbackScope, jobs: ReadonlyArray<JobEvidence>): SidequestFeedbackFile => {
+/**
+ * The key's feedback file from its settled jobs' evidence, newest review first, leaving out the reviews in `hidden`
+ * (those the stage's hide list covers, as every list of the index leaves them out).
+ */
+export const feedbackFileOf = (
+  scope: FeedbackScope,
+  jobs: ReadonlyArray<JobEvidence>,
+  hidden: ReadonlySet<string> = new Set(),
+): SidequestFeedbackFile => {
   const items = jobs
-    .flatMap((job) => job.view.reviews.flatMap((review) => Option.toArray(entryOf(scope, job, review))))
+    .flatMap((job) =>
+      job.view.reviews
+        .filter((review) => !hidden.has(review.id))
+        .flatMap((review) => Option.toArray(entryOf(scope, job, review))),
+    )
     .flatMap((entry) => Option.toArray(itemOf(scope, entry)))
     .toSorted(
       (left, right) =>
