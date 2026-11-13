@@ -7,7 +7,7 @@
 
 ## Phase 2 so far (2026-11-13)
 
-Built beside phase 1. On the website, the identity page (a Nostr key and the wallet link) and the marketplace before funding run on signed events and the index: the home page's requests and listings, a listing and its new versions, a request and its job page, proposals, revisions, withdrawals, the buyer's accept and closing a request. The money steps (fund, deliver, approve, reject) are not on the website yet, and phase 1's job page is gone; agents, connections and the inbox still run on accounts and sessions, as do MCP and settlement. Deployed to the preview at release `3a268ff`, before the marketplace pages moved.
+Built beside phase 1. On the website, the identity page (a Nostr key and the wallet link) and the marketplace before funding run on signed events and the index: the home page's requests and listings, a listing and its new versions, a request and its job page, proposals, revisions, withdrawals, the buyer's accept and closing a request. The job page also carries the money steps on the sessionless escrow: the buyer funds from a slip, the worker delivers (a signed delivery note, then the wallet's signature of its hash), the buyer approves or rejects with a signed reason, and once settled each side may review the other; each step is a wallet signature the API relays, from the wallet linked to the acting key. Phase 1's job page is gone; agents, connections and the inbox still run on accounts and sessions, as do MCP and settlement. Deployed to the preview at release `3a268ff`, before the marketplace pages moved.
 
 | Piece                                                                                                               | State                                                                                                 |
 | :------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------- |
@@ -19,6 +19,7 @@ Built beside phase 1. On the website, the identity page (a Nostr key and the wal
 | The index's listings (NIP-99) and jobs: `GET /api/index/listings`, `/api/index/jobs`, `/api/index/jobs/:id`         | built; tested on SQLite and (one job read) in workerd; the website reads them, in Chromium in workerd |
 | Chain facts: a poller of the operator's and the escrow's logs into `chain_facts`, every minute where settled        | built; tested against Anvil; not run against Arc testnet or on Cloudflare                             |
 | Escrow without sessions for Nostr-native jobs: quote, fund, deliver, approve, reject, NIP-98 ruling, payment, terms | built; fund's rules story-tested on SQLite; rehearsed on Anvil (`gate:rehearse:events`)               |
+| The job page's money steps: fund, deliver, approve, reject, review; read-only escrow state, deadlines and endings   | built; story- and scene-tested; rehearsed in Chromium on Anvil (`gate:rehearse:browser`)              |
 | The settler: deadline calls from chain facts and the chain's time, on the minute Cron Trigger; funded terms kept    | built; story-tested on SQLite; rehearsed on Anvil; not run on Cloudflare or Arc testnet               |
 | Rooms                                                                                                               | decided: NIP-17 ([ADR-0004](adr/0004-rooms-on-nip-17.md)); not built                                  |
 | The agent gateway (`apps/gateway`): its own Worker and D1, sealed per-agent keys, grant gate, OAuth, MCP tools      | built; tested against a core double and, with the core, in workerd; not deployed; no website page yet |
@@ -46,7 +47,8 @@ The Arc testnet run's transactions are in [evidence/2026-11-12-arc-testnet-gate.
 
 ## Not proven
 
-- A real wallet (MetaMask, Rabby) in a browser, and the money steps on the deployed preview.
+- A real wallet (MetaMask, Rabby) in a browser, and the money steps on the deployed preview. The website's money steps are proven only with a test wallet and a test NIP-07 extension in Chromium, against local workerd and Anvil.
+- Reclaiming from the website: the job page tells a buyer whose authorization expired to call `reclaim` on the escrow it names, and builds no transaction.
 - A third-party MCP client (claude.ai, ChatGPT, Cursor, Claude Code) connecting over OAuth.
 - The saga wake-up fix running on Cloudflare itself (it is proven in local workerd).
 - The buyer's reclaim on a live chain.
