@@ -141,7 +141,8 @@ const tamper: Record<string, (event: NostrEvent, position: number) => EventTempl
 
 describe('a parser refuses what its content does not say', () => {
   it.effect.prop(
-    // An author may name another network for a kind whose network is theirs to name: that parses, as what it says.
+    // An author may name another network (where the network is theirs to name) or another grant: that parses, as what
+    // it says. Anything else is refused.
     'refuses any kind’s event with a tag dropped, added, altered or repeated, even re-signed',
     [
       Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: samples.length - 1 })),
@@ -153,12 +154,17 @@ describe('a parser refuses what its content does not say', () => {
         const { parse, template } = sampleAt(index)
         const original = sign(yield* template)
         const forged = sign(tamper[how]?.(original, position) ?? original)
-        const network = (yield* parse(original)).envelope.network
+        const { envelope } = yield* parse(original)
         const outcome = yield* parse(forged).pipe(
-          Effect.map((parsed) => (Equal.equals(parsed.envelope.network, network) ? 'accepted' : 'anotherNetwork')),
+          Effect.map((parsed) =>
+            Equal.equals(parsed.envelope.network, envelope.network) &&
+            Equal.equals(parsed.envelope.grant, envelope.grant)
+              ? 'accepted'
+              : 'anotherEnvelope',
+          ),
           Effect.catch((error) => Effect.succeed(error.reason)),
         )
-        expect(['tagMismatch', 'badEnvelope', 'networkMismatch', 'anotherNetwork']).toContain(outcome)
+        expect(['tagMismatch', 'badEnvelope', 'networkMismatch', 'anotherEnvelope']).toContain(outcome)
       }),
   )
 
