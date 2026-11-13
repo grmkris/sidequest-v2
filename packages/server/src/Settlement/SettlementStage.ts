@@ -23,6 +23,8 @@ export class SettlementMisconfigured extends Schema.TaggedError<SettlementMiscon
 //   SIDEQUEST_ARBITRATION_OPERATOR  the account id allowed to issue rulings
 //   SIDEQUEST_CONFIRMATIONS         blocks that make an event count (default 3)
 //   SIDEQUEST_FEE_BPS               the operator's immutable `FEE_BPS` (default 500)
+//   SIDEQUEST_ARBITRATION_PUBKEY    the Nostr key (64 hex) whose NIP-98 authorization asks for a Nostr-native ruling
+//   SIDEQUEST_OPERATOR_DEPLOY_BLOCK the operator's deployment block, where the chain log poller first starts
 //   SIDEQUEST_ARC_RPC_URL           the Arc testnet RPC endpoint (default the public one), read by `stageRpcUrl`
 //
 // The keys are read as `Config.Redacted` and bound as Worker secrets (`secret_text`), never as plain variables, so no
@@ -34,6 +36,8 @@ const plainNames = [
   'SIDEQUEST_ARBITRATION_OPERATOR',
   'SIDEQUEST_CONFIRMATIONS',
   'SIDEQUEST_FEE_BPS',
+  'SIDEQUEST_ARBITRATION_PUBKEY',
+  'SIDEQUEST_OPERATOR_DEPLOY_BLOCK',
 ] as const
 const secretNames = ['SIDEQUEST_RELAYER_KEY', 'SIDEQUEST_ARBITRATOR_KEY'] as const
 

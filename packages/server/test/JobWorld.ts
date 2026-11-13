@@ -54,23 +54,28 @@ const build = <C>(spec: KindSpec<C>, content: unknown, key: SecretKey, createdAt
 export const requestBy = (key: SecretKey, createdAt: number, expiresIn = 7 * day, title = 'Translate our guide') =>
   build(jobRequest, { title, description: 'Into Slovenian.', expiresAt: createdAt + expiresIn }, key, createdAt)
 
-/** `key`'s proposal for `job` to its buyer, paying `key`'s wallet, valid for three days. */
+/**
+ * `key`'s proposal for `job` to its buyer, paying `key`'s wallet, valid for three days; `revising` names the buyer it
+ * is for instead and the proposal it replaces.
+ */
 export const proposalBy = async (
   key: SecretKey,
   job: NostrEvent,
   createdAt: number,
   offered = termsFrom(createdAt),
   payTo = walletOfKey(key),
+  revising: { readonly buyer?: string; readonly previous?: string } = {},
 ) =>
   build(
     jobProposal,
     {
       job: job.id,
-      buyer: job.pubkey,
+      buyer: revising.buyer ?? job.pubkey,
       terms: Schema.encodeSync(Terms)(offered),
       termsDigest: await Effect.runPromise(termsDigest(offered)),
       payTo,
       validUntil: createdAt + 3 * day,
+      ...(revising.previous === undefined ? {} : { previous: revising.previous }),
     },
     key,
     createdAt,

@@ -34,6 +34,8 @@ export default defineConfig({
       'packages/server/src/Index/ChainFacts.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/JobEvents.ts': ['/[\\s\\S]*/'],
       'packages/server/src/Index/Jobs.ts': ['/[\\s\\S]*/'],
+      // Nostr-native settlement's SQL, and the reasons it gives operators and API clients in the protocol's English.
+      'packages/server/src/Native/**/*.ts': ['/[\\s\\S]*/'],
       // The EIP-712 type strings the operator and the escrow hash: part of the signed protocol, not text.
       'packages/settlement/src/Payment.ts': ['/^(JobParams|PaymentInfo)\\(/'],
       // The EIP-712 type strings of a wallet's link to a Nostr key, likewise signed protocol.

@@ -1,5 +1,5 @@
-import type { Agreement } from '@sidequest/protocol'
-import { Effect, Schema } from 'effect'
+import type { Agreement, Terms } from '@sidequest/protocol'
+import { Effect, Option, Schema } from 'effect'
 import { type Address, encodeAbiParameters, getAddress, type Hex, isAddressEqual, keccak256, toHex } from 'viem'
 import { operatorMargin, type SettlementChain } from './SettlementChain.ts'
 import { digestWord, jobIdWord } from './Words.ts'
@@ -155,14 +155,13 @@ export const authorizationExpiryOf = (params: JobParams) =>
 
 const refuse = (reason: UnpayableAgreement['reason']) => Effect.fail(new UnpayableAgreement({ reason }))
 
-/** Fails with the first way the agreement cannot be paid between these parties on `chain`. */
-const payable = (agreement: Agreement, parties: Parties, chain: SettlementChain) => {
-  const { terms } = agreement
+/** Fails with the first way terms cannot be paid with `params` between these parties on `chain`. */
+const payable = (terms: Terms, params: JobParams, parties: Parties, chain: SettlementChain) => {
   const amount = BigInt(terms.amount)
   if (terms.network !== chain.asset.network) return refuse('network')
   if (terms.asset !== chain.asset.id) return refuse('asset')
   if (amount === 0n || amount > maxUint120) return refuse('amount')
-  if (authorizationExpiryOf(jobParamsOf(agreement, chain)) > maxUint48) return refuse('deadline')
+  if (authorizationExpiryOf(params) > maxUint48) return refuse('deadline')
   if (isAddressEqual(chain.arbitrator, parties.payer) || isAddressEqual(chain.arbitrator, parties.receiver))
     return refuse('arbitrator')
   return Effect.succeed(amount)
@@ -174,18 +173,8 @@ export interface Parties {
   readonly receiver: Address
 }
 
-/**
- * The exact escrow payment for an agreement between `payer` and `receiver` on `chain`: the operator's fee terms, the
- * whole amount, the minimal `authorizationExpiry`, a pre-approval that lapses at the delivery deadline (funding is
- * impossible from then on), and `salt = jobSalt(params)`. Deterministic: the same inputs build the same payment.
- */
-export const paymentOf = Effect.fn('Sidequest.Settlement.paymentOf')(function* (
-  agreement: Agreement,
-  parties: Parties,
-  chain: SettlementChain,
-) {
-  const maxAmount = yield* payable(agreement, parties, chain)
-  const params = jobParamsOf(agreement, chain)
+/** The escrow payment of `maxAmount` with `params` between the parties on `chain` (see `paymentOf`). */
+const paymentWith = (params: JobParams, maxAmount: bigint, parties: Parties, chain: SettlementChain): Payment => {
   const authorizationExpiry = authorizationExpiryOf(params)
   const info: PaymentInfo = {
     operator: chain.operator,
@@ -201,11 +190,87 @@ export const paymentOf = Effect.fn('Sidequest.Settlement.paymentOf')(function* (
     feeReceiver: chain.feeReceiver,
     salt: jobSalt(params),
   }
-  const payment: Payment = {
+  return {
     params,
     info,
     hash: paymentInfoHash(info, chain),
     nonce: paymentInfoHash({ ...info, payer: '0x0000000000000000000000000000000000000000' }, chain),
   }
-  return payment
+}
+
+/**
+ * The exact escrow payment for an agreement between `payer` and `receiver` on `chain`: the operator's fee terms, the
+ * whole amount, the minimal `authorizationExpiry`, a pre-approval that lapses at the delivery deadline (funding is
+ * impossible from then on), and `salt = jobSalt(params)`. Deterministic: the same inputs build the same payment.
+ */
+export const paymentOf = Effect.fn('Sidequest.Settlement.paymentOf')(function* (
+  agreement: Agreement,
+  parties: Parties,
+  chain: SettlementChain,
+) {
+  const params = jobParamsOf(agreement, chain)
+  const maxAmount = yield* payable(agreement.terms, params, parties, chain)
+  return paymentWith(params, maxAmount, parties, chain)
 })
+
+/**
+ * The escrow payment for a Nostr-native job, built exactly as `paymentOf` builds one for an agreement: `job` is the
+ * request event's id (the `bytes32 jobId`), `termsDigest` the proposal's, both as 64 hex digits, and the terms the
+ * proposal's signed terms. Deterministic, so a client and the server build the same payment from the same proposal.
+ */
+export const termsPaymentOf = Effect.fn('Sidequest.Settlement.termsPaymentOf')(function* (
+  signed: { readonly job: string; readonly termsDigest: string; readonly terms: Terms },
+  parties: Parties,
+  chain: SettlementChain,
+) {
+  const { terms } = signed
+  const params: JobParams = {
+    jobId: `0x${signed.job}`,
+    termsDigest: `0x${signed.termsDigest}`,
+    deliveryDeadline: terms.deliveryDeadline,
+    reviewWindow: terms.reviewWindowSeconds,
+    disputeWindow: terms.disputeWindowSeconds,
+    arbitrationWindow: terms.arbitrationWindowSeconds,
+    arbitrator: chain.arbitrator,
+  }
+  const maxAmount = yield* payable(terms, params, parties, chain)
+  return paymentWith(params, maxAmount, parties, chain)
+})
+
+/** What a `JobFunded` log says of its payment: the job, the parties, the amount and the parameters it stored. */
+export interface FundedPayment {
+  readonly paymentHash: string
+  readonly job: string
+  readonly termsDigest: string
+  readonly payer: Address
+  readonly receiver: Address
+  readonly amount: bigint
+  readonly deliveryDeadline: number
+  readonly reviewWindow: number
+  readonly disputeWindow: number
+  readonly arbitrationWindow: number
+  readonly arbitrator: Address
+  readonly authorizationExpiry: number
+}
+
+/**
+ * The escrow payment a `JobFunded` log is about, rebuilt the way `paymentOf` builds one, if it hashes to the log's
+ * payment hash. A payment someone funded directly on chain with other expiries (`preApprovalExpiry`, `refundExpiry`)
+ * cannot be rebuilt from the log alone: the operator's later calls need its exact `PaymentInfo`, so it is `None`.
+ */
+export const fundedPaymentOf = (funded: FundedPayment, chain: SettlementChain): Option.Option<Payment> => {
+  const params: JobParams = {
+    jobId: `0x${funded.job}`,
+    termsDigest: `0x${funded.termsDigest}`,
+    deliveryDeadline: funded.deliveryDeadline,
+    reviewWindow: funded.reviewWindow,
+    disputeWindow: funded.disputeWindow,
+    arbitrationWindow: funded.arbitrationWindow,
+    arbitrator: funded.arbitrator,
+  }
+  const payment = paymentWith(params, funded.amount, funded, chain)
+  return payment.hash === funded.paymentHash.toLowerCase() &&
+    payment.info.authorizationExpiry === funded.authorizationExpiry
+    ? Option.some(payment)
+    : Option.none()
+}

@@ -22,7 +22,8 @@ const aCount = (value: string) => /^\d+$/.test(value) && Number.isSafeInteger(Nu
 const anAccount = Schema.is(AccountId)
 
 /**
- * How each settlement variable must read. The last four exist for a local chain (the gate rehearsal on Anvil), whose
+ * How each settlement variable must read. `SIDEQUEST_ARBITRATION_PUBKEY` and `SIDEQUEST_OPERATOR_DEPLOY_BLOCK` are read
+ * by Nostr-native settlement (`Native/NativeSettings.ts`). The four before them exist for a local chain (the gate rehearsal on Anvil), whose
  * escrow, collector and stand-in USDC are not at Arc testnet's addresses or domain; a deploy never binds them.
  */
 const formats: Readonly<Record<string, (value: string) => boolean>> = {
@@ -38,6 +39,8 @@ const formats: Readonly<Record<string, (value: string) => boolean>> = {
   SIDEQUEST_COLLECTOR_ADDRESS: anAddress,
   SIDEQUEST_TOKEN_DOMAIN_NAME: (value) => value.length > 0,
   SIDEQUEST_TOKEN_DOMAIN_VERSION: (value) => value.length > 0,
+  SIDEQUEST_ARBITRATION_PUBKEY: (value) => /^[0-9a-f]{64}$/u.test(value),
+  SIDEQUEST_OPERATOR_DEPLOY_BLOCK: (value) => /^\d{1,15}$/u.test(value),
 }
 
 /** The variables settlement cannot run without. */

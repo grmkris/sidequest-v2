@@ -46,7 +46,7 @@ const refusalOf = ({ reason, kind }: EventRefused) => {
  * Cloudflare sets `CF-Connecting-IP` on every request it receives, replacing any a client sent. Without it (a request
  * that did not come through Cloudflare, such as the tests'), every such client shares one bucket.
  */
-const clientAddress = (request: HttpServerRequest) => request.headers['cf-connecting-ip'] ?? 'unknown'
+export const clientAddress = (request: HttpServerRequest) => request.headers['cf-connecting-ip'] ?? 'unknown'
 
 const walletOf = ({ account, eventId, issuedAt, verification }: WalletLinkRow): WalletLink => ({
   account,

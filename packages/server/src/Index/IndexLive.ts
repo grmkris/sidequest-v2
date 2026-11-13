@@ -6,6 +6,7 @@ import { D1EventStore } from './EventStore.ts'
 import { Ingest } from './Ingest.ts'
 import { Jobs } from './Jobs.ts'
 import { Listings } from './Listings.ts'
+import { Settler } from '../Native/Settler.ts'
 import { Outbox } from './Outbox.ts'
 import { Poller } from './Poller.ts'
 import { RateLimiter } from './RateLimiter.ts'
@@ -32,8 +33,9 @@ const logged = <A, E>(name: string, effect: Effect.Effect<A, E>) =>
 
 /**
  * The index's schedule, as Cron Triggers on the API Worker (`Cloudflare.Workers.cron`): the outbox, the pruning of
- * rate-limit windows and the chain log poller every minute, the relay poller every ten. The chain log poller is
- * disabled, and runs nothing, on a stage without settlement. A Cron Trigger rather than a Durable Object alarm: the work
+ * rate-limit windows, the chain log poller and then the settler of Nostr-native jobs (`Native/Settler.ts`, which reads
+ * what the poller just recorded) every minute, in that order, and the relay poller every ten. The chain log poller and
+ * the settler are disabled, and run nothing, on a stage without settlement. A Cron Trigger rather than a Durable Object alarm: the work
  * is one job for the whole index (no per-entity state to keep), the pinned Alchemy wires a trigger and its handler in
  * one call, and a fire that fails is simply the next fire's work, since every step is idempotent and durable in D1.
  * Each handler's failures are logged; the event source never lets one take the Worker down. With no relays
@@ -44,12 +46,14 @@ export const indexSchedule = Effect.gen(function* () {
   const outbox = yield* Outbox
   const limiter = yield* RateLimiter
   const chainLogs = yield* ChainLogPoller
+  const settler = yield* Settler
   yield* Cloudflare.Workers.cron('* * * * *', () =>
     Effect.all(
       [
         logged('deliver', outbox.deliver),
         logged('prune', limiter.prune(rateLimitRetentionSeconds)),
         logged('pollChain', chainLogs.run),
+        logged('settle', settler.run),
       ],
       { discard: true },
     ),

@@ -6,6 +6,7 @@ import { eventsHandlers } from './Http/EventsHttp.ts'
 import { inboxHandlers } from './Http/InboxHttp.ts'
 import { ServedApi } from './Http/IndexJobsApi.ts'
 import { indexJobsHandlers } from './Http/IndexReadsHttp.ts'
+import { indexSettlementHandlers } from './Http/IndexSettlementHttp.ts'
 import { jobsHandlers } from './Http/JobsHttp.ts'
 import { listingsHandlers } from './Http/ListingsHttp.ts'
 import { roomsHandlers } from './Http/RoomsHttp.ts'
@@ -61,6 +62,7 @@ export const apiRoutes = (release: string) =>
         connectHandlers,
         eventsHandlers,
         indexJobsHandlers,
+        indexSettlementHandlers,
       ]),
       Layer.provide([SameOriginLive, SignedInLive]),
     ),

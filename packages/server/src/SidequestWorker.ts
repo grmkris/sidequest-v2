@@ -12,6 +12,8 @@ import { SidequestMedia } from './Resources.ts'
 import { IndexSettingsLive } from './Index/IndexConfig.ts'
 import { ChainLogPoller } from './Index/ChainLogPoller.ts'
 import { IndexLive, indexSchedule } from './Index/IndexLive.ts'
+import { nativeConfigFrom, NativeSettings, operatorDeployBlockFrom } from './Native/NativeSettings.ts'
+import { Settler } from './Native/Settler.ts'
 import { escrowConfigFrom } from './Settlement/EscrowConfig.ts'
 import { ChainRpcFromArc, escrowLive } from './Settlement/SettlementLive.ts'
 import { ArcRpc, arcRpcUrlFrom } from './SignIn/ArcRpc.ts'
@@ -39,20 +41,34 @@ const EscrowLive = Layer.unwrap(
 
 /**
  * The chain log poller on the settlement chain, if the Worker's configuration names one; otherwise disabled. It reads
- * through the same Arc RPC client as settlement and sign-in, from the confirmed head of its first run.
+ * through the same Arc RPC client as settlement and sign-in, from the operator's deployment block
+ * (`SIDEQUEST_OPERATOR_DEPLOY_BLOCK`) on its first run, or without one from the confirmed head.
  */
 const ChainLogPollerLive = Layer.unwrap(
   Effect.map(Cloudflare.Workers.WorkerEnvironment, (environment) =>
     Option.match(escrowConfigFrom(environment), {
       onNone: () => ChainLogPoller.disabled,
-      onSome: ({ chain }) => ChainLogPoller.layer(chain, Option.none()).pipe(Layer.provide(ChainRpcFromArc)),
+      onSome: ({ chain }) =>
+        ChainLogPoller.layer(chain, operatorDeployBlockFrom(environment)).pipe(Layer.provide(ChainRpcFromArc)),
     }),
   ),
 )
 
+/** Nostr-native settlement's settings (the arbitration key), from the Worker's variables. */
+const NativeSettingsLive = Layer.effect(
+  NativeSettings,
+  Effect.map(Cloudflare.Workers.WorkerEnvironment, nativeConfigFrom),
+)
+
 /** Sign-in and the domain's `Session` middleware, over the model hosted on Durable Objects and D1, and the escrow; the
  * fetcher of MCP clients' metadata documents; and the index, configured by the Worker's variables. */
-const Runtime = Layer.mergeAll(SignInLive, ClientDocuments.layer, ChainLogPollerLive).pipe(
+const Runtime = Layer.mergeAll(
+  SignInLive,
+  ClientDocuments.layer,
+  ChainLogPollerLive,
+  Settler.layer,
+  NativeSettingsLive,
+).pipe(
   Layer.provideMerge(IndexLive.pipe(Layer.provide(IndexSettingsLive))),
   Layer.provideMerge(DomainLive),
   Layer.provideMerge(EscrowLive),

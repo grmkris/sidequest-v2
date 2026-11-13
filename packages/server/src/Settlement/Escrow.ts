@@ -55,6 +55,8 @@ const make = (config: EscrowConfig) =>
       expected,
       status,
       relay: relayer.relay,
+      /** Repairs every stuck intent and closes every mined one, as each relay does first. */
+      repair: relayer.repair,
       signRuling: Option.map(arbitrator, (service) => service.signRuling),
     }
   })

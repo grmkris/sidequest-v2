@@ -41,6 +41,18 @@ export {
   WalletLink,
 } from './EventsApi.ts'
 export { Bytes32 } from './Bytes32.ts'
+export {
+  ArbitrationRefused,
+  EscrowJobParams,
+  EscrowPaymentInfo,
+  FundedTerms,
+  IndexFunding,
+  IndexPaymentStatus,
+  IndexSettlementApi,
+  IndexSettlementReason,
+  IndexSettlementRefused,
+  RelayedCall,
+} from './IndexSettlementApi.ts'
 export { Hex32 } from './Hex32.ts'
 export {
   IndexListing,

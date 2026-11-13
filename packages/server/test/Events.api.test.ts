@@ -258,11 +258,23 @@ describe('the same-origin rule', () => {
         'GET /api/events/:id',
         'GET /api/index/jobs',
         'GET /api/index/jobs/:id',
+        'GET /api/index/jobs/:id/approval',
+        'GET /api/index/jobs/:id/delivery',
+        'GET /api/index/jobs/:id/payment',
+        'GET /api/index/jobs/:id/proposals/:proposal/funding',
+        'GET /api/index/jobs/:id/rejection',
+        'GET /api/index/jobs/:id/terms',
         'GET /api/index/listings',
         'GET /api/index/listings/:pubkey/:slug',
         'GET /api/people/:pubkey',
         'GET /api/wallets/:account',
         'POST /api/events',
+        // The sessionless escrow: each carries a wallet signature (or the ruling's NIP-98 authorization).
+        'POST /api/index/jobs/:id/approval',
+        'POST /api/index/jobs/:id/delivery',
+        'POST /api/index/jobs/:id/proposals/:proposal/funding',
+        'POST /api/index/jobs/:id/rejection',
+        'POST /api/index/jobs/:id/ruling',
       ])
       // And it is the middleware that runs: a cross-site state change elsewhere is still refused.
       const forged = await fetch('/api/session/challenge', {
