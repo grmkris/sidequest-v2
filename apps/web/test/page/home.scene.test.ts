@@ -40,6 +40,8 @@ const offer: IndexListing = Schema.decodeSync(IndexListing)({
   status: 'active',
   publishedAt: now,
   author: { name: 'Ben', walletVerified: true },
+  rail: 'escrow',
+  payPerCall: null,
 })
 
 /** Home once both reads answered. */

@@ -51,6 +51,10 @@ export {
   IndexListingQuery,
   IndexListingSlug,
   IndexListingTopic,
+  ListingRail,
+  ListingReceipt,
+  maxListingReceipts,
+  PayPerCall,
   PriceHint,
   SearchText,
 } from './IndexListing.ts'
@@ -67,3 +71,26 @@ export { TypedData } from './TypedData.ts'
 export { UnixSeconds } from './UnixSeconds.ts'
 export { WalletAddress, WalletSignature } from './Wallet.ts'
 export { webCrypto } from './WebCrypto.ts'
+export {
+  x402Header,
+  x402Headers,
+  X402Authorization,
+  X402ExactEvmPayload,
+  X402PaymentPayload,
+  X402PaymentRequired,
+  X402Requirements,
+  X402Resource,
+  X402Settlement,
+  x402Version,
+} from './X402.ts'
+export {
+  ChallengeMismatch,
+  ChallengeMismatchReason,
+  type ExactOffer,
+  exactAuthorization,
+  exactPaymentPayload,
+  exactTypedData,
+  matchChallenge,
+  maxAuthorizationSeconds,
+  type PayPerCallTerms,
+} from './X402Exact.ts'

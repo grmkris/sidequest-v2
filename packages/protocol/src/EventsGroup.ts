@@ -2,7 +2,13 @@ import { Schema } from 'effect'
 import { HttpApiEndpoint, HttpApiGroup } from 'effect/http-api'
 import { AccountRef } from './AccountRef.ts'
 import { Hex32 } from './Hex32.ts'
-import { IndexListing, IndexListingDetail, IndexListingQuery, IndexListingSlug } from './IndexListing.ts'
+import {
+  IndexListing,
+  IndexListingDetail,
+  IndexListingQuery,
+  IndexListingSlug,
+  ListingReceipt,
+} from './IndexListing.ts'
 import { Page } from './Page.ts'
 import { BadCursor, Unavailable } from './Refusals.ts'
 import {
@@ -28,8 +34,9 @@ import {
  * so there is no session) and the index stores it and relays it on; anyone reads a stored event, what the index knows
  * of a key, the names of up to `maxPeoplePerLookup` keys at once (one answer for each key asked for), which
  * key a wallet is linked to, the jobs a key wrote a request or a proposal for (newest first, at most
- * `maxKeyJobs`: what a client computes its inbox from), and sellers' NIP-99 listings (searched newest first, or
- * one by its seller and slug). Publishing is limited per client and per key.
+ * `maxKeyJobs`: what a client computes its inbox from), sellers' NIP-99 listings (searched newest first, or
+ * one by its seller and slug), and the payment receipts of a pay-per-call listing, each labelled verified or not
+ * (newest first, at most `maxListingReceipts`). Publishing is limited per client and per key.
  */
 export class EventsApi extends HttpApiGroup.make('events').add(
   HttpApiEndpoint.post('publish', '/api/events', {
@@ -71,5 +78,10 @@ export class EventsApi extends HttpApiGroup.make('events').add(
     params: { pubkey: Hex32, slug: IndexListingSlug },
     success: IndexListingDetail,
     error: [NotIndexed, Unavailable],
+  }),
+  HttpApiEndpoint.get('listingReceipts', '/api/index/listings/:pubkey/:slug/receipts', {
+    params: { pubkey: Hex32, slug: IndexListingSlug },
+    success: Schema.Struct({ items: Schema.Array(ListingReceipt) }),
+    error: Unavailable,
   }),
 ) {}

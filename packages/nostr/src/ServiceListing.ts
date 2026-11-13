@@ -6,11 +6,35 @@ import { standardKinds } from './Kinds.ts'
 import { type ListingAddress, listingAddressOf, ListingSlug } from './ListingAddress.ts'
 import { VocabularyRefused } from './SidequestEvent.ts'
 import { verifyEvent } from './Verify.ts'
+import { EvmAccount, networkOfAccount } from './WalletLink.ts'
+
+/** An x402 resource's URL: https, no credentials, no fragment, at most 2000 characters. */
+export const X402ResourceUrl = Schema.String.check(
+  Schema.isPattern(/^https:\/\/[^\s@#/]+(\/[^\s#]*)?$/u),
+  Schema.isMaxLength(2000),
+)
+
+/**
+ * What makes a listing pay-per-call (ADR-0006): the x402 resource the seller hosts, which answers 402 with an `exact`
+ * offer of the listing's price, and the wallet that price is paid to, as a lowercase CAIP-10 account on the price's
+ * network. Tags: `["sq-x402", <resource>]` and `["sq-pay-to", <account>]`.
+ */
+export const PayPerCallListing = Schema.Struct({ resource: X402ResourceUrl, payTo: EvmAccount })
+export type PayPerCallListing = typeof PayPerCallListing.Type
+
+const payPerCallPriced = (listing: {
+  readonly price?: { readonly asset: string }
+  readonly x402?: PayPerCallListing
+}) =>
+  listing.x402 === undefined ||
+  (listing.price !== undefined && listing.price.asset.startsWith(`${networkOfAccount(listing.x402.payTo)}/`))
 
 /**
  * A seller's service as a NIP-99 classified listing (kind 30402), so any NIP-99 client shows it. The price, when
- * given, is a hint in a registered asset: NIP-99's `price` tag shows it in whole units with the asset's symbol, and
- * `["sq-price", <atomic amount>, <CAIP-19 asset>]` carries it exactly. NIP-99's `status` is `active` or `sold`.
+ * given, is in a registered asset: NIP-99's `price` tag shows it in whole units with the asset's symbol, and
+ * `["sq-price", <atomic amount>, <CAIP-19 asset>]` carries it exactly. NIP-99's `status` is `active` or `sold`. On an
+ * escrow listing the price is a hint and only accepted terms bind; on a pay-per-call listing (`x402`) it is the exact
+ * price of one call, so it is required, and its asset is on the network of the `payTo` account.
  */
 export const ServiceListing = Schema.Struct({
   slug: ListingSlug,
@@ -25,7 +49,8 @@ export const ServiceListing = Schema.Struct({
   ),
   status: Schema.Literals(['active', 'sold']),
   publishedAt: UnixSeconds,
-})
+  x402: Schema.optionalKey(PayPerCallListing),
+}).check(Schema.makeFilter(payPerCallPriced, { expected: 'payPerCallPricedOnItsNetwork' }))
 export type ServiceListing = typeof ServiceListing.Type
 
 /** A verified listing with its seller's address for it. */
@@ -54,6 +79,14 @@ const priceTags = (price: ServiceListing['price']): ReadonlyArray<Tag> =>
         ],
       })
 
+const payPerCallTags = (x402: ServiceListing['x402']): ReadonlyArray<Tag> =>
+  x402 === undefined
+    ? []
+    : [
+        ['sq-x402', x402.resource],
+        ['sq-pay-to', x402.payTo],
+      ]
+
 const listingTags = (listing: ServiceListing): ReadonlyArray<Tag> => [
   ['d', listing.slug],
   ['title', listing.title],
@@ -61,6 +94,7 @@ const listingTags = (listing: ServiceListing): ReadonlyArray<Tag> => [
   ['published_at', String(listing.publishedAt)],
   ...listing.topics.map((topic) => ['t', topic]),
   ...priceTags(listing.price),
+  ...payPerCallTags(listing.x402),
   ['status', listing.status],
   ...envelopeTags({ network: Option.none(), grant: Option.none() }),
 ]
@@ -80,6 +114,12 @@ const priceOf = (event: NostrEvent) => {
   return tag === undefined ? {} : { price: { amount: tag[1], asset: tag[2] } }
 }
 
+const payPerCallOf = (event: NostrEvent) => {
+  const resource = valueOf(event, 'sq-x402')
+  const payTo = valueOf(event, 'sq-pay-to')
+  return resource === undefined && payTo === undefined ? {} : { x402: { resource, payTo } }
+}
+
 /** The listing's fields as its tags spell them, for the schema to decide. */
 const fieldsOf = (event: NostrEvent) => ({
   slug: valueOf(event, 'd'),
@@ -88,6 +128,7 @@ const fieldsOf = (event: NostrEvent) => ({
   description: event.content,
   topics: event.tags.filter((tag) => tag[0] === 't').map((tag) => tag[1]),
   ...priceOf(event),
+  ...payPerCallOf(event),
   status: valueOf(event, 'status'),
   publishedAt: Number(valueOf(event, 'published_at')),
 })

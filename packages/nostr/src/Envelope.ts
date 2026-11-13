@@ -80,6 +80,8 @@ const routingTagNames: ReadonlySet<string> = new Set([
   envelopeTag.network,
   envelopeTag.grant,
   'sq-price',
+  'sq-x402',
+  'sq-pay-to',
   'price',
   'title',
   'summary',

@@ -13,6 +13,7 @@ export { jobReview, JobReviewContent } from './JobReview.ts'
 export type { KindSpec, NetworkRule } from './KindSpec.ts'
 export { envelopeTag, type SidequestKind, sidequestKinds, standardKinds, vocabularyVersion } from './Kinds.ts'
 export { ListingAddress, listingAddressOf, ListingSlug } from './ListingAddress.ts'
+export { paymentReceipt, PaymentReceiptContent, sellerOf } from './PaymentReceipt.ts'
 export { parseProfileName, type ProfileName, profileTemplate } from './Profile.ts'
 export { recoverAddress } from './RecoverAddress.ts'
 export {
@@ -24,7 +25,14 @@ export {
   relayListTemplate,
   RelayUrl,
 } from './RelayList.ts'
-export { parseServiceListing, type ParsedListing, ServiceListing, serviceListingTemplate } from './ServiceListing.ts'
+export {
+  parseServiceListing,
+  type ParsedListing,
+  PayPerCallListing,
+  ServiceListing,
+  serviceListingTemplate,
+  X402ResourceUrl,
+} from './ServiceListing.ts'
 export {
   type BuildOptions,
   buildSidequestEvent,

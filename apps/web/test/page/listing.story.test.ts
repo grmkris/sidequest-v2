@@ -31,6 +31,8 @@ const listing = Schema.decodeSync(IndexListingDetail)({
   status: 'active',
   publishedAt: now - 3600,
   author: { name: 'Ben', walletVerified: true },
+  rail: 'escrow',
+  payPerCall: null,
 })
 
 const form = (formMessage: ListingForm.Message) => NewListing.Message.GotListingFormMessage({ message: formMessage })

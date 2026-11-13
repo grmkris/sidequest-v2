@@ -2,7 +2,8 @@
  * Sidequest's event kinds: one block, 8410–8420, in NIP-01's regular range and not in the NIPs' kind registry. They
  * live here alone so the block can move in one edit. It moved once, from 8210–8220: on 13 November 2026 public relays
  * already held another client's kind 8211, and held nothing in 8410–8421. One kind per consequential action lets a
- * NIP-46 signer scope an agent's key per action (`sign_event:<kind>`). 8417 and 8420 are kept free.
+ * NIP-46 signer scope an agent's key per action (`sign_event:<kind>`). 8417 is kept free; 8420 is a buyer's receipt
+ * for a paid call on the x402 rail (ADR-0006).
  */
 export const sidequestKinds = {
   walletLink: 8410,
@@ -14,6 +15,7 @@ export const sidequestKinds = {
   review: 8416,
   grant: 8418,
   revocation: 8419,
+  paymentReceipt: 8420,
 } as const
 export type SidequestKind = (typeof sidequestKinds)[keyof typeof sidequestKinds]
 
