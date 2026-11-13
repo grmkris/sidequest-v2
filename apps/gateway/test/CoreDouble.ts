@@ -165,6 +165,35 @@ const deliveryTypedData = (job: string, deliveryHash: string): TypedData => ({
 /** The last page's cursor. */
 const noCursor: Cursor | null = null
 
+/** What the index would know of `pubkey`: its grants, the wallets and identities a test set for it. */
+const personOf = (
+  { grants }: Readings,
+  pubkey: string,
+  set: {
+    readonly wallets: ReadonlyMap<string, ReadonlyArray<AccountRef>>
+    readonly identities: ReadonlyMap<string, ReadonlyArray<Erc8004Identity>>
+  },
+): Option.Option<Person> => {
+  const agents = grants.filter(({ operator }) => operator === pubkey)
+  const operators = grants.filter(({ agent, status }) => agent === pubkey && status !== 'revoked')
+  const linked = (set.wallets.get(pubkey) ?? []).map((account) => ({
+    account,
+    event: '00'.repeat(32),
+    issuedAt: 0,
+    verification: 'verified' as const,
+  }))
+  if (agents.length + operators.length + linked.length === 0) return Option.none()
+  const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [] }
+  return Option.some({
+    pubkey,
+    ...empty,
+    wallets: linked,
+    agents,
+    operators,
+    erc8004: set.identities.get(pubkey) ?? [],
+  })
+}
+
 /** A fresh double. */
 export const coreDouble = (): CoreDouble => {
   const events: Array<NostrEvent> = []
@@ -175,19 +204,6 @@ export const coreDouble = (): CoreDouble => {
   const relayed: Array<RelayedDelivery> = []
   const nextRelay: { refusal: CoreRefused | undefined } = { refusal: undefined }
   const listings = new Map<string, IndexListingDetail>()
-  const person = ({ grants }: Readings, pubkey: string): Option.Option<Person> => {
-    const agents = grants.filter(({ operator }) => operator === pubkey)
-    const operators = grants.filter(({ agent, status }) => agent === pubkey && status !== 'revoked')
-    const linked = (wallets.get(pubkey) ?? []).map((account) => ({
-      account,
-      event: '00'.repeat(32),
-      issuedAt: 0,
-      verification: 'verified' as const,
-    }))
-    if (agents.length + operators.length + linked.length === 0) return Option.none()
-    const empty = { profile: null, relays: null, messagingRelays: null, unverifiedWallets: [] }
-    return Option.some({ pubkey, ...empty, wallets: linked, agents, operators, erc8004: identities.get(pubkey) ?? [] })
-  }
   const service: CoreService = {
     publish: (event) =>
       Effect.suspend(() => {
@@ -198,7 +214,7 @@ export const coreDouble = (): CoreDouble => {
         if (!duplicate) events.push(event)
         return Effect.succeed({ id: event.id, status: duplicate ? ('duplicate' as const) : ('stored' as const) })
       }),
-    person: (pubkey) => Effect.map(readAll(events), (readings) => person(readings, pubkey)),
+    person: (pubkey) => Effect.map(readAll(events), (readings) => personOf(readings, pubkey, { wallets, identities })),
     openJobs: () =>
       Effect.map(readAll(events), (readings) => ({
         items: readings.jobEvents.flatMap((event) =>
