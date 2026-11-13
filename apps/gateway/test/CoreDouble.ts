@@ -11,7 +11,15 @@ import {
   parseSidequestEvent,
   statement,
 } from '@sidequest/nostr/vocabulary'
-import type { AccountRef, AgentGrantView, Cursor, DelegatedDelivery, Person, TypedData } from '@sidequest/protocol'
+import type {
+  AccountRef,
+  AgentGrantView,
+  Cursor,
+  DelegatedDelivery,
+  IndexListingDetail,
+  Person,
+  TypedData,
+} from '@sidequest/protocol'
 import { Effect, Layer, Option, Schema } from 'effect'
 import { Core, CoreRefused, type CoreService } from '../src/Core/Core.ts'
 
@@ -36,6 +44,8 @@ export interface CoreDouble {
   readonly nextPublish: { refusal: CoreRefused | undefined }
   readonly relayed: Array<RelayedDelivery>
   readonly nextRelay: { refusal: CoreRefused | undefined }
+  /** Listings the double answers, by `<pubkey>/<slug>`. */
+  readonly listings: Map<string, IndexListingDetail>
   readonly layer: Layer.Layer<Core>
 }
 
@@ -160,6 +170,7 @@ export const coreDouble = (): CoreDouble => {
   const nextPublish: { refusal: CoreRefused | undefined } = { refusal: undefined }
   const relayed: Array<RelayedDelivery> = []
   const nextRelay: { refusal: CoreRefused | undefined } = { refusal: undefined }
+  const listings = new Map<string, IndexListingDetail>()
   const person = ({ grants }: Readings, pubkey: string): Option.Option<Person> => {
     const agents = grants.filter(({ operator }) => operator === pubkey)
     const operators = grants.filter(({ agent, status }) => agent === pubkey && status !== 'revoked')
@@ -204,6 +215,7 @@ export const coreDouble = (): CoreDouble => {
       })),
     job: (id) => Effect.map(readAll(events), (readings) => viewOf(readings, funded, id)),
     listings: () => Effect.succeed({ items: [], next: null }),
+    listing: (pubkey, slug) => Effect.succeed(Option.fromNullishOr(listings.get(`${pubkey}/${slug}`))),
     payment: () =>
       Effect.succeed({
         escrow: '0x0000000000000000000000000000000000000001',
@@ -227,7 +239,8 @@ export const coreDouble = (): CoreDouble => {
         return Effect.succeed({ transactionHash: `0x${'7e'.repeat(32)}` })
       }),
   }
-  return { events, wallets, funded, nextPublish, relayed, nextRelay, layer: Layer.succeed(Core, Core.of(service)) }
+  const layer = Layer.succeed(Core, Core.of(service))
+  return { events, wallets, funded, nextPublish, relayed, nextRelay, listings, layer }
 }
 
 /** The events of a kind the double holds, read. */

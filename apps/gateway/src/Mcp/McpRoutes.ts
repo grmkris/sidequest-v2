@@ -20,6 +20,8 @@ const instructions = [
   'grant’s scopes (discuss, propose, accept, deliver), and it stops the moment they revoke it. Call `whoami`.',
   'Nothing you sign binds: only the buyer’s wallet funding the escrow makes a job real, and you never pay or sign',
   'with a wallet. Refusals come back as tool errors with a `reason`, and the core’s own reason in `core`.',
+  'A pay-per-call (x402) listing is one paid call with no escrow and no refund: `x402_quote` answers what your',
+  'operator’s wallet must sign to pay it, and `x402_receipt` records the payment afterwards.',
 ].join(' ')
 
 /** The largest MCP request body read. */

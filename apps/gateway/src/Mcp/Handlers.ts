@@ -11,9 +11,19 @@ import { GatewaySettings } from '../Settings.ts'
 import { acting, refusedByCore } from './Acting.ts'
 import { GatewayToolkit, Refused } from './Tools.ts'
 import { accept, deliver, deliveryDelegation, propose, withdrawProposal } from './WriteTools.ts'
+import { x402Quote, x402Receipt } from './X402Tools.ts'
+import type { ChallengeFetch } from '../X402/ChallengeFetch.ts'
 
 /** The services every tool call runs with, captured once when the handlers are built. */
-type ToolServices = Core | GrantGate | RateLimiter | AgentKeys | Delegations | AgentRoomState | RoomNetwork
+type ToolServices =
+  | Core
+  | GrantGate
+  | RateLimiter
+  | AgentKeys
+  | Delegations
+  | AgentRoomState
+  | RoomNetwork
+  | ChallengeFetch
 
 /**
  * Every tool's handler. Reads need an active grant; writes, the scope their tool names. The registry is shared by
@@ -49,6 +59,8 @@ export const GatewayHandlers = GatewayToolkit.toLayer(
       accept: (input) => run(accept(input)),
       deliver: (input) => run(deliver(input, coreUrl)),
       delivery_delegation: (input) => run(deliveryDelegation(input)),
+      x402_quote: (input) => run(x402Quote(input)),
+      x402_receipt: (input) => run(x402Receipt(input)),
       list_rooms: ({ job }) => run(listRooms(job)),
       read_room_messages: () => run(readRoomMessages),
       send_room_message: ({ room, text }) => run(sendRoomMessage(room, text)),

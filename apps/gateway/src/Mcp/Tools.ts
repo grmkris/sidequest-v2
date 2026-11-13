@@ -18,6 +18,7 @@ import {
   UnixSeconds,
   WalletAddress,
   writing,
+  X402PaymentPayload,
 } from '@sidequest/protocol'
 import { Schema } from 'effect'
 import { Tool, Toolkit } from 'effect/ai'
@@ -28,7 +29,11 @@ import { roomTools } from './RoomTools.ts'
  * Why a tool refused. The grant gate's reasons; the agent's own rate limit; what the gateway checks before it signs
  * (`UnknownJob`, `UnknownProposal`, `NotTheBuyer`, `NotYourProposal`, `NotTheWorker`, `OwnRequest`,
  * `NoWalletOnNetwork`); and the core's refusals (`CoreRefused`, with `core` carrying the core's own error and reason)
- * or its silence (`CoreUnavailable`). `KeyUnavailable`: the agent's key could not be opened (it was deleted).
+ * or its silence (`CoreUnavailable`). `KeyUnavailable`: the agent's key could not be opened (it was deleted). The x402
+ * tools' own: no such listing (`UnknownListing`), an escrow listing (`NotPayPerCall`), a payTo that is not the seller's
+ * verified wallet (`PayToNotLinked`), a resource that did not answer or is not a public https URL
+ * (`ResourceUnreachable`), an answer that was not a 402 with a readable x402 v2 challenge (`NoChallenge`), and a
+ * challenge that asks other than its listing (`ChallengeMismatch`, its reason in `detail`).
  */
 export const RefusalReason = Schema.Literals([
   ...GrantRefusalReason.literals,
@@ -44,6 +49,12 @@ export const RefusalReason = Schema.Literals([
   'CoreRefused',
   'CoreUnavailable',
   'KeyUnavailable',
+  'UnknownListing',
+  'NotPayPerCall',
+  'PayToNotLinked',
+  'ResourceUnreachable',
+  'NoChallenge',
+  'ChallengeMismatch',
 ])
 export type RefusalReason = typeof RefusalReason.Type
 
@@ -245,6 +256,61 @@ const DeliveryDelegation = Tool.make('delivery_delegation', {
   failure: Refused,
 }).annotateMerge(reading)
 
+const onListing = {
+  seller: PublicKey.annotate({ description: 'The listing’s seller: their Nostr public key (64 hex).' }),
+  slug: Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]{0,63}$/u)).annotate({
+    description: 'The listing’s slug (its `d` tag).',
+  }),
+}
+
+const noRefunds =
+  'A paid call has no escrow, no review, no dispute and no refund: once your operator’s wallet signs, the seller ' +
+  'can take the money whether or not the call works. Sidequest holds nothing and is not in the payment path.'
+
+/** A pay-per-call listing's terms as the tools state them. */
+const PaidListing = Schema.Struct({
+  seller: PublicKey,
+  slug: Schema.String,
+  version: EventId,
+  resource: Schema.String,
+  amount: Schema.String,
+  asset: Schema.String,
+  payTo: AccountRef,
+})
+
+const X402Quote = Tool.make('x402_quote', {
+  description:
+    'For a pay-per-call (x402) listing: ask its resource for its price (an unpaid request, answered 402), check ' +
+    'that the challenge asks exactly what the listing says (the seller’s verified wallet as payTo, the price, the ' +
+    'asset and network), and answer what your OPERATOR’S WALLET must sign to pay one call (ERC-3009 ' +
+    '`TransferWithAuthorization` typed data) and the unsigned x402 payment. You cannot pay: you hold no money and ' +
+    'never sign with a wallet. Your operator signs `typedData`, puts the signature in `payment.payload.signature`, ' +
+    'and calls the resource with the payment, base64 JSON, in the `PAYMENT-SIGNATURE` header before `validBefore`; ' +
+    `then \`x402_receipt\` records it. ${noRefunds} No scope.`,
+  parameters: Schema.Struct(onListing),
+  success: Schema.Struct({
+    listing: PaidListing,
+    payer: AccountRef,
+    typedData: TypedData,
+    payment: X402PaymentPayload,
+    validBefore: UnixSeconds,
+    warning: Schema.String,
+  }),
+  failure: Refused,
+}).annotateMerge(reading)
+
+const X402Receipt = Tool.make('x402_receipt', {
+  description:
+    'After your operator’s wallet paid a call to a pay-per-call listing, publish the receipt: the listing, the ' +
+    'wallet that paid (your operator’s verified wallet on the price’s network), the price and the settlement ' +
+    'transaction (the `transaction` of the seller’s `PAYMENT-RESPONSE`). Signed with your key under your grant. The ' +
+    'index labels it verified once the chain shows that transfer, confirmed, from your operator’s wallet to the ' +
+    'listing’s payTo; a wrong claim stays unverified. Needs the `accept` scope.',
+  parameters: Schema.Struct({ ...onListing, transaction: Bytes32 }),
+  success: Schema.Struct({ receipt: EventId, listing: PaidListing, payer: AccountRef, ...Signed }),
+  failure: Refused,
+}).annotateMerge(writing({ idempotent: true }))
+
 /** Every tool an agent reaches at the gateway's `/mcp`. */
 export const GatewayToolkit = Toolkit.make(
   WhoAmI,
@@ -258,5 +324,7 @@ export const GatewayToolkit = Toolkit.make(
   Accept,
   Deliver,
   DeliveryDelegation,
+  X402Quote,
+  X402Receipt,
   ...roomTools,
 )

@@ -6,6 +6,7 @@ import {
   type DelegatedDelivery,
   EventsApi,
   type IndexListing,
+  type IndexListingDetail,
   type EscrowPaymentStatus,
   EscrowApi,
   type Person,
@@ -59,6 +60,8 @@ export interface CoreService {
   readonly listings: (
     query: PageQuery & { readonly q?: string | undefined; readonly tag?: string | undefined },
   ) => Effect.Effect<{ readonly items: ReadonlyArray<IndexListing>; readonly next: Cursor | null }, CoreError>
+  /** One seller's listing by its slug, with its pay-per-call block if it has one. */
+  readonly listing: (pubkey: string, slug: string) => Effect.Effect<Option.Option<IndexListingDetail>, CoreError>
   readonly payment: (job: string) => Effect.Effect<EscrowPaymentStatus, CoreError>
   readonly deliveryToSign: (job: string, deliveryHash: string) => Effect.Effect<TypedData, CoreError>
   /**
@@ -137,6 +140,7 @@ export const CoreLive = Layer.effect(
             query: { ...pageOf(page), ...(q === undefined ? {} : { q }), ...(tag === undefined ? {} : { tag }) },
           })
           .pipe(Effect.mapError(coreErrorOf)),
+      listing: (pubkey, slug) => orNone(client.events.listing({ params: { pubkey, slug } })),
       payment: (job) => client.escrow.payment({ params: { id: job } }).pipe(Effect.mapError(coreErrorOf)),
       deliveryToSign: (job, deliveryHash) =>
         client.escrow

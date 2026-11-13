@@ -41,8 +41,8 @@ const Services = Layer.mergeAll(
 
 /**
  * Every route of the gateway: MCP at `/mcp`, OAuth and its consent page, the operator's API and the status. Needs the
- * database's `SqlClient`, the `GatewaySettings`, the `Core`, the `RoomNetwork` and the fetcher of clients' metadata
- * documents.
+ * database's `SqlClient`, the `GatewaySettings`, the `Core`, the `RoomNetwork`, the fetcher of clients' metadata
+ * documents and the asker of x402 resources' challenges.
  */
 export const gatewayRoutes = (release: string) =>
   Layer.mergeAll(

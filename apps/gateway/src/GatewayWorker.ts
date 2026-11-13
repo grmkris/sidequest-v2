@@ -12,6 +12,7 @@ import { GatewayDatabase } from './Resources.ts'
 import { RoomNetwork } from './Rooms/RoomNetwork.ts'
 import { gatewayRoutes } from './Routes.ts'
 import { type GatewayConfig, GatewaySettings, settingsFrom } from './Settings.ts'
+import { ChallengeFetch } from './X402/ChallengeFetch.ts'
 
 /** The Cloudflare services the Worker runs on. The Worker is the runtime context its init runs in. */
 const Platform = Layer.mergeAll(
@@ -36,7 +37,7 @@ const servedWith = (settings: GatewayConfig) =>
   gatewayRoutes(settings.release).pipe(
     Layer.provide(AlchemyHttp.Platform),
     Layer.provide(RoomNetwork.layer),
-    Layer.provide(Layer.mergeAll(CoreLive, ClientDocuments.layer)),
+    Layer.provide(Layer.mergeAll(CoreLive, ClientDocuments.layer, ChallengeFetch.layer)),
     Layer.provide(Layer.succeed(GatewaySettings, settings)),
   )
 

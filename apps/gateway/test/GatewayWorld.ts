@@ -13,11 +13,12 @@ import { agentGrant, buildSidequestEvent, grantRevocation, type KindSpec } from 
 import { type GrantScope, NetworkRef, webCrypto } from '@sidequest/protocol'
 import { ClientDocuments } from '@sidequest/serving/ClientDocuments'
 import { localSqlOf } from '@sidequest/serving/test/LocalSql'
-import { Crypto, Effect, Layer, Redacted, Schema } from 'effect'
+import { Crypto, Effect, Layer, Option, Redacted, Schema } from 'effect'
 import { HttpRouter, HttpServer } from 'effect/http'
 import { GatewaySecret } from '../src/Keys/KeyEnvelope.ts'
 import { gatewayRoutes } from '../src/Routes.ts'
 import { GatewaySettings } from '../src/Settings.ts'
+import { ChallengeFetch } from '../src/X402/ChallengeFetch.ts'
 import { type CoreDouble, coreDouble } from './CoreDouble.ts'
 import { type MemoryRooms, memoryRooms } from './MemoryRooms.ts'
 
@@ -85,6 +86,8 @@ export interface Gateway {
     window?: { readonly notBefore?: number; readonly expiresAt?: number },
   ) => Promise<NostrEvent>
   readonly revoke: (key: SecretKey, grant: NostrEvent) => void
+  /** The x402 resources the gateway asks for a challenge: a handler per URL, as a seller's server answers. */
+  readonly resources: Map<string, (request: Request) => Promise<Response>>
 }
 
 /**
@@ -131,7 +134,20 @@ export const withGateway = async (test: (gateway: Gateway) => Promise<void>, gra
     release: 'test',
   })
   const documents = Layer.succeed(ClientDocuments, { fetch: () => Effect.succeedNone })
-  const world = Layer.mergeAll(sql, settings, core.layer, documents, rooms.layer)
+  const resources = new Map<string, (request: Request) => Promise<Response>>()
+  const challenges = Layer.succeed(ChallengeFetch, {
+    ask: (url: string) =>
+      Effect.promise(async () => {
+        const handler = resources.get(url)
+        if (handler === undefined) return Option.none()
+        const response = await handler(new Request(url, { headers: { accept: 'application/json' } }))
+        return Option.some({
+          status: response.status,
+          challenge: Option.fromNullishOr(response.headers.get('payment-required')),
+        })
+      }),
+  })
+  const world = Layer.mergeAll(sql, settings, core.layer, documents, rooms.layer, challenges)
   const { handler, dispose } = HttpRouter.toWebHandler(
     gatewayRoutes('test').pipe(Layer.provide(world), Layer.provide(HttpServer.layerServices)),
     { disableLogger: true },
@@ -173,6 +189,7 @@ export const withGateway = async (test: (gateway: Gateway) => Promise<void>, gra
         const content = { grant: grant.id }
         publish(signed(grantRevocation, content, key))
       },
+      resources,
     })
   } finally {
     await dispose()
