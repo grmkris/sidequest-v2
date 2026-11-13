@@ -46,6 +46,10 @@ const negotiable = (view: JobView) => view.stage === 'open' || view.stage === 'p
 const stands = (proposal: ProposalView) =>
   !proposal.superseded && !proposal.withdrawn && !proposal.expired && !proposal.otherBuyer
 
+/** Whose proposal it is: the operator whose agent made it under their grant, else its author. */
+const bidderOf = (proposal: ProposalView): string =>
+  proposal.by === 'agent' && proposal.operator !== null ? proposal.operator : proposal.author
+
 const itemOf = (
   view: JobView,
   kind: ItemKind,
@@ -70,11 +74,11 @@ const negotiationItems = (me: string, { role, view }: InboxJob): ReadonlyArray<I
   if (role === 'buyer') {
     return Array.map(
       Array.filter(view.proposals, (proposal) => stands(proposal) && !proposal.accepted),
-      (proposal) => itemOf(view, 'proposal', proposal.id, { maybePerson: Option.some(proposal.author) }),
+      (proposal) => itemOf(view, 'proposal', proposal.id, { maybePerson: Option.some(bidderOf(proposal)) }),
     )
   }
   return Array.map(
-    Array.filter(view.proposals, (proposal) => proposal.author === me && proposal.accepted && stands(proposal)),
+    Array.filter(view.proposals, (proposal) => bidderOf(proposal) === me && proposal.accepted && stands(proposal)),
     (proposal) => itemOf(view, 'accepted', proposal.id, { maybePerson: Option.some(view.buyer) }),
   )
 }

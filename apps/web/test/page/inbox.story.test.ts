@@ -58,6 +58,18 @@ describe('what needs the person', () => {
     })
     expect(kindsOf(bidderKey, [asBidder(accepted)])).toEqual(['accepted'])
     expect(kindsOf(buyerKey, [asBuyer(accepted)])).toEqual([])
+    const byAgent = foldedJob({
+      stage: 'accepted',
+      proposals: [
+        {
+          ...proposalFrom(otherKey, 'e1', '100', { accepted: true }),
+          by: 'agent',
+          operator: bidderKey,
+          grant: 'ab'.repeat(32),
+        },
+      ],
+    })
+    expect(kindsOf(bidderKey, [asBidder(byAgent)])).toEqual(['accepted'])
     const funded = itemsOf(bidderKey, [asBidder(moneyJob('funded'))], [])
     expect(funded.map(({ kind }) => kind)).toEqual(['funded'])
     expect(Option.isSome(funded[0]?.maybeAt ?? Option.none())).toBe(true)
