@@ -84,7 +84,7 @@ Evidence: [evidence/2026-11-13-arc-testnet-gate-v2.json](evidence/2026-11-13-arc
 - A real wallet (MetaMask, Rabby) in a browser, and the money steps on the deployed preview's website (the deployed gate drove them from a script). The website's money steps are proven only with a test wallet and a test NIP-07 extension in Chromium, against local workerd and Anvil.
 - Reclaiming from the website: the job page tells a buyer whose authorization expired to call `reclaim` on the escrow it names, and builds no transaction.
 - A third-party MCP client (claude.ai, ChatGPT, Cursor, Claude Code) connecting to the gateway over OAuth.
-- The buyer's reclaim on a live chain.
+- The buyer's reclaim through the gate's case (d) on a live chain against operator v2, and the index showing a job as `reclaimed` on a deployed stage. The escrow's reclaim itself has run on Arc testnet (below).
 - Deleting phase 1's Durable Object classes on a deployed stage: Alchemy's delete-class path is read from its source, not yet run against the preview.
 
 ## Known gaps
@@ -94,7 +94,7 @@ Evidence: [evidence/2026-11-13-arc-testnet-gate-v2.json](evidence/2026-11-13-arc
 - Disputes are settled by an arbitrator key Sidequest holds; they are not trustless until staked arbitrators exist, and a ruling sees no disclosed evidence yet.
 - The API sends no CORS headers: a third-party web client on another origin cannot call it from a browser.
 - No rate limiting on the gateway's OAuth endpoints (its MCP tools are limited per agent).
-- A job funded by the first live run (`0x1546…`, 0.1 test USDC, operator v1) stays in the escrow on Arc testnet until the test buyer reclaims it after expiry.
+- The job funded by the first live run (payment `0x1546…d29f`, 0.1 test USDC, operator v1) was reclaimed by the test buyer from the escrow on Arc testnet on 2026-11-14, 96 s after its authorization expired: transaction `0x85f7387fdfbb0bd4a00f7e211bae25382a3416a8853d9dacef70b68bfce53ff6`, block 72257208. The escrow then held nothing for it; the buyer's balance rose by the 0.1 USDC less the gas, which Arc charges in USDC.
 - Deploy state is local to the build box, so only the build box can deploy (remote state options: MAINNET-READINESS §3.3).
 - Nothing pages anyone: the logs carry `alert` annotations, and the settler warns each minute while the relayer's balance is low, but no alert rule reads them.
 - The gateway's secret, which seals every hosted agent's key, cannot be rotated yet (design: MAINNET-READINESS §2.4).
