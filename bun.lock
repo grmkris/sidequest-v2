@@ -42,6 +42,22 @@
         "zyzz": "catalog:",
       },
     },
+    "apps/crit": {
+      "name": "@sidequest/crit",
+      "devDependencies": {
+        "@alchemy.run/cloudflare": "catalog:",
+        "@cloudflare/workers-types": "5.20261028.1",
+        "@effect/platform-bun": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "alchemy": "catalog:",
+        "effect": "catalog:",
+        "pele": "1.13.0",
+        "typescript": "7.0.2",
+        "vitest": "catalog:",
+      },
+    },
     "apps/gateway": {
       "name": "@sidequest/gateway",
       "dependencies": {
@@ -607,6 +623,8 @@
 
     "@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
 
+    "@sidequest/crit": ["@sidequest/crit@workspace:apps/crit"],
+
     "@sidequest/fold": ["@sidequest/fold@workspace:packages/fold"],
 
     "@sidequest/gateway": ["@sidequest/gateway@workspace:apps/gateway"],
@@ -1044,6 +1062,8 @@
     "path-to-regexp": ["path-to-regexp@8.4.2", "", {}, "sha512-qRcuIdP69NPm4qbACK+aDogI5CBDMi1jKe0ry5rSQJz8JVLsC7jV8XpiJjGRLLol3N+R5ihGYcrPLTno6pAdBA=="],
 
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
+
+    "pele": ["pele@1.13.0", "", {}, "sha512-Ie8UKY9x00MsuR3jO6AzUwzK2Z6MIV3Tf4EDdITiuk8Uaz8K7g0R082WqsqNaSU8DdgkrRvZThzhit83mi/uiw=="],
 
     "pend": ["pend@1.2.0", "", {}, "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg=="],
 

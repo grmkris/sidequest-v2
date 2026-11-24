@@ -1,0 +1,6 @@
+node_modules
+dist
+.alchemy
+.local
+pages/*
+!pages/_template

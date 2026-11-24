@@ -20,6 +20,9 @@ export default defineConfig({
     // The Gallery design prototype: reference HTML and its generator scripts (docs/design/gallery/README.md).
     'docs/design/**',
     'tools/oxlint/anti-slop/**',
+    // The review site (apps/crit): its built page scripts and published pages (kept out of Git).
+    'apps/crit/src/lib/*.js',
+    'apps/crit/pages/**',
   ],
   options: { typeAware: true, reportUnusedDisableDirectives: 'error' },
   categories: { correctness: 'error', suspicious: 'error' },
@@ -85,7 +88,7 @@ export default defineConfig({
     { files: ['packages/i18n/src/generated.ts', 'packages/i18n/src/catalog-*.ts'], rules: { 'max-lines': 'off' } },
     // Contract ABIs are generated from the Foundry build and compared with it by tools/settlement-bindings.ts.
     { files: ['packages/settlement/src/abi/*.ts'], rules: { 'max-lines': 'off' } },
-    { files: ['tools/**'], rules: { 'no-console': 'off' } },
+    { files: ['tools/**', 'apps/crit/scripts/**'], rules: { 'no-console': 'off' } },
     { files: ['**/*.test.ts'], rules: { 'max-lines-per-function': 'off' } },
   ],
 })

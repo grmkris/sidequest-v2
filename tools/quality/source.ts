@@ -8,7 +8,16 @@ export const sourceFiles = async (root = '.') => {
     ['apps', 'packages', 'tools', 'infra', 'examples']
       .map((directory) => `${directory}/**/*.${extensions}`)
       .concat(`*.${extensions}`),
-    { cwd: root, exclude: ['**/node_modules/**', '**/dist/**', 'tools/oxlint/anti-slop/**'] },
+    {
+      cwd: root,
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.alchemy/**',
+        'apps/crit/pages/**',
+        'tools/oxlint/anti-slop/**',
+      ],
+    },
   ))
     files.push(file)
   return files.toSorted()

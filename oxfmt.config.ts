@@ -27,5 +27,8 @@ export default defineConfig({
     // Official test vectors, byte for byte as published; tools/provenance.json records their hashes.
     'packages/nostr/test/vectors/**',
     'packages/protocol/test/vectors/**',
+    // The review site (apps/crit): its built page scripts and published pages (kept out of Git).
+    'apps/crit/src/lib/*.js',
+    'apps/crit/pages/**',
   ],
 })

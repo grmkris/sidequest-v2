@@ -7,7 +7,7 @@ export default defineConfig({
   resources: [{ pattern: 'packages/i18n/catalogs/{locale}.json' }],
   usage: {
     include: ['apps/*/src/**/*.ts', 'packages/*/src/**/*.ts'],
-    exclude: ['packages/i18n/src/**'],
+    exclude: ['packages/i18n/src/**', 'apps/crit/**'],
     calls: [
       { callee: 'format', key: 1 },
       { callee: 'formatRich', key: 1 },

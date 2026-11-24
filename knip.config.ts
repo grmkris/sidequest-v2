@@ -20,6 +20,10 @@ export default {
     },
     // The agent gateway: `alchemy.run.ts` deploys its stack function, which reaches its Worker entry.
     'apps/gateway': { entry: ['test/**/*.test.ts'], project: ['src/**/*.ts!', 'test/**/*.ts'] },
+    'apps/crit': {
+      entry: ['alchemy.run.ts', 'src/Worker.ts', 'client/comments.ts', 'scripts/*.ts', 'test/**/*.test.ts'],
+      project: ['*.ts', 'src/**/*.ts', 'client/**/*.ts', 'scripts/**/*.ts', 'test/**/*.ts'],
+    },
     'packages/serving': { project: ['src/**/*.ts!', 'test/**/*.ts'] },
     ...Object.fromEntries(
       ['observability', 'server', 'settlement'].map((name) => [`packages/${name}`, { project: ['src/**/*.ts!'] }]),

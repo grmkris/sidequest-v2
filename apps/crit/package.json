@@ -1,0 +1,31 @@
+{
+  "name": "@sidequest/crit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "publish": "bun scripts/publish.ts",
+    "share": "bun scripts/share.ts",
+    "visibility": "bun scripts/visibility.ts",
+    "pages": "bun scripts/pages.ts",
+    "comments": "bun scripts/comments.ts",
+    "keep": "bun scripts/keep.ts",
+    "deploy": "bun scripts/deploy.ts",
+    "build:client": "bun scripts/build-client.ts",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run --exclude \"**/*.native.test.ts\"",
+    "test:native": "ALCHEMY_TEST_DEV=1 bun test test/Journey.native.test.ts"
+  },
+  "devDependencies": {
+    "@alchemy.run/cloudflare": "catalog:",
+    "@cloudflare/workers-types": "5.20261028.1",
+    "@effect/platform-bun": "catalog:",
+    "@effect/platform-node": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "alchemy": "catalog:",
+    "effect": "catalog:",
+    "pele": "1.13.0",
+    "typescript": "7.0.2",
+    "vitest": "catalog:"
+  }
+}

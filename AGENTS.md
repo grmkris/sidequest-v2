@@ -10,7 +10,7 @@ Use the pinned Styld v2 conventions: Bun, Effect, Foldkit, Zyzz, Alchemy, Cloudf
 
 ## Workflow
 
-Work on `main`. Preserve concurrent edits. Stage explicit paths and commit coherent green changes. Never commit secrets, generated deployment state, private data or live wallet material. Do not deploy production or send mainnet transactions.
+Work on `main`. Preserve concurrent edits. Stage explicit paths and commit coherent green changes. Never commit secrets, generated deployment state, private data or live wallet material. Do not deploy production or send mainnet transactions. Review pages, research, prototypes and plans publish to `https://crit.sidequest.exchange` via `apps/crit` ([apps/crit/AGENTS.md](apps/crit/AGENTS.md)); pages start private and must never be opened or shared with private/personal data unless Kristjan asks.
 
 ## Boundaries
 

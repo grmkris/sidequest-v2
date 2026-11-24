@@ -79,7 +79,7 @@
             "options": { "allowedExperimentalApis": ["effect/ai"] }
           },
           {
-            "include": ["tools/**/*", "**/*.config.ts"],
+            "include": ["tools/**/*", "apps/crit/scripts/**/*", "**/*.config.ts"],
             "options": {
               "diagnosticSeverity": {
                 "nodeBuiltinImport": "off",
@@ -101,5 +101,5 @@
     "*.config.ts",
     "alchemy.run.ts"
   ],
-  "exclude": ["node_modules", "**/dist/**", "tools/oxlint/anti-slop/**", ".agents/**"]
+  "exclude": ["node_modules", "**/dist/**", "tools/oxlint/anti-slop/**", ".agents/**", "apps/crit/pages/**"]
 }

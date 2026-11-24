@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <!-- The index lists a page by these three. -->
+    <title>Template: copy me</title>
+    <meta name="description" content="One line on what the page is for." />
+    <meta name="date" content="2026-11-13" />
+    <link rel="stylesheet" href="/lib/base.css" />
+    <script src="/lib/pele.js" defer></script>
+    <script src="/lib/diagrams.js" defer></script>
+    <script src="/lib/comments.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <h1>Template</h1>
+      <p class="lead">
+        Copy this folder to <code>pages/&lt;slug&gt;/</code>, set the title, description and date, then publish it.
+      </p>
+      <div class="card">
+        <h2>Files</h2>
+        <p>
+          Put images and video beside this file and reference them relatively (<code>shots/a.webp</code>), so the page
+          works by its share link too.
+        </p>
+      </div>
+      <div class="card">
+        <h2>Comments</h2>
+        <p>
+          The last script above turns them on. Every heading, card, list item, table row and diagram takes comments
+          (hover for 💬), and so does selected text. Agents read them with <code>bun run comments</code>.
+        </p>
+      </div>
+      <div class="card">
+        <h2>A diagram</h2>
+        <pre class="mermaid">
+flowchart LR
+  A[Agent publishes] --> B{Who opens it?}
+  B -->|the team| C[Signed in]
+  B -->|a friend| D[Share link]
+        </pre>
+      </div>
+    </main>
+  </body>
+</html>

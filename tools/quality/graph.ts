@@ -31,6 +31,7 @@ const directions: Readonly<Record<string, readonly string[]>> = {
   // The agent gateway (ADR-0003, decision 7): a separate Worker that holds agents' keys and serves MCP and OAuth. It
   // reaches the core only through its public API, so it never imports the core's server or model; nothing imports it.
   '@sidequest/gateway': ['@sidequest/fold', '@sidequest/nostr', '@sidequest/protocol', '@sidequest/serving'],
+  '@sidequest/crit': [],
   // Serving pieces both Workers share: D1 store calls and rate limits, OAuth 2.1 for MCP clients, MCP's protocol
   // revisions. Never a key.
   '@sidequest/serving': ['@sidequest/protocol'],
@@ -116,6 +117,8 @@ const sourceSubstitutions: Readonly<Record<string, readonly string[]>> = {
 const resolveSource = (target: string, files: ReadonlySet<string>) => {
   if (files.has(target)) return target
   const extension = posix.extname(target)
+  // A file bundled as text (`./lib/base.css?raw`) is data, not a module of the graph.
+  if (target.endsWith('?raw')) return undefined
   if (extension !== '' && !sourceExtensions.includes(extension)) {
     if (target.includes('?') || target.includes('#')) throw new Error(`Unsupported source import: ${target}`)
     return undefined
